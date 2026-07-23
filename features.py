@@ -11,7 +11,7 @@ from sudachipy import tokenizer, dictionary
 from . import globals, helpers
 
 
-tokenizer_obj = dictionary.Dictionary().create()
+tokenizer_obj = dictionary.Dictionary(dict="small").create()
 
 def export_learned_kanji():
     """Save all RTK Kanji, keywords, and learned status in a csv file."""
