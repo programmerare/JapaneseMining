@@ -122,7 +122,7 @@ def show_settings():
     dialog.exec()
 
 
-def on_translate(buttons: list[str], editor: Editor) -> None:
+def set_translate_btn(buttons: list[str], editor: Editor) -> None:
     button = editor.addButton(
         icon=None,
         cmd="my_button",
@@ -208,10 +208,11 @@ def inject_editor_css(editor):
 
 gui_hooks.add_cards_did_add_note.append(on_note_added)
 gui_hooks.reviewer_did_answer_card.append(on_card_answered)
-gui_hooks.editor_did_init_buttons.append(on_translate)
-gui_hooks.editor_did_fire_typing_timer.append(features.segment_sentence)
-gui_hooks.editor_did_focus_field.append(helpers.set_focused_field_index)
 gui_hooks.editor_did_init.append(inject_editor_css)
+gui_hooks.editor_did_init_buttons.append(set_translate_btn)
+gui_hooks.editor_did_focus_field.append(helpers.set_focused_field_index)
+gui_hooks.editor_did_fire_typing_timer.append(features.segment_sentence)
+
 
 my_menu = QMenu("JapaneseMining", mw)
 
