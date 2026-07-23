@@ -104,17 +104,18 @@ def create_rtk_note(kanji, alt_kanji="", tags=None, heisig_kanjis=None):
 
 
 def ensure_collection_loaded():
-    if globals.collection_future is None:
-        return
+    if globals.collection_future is not None:
+        (
+            globals.learned_kanji,
+            globals.current_day,
+            globals.learned_kanji_file_path,
+            globals.todays_words_file_path,
+        ) = globals.collection_future.result()
+        globals.collection_future = None
 
-    (
-        globals.learned_kanji,
-        globals.current_day,
-        globals.learned_kanji_file_path,
-        globals.todays_words_file_path,
-    ) = globals.collection_future.result()
-
-    globals.collection_future = None
+    if globals.kanji_future is not None:
+        globals.kanji_dictionary = globals.kanji_future.result()
+        globals.kanji_future = None
 
 
 def set_focused_field_index(note, index):
