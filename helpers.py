@@ -11,13 +11,12 @@ def fetch_kanji_meanings(kanji: str) -> list[str]:
     if not kanji:
         return []
 
-    result = globals.jmd.lookup(kanji)
-    chars = getattr(result, "chars", None)
-    if not chars:
+    meanings = globals.kanji_dictionary.get(kanji)
+
+    if not meanings:
         return []
 
-    char_entry = chars[0]
-    return char_entry.meanings(english_only=True)
+    return meanings
 
 
 def is_kanji(char):
