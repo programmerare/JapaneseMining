@@ -23,10 +23,6 @@ if str(vendor_path) not in sys.path:
 current_day = None
 seen_words = set()
 
-from jamdict import Jamdict
-
-jmd = Jamdict()
-
 note_type = "JapaneseMining"
 rtk_deck = "日本語::RTK"
 
