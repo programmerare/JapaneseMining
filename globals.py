@@ -11,6 +11,10 @@ learned_kanji = {}
 todays_words_file = "todays_words.csv"
 todays_words_file_path = None
 
+kanji_dictionary_file = "kanji_dictionary.xml"
+kanji_dictionary_file_path = None
+kanji_dictionary = {}
+
 vendor_folder_name = "vendor"
 vendor_path = Path(__file__).resolve().parent / vendor_folder_name
 if str(vendor_path) not in sys.path:
