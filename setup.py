@@ -1,6 +1,7 @@
 import csv
 import json
 import os
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from aqt import gui_hooks
@@ -51,10 +52,11 @@ def setup_addon():
     config = future.result()
     apply_config(config)
     gui_hooks.collection_did_load.append(_setup_collection)
-    from . import gui  # noqa: F401
+    from . import gui   # Import gui to ensure that the GUI hooks are registered when the addon is loaded
 
 
 def _setup_collection(col):
+    """Initialize collection-dependent globals after the collection is loaded."""
     globals.show_tooltip = True
     globals.seen_words = set()
 
@@ -63,10 +65,16 @@ def _setup_collection(col):
         col.media.dir(),
     )
 
+    globals.kanji_future = globals.executor.submit(
+        load_kanji_dictionary,
+        col.media.dir(),
+    )
+
     helpers.ensure_collection_loaded()
 
 
 def _load_collection_data(media_dir):
+    """Load learned kanji and today's words from CSV files."""
     learned_kanji_file_path = os.path.join(media_dir, globals.learned_kanji_file)
     todays_words_file_path = os.path.join(media_dir, globals.todays_words_file)
 
@@ -103,3 +111,22 @@ def _load_collection_data(media_dir):
         learned_kanji_file_path,
         todays_words_file_path,
     )
+
+def load_kanji_dictionary(media_dir):
+    """Load the kanji dictionary from the XML file."""
+    file_path = globals.kanji_dictionary_file_path or os.path.join(media_dir, globals.kanji_dictionary_file)
+
+    dictionary = {}
+
+    try:
+        tree = ET.parse(file_path)
+        root = tree.getroot()
+
+        for kanji in root.findall("kanji"):
+            character = kanji.get("char")
+            meanings = [meaning.text for meaning in kanji.findall("meaning") if meaning.text]
+            dictionary[character] = meanings
+    except FileNotFoundError:
+        pass
+
+    return dictionary
