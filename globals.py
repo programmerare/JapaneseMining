@@ -31,8 +31,9 @@ deepl_url = "https://api-free.deepl.com/v2/translate"
 
 addon_config = {}
 
-executor = ThreadPoolExecutor(max_workers=1)
+executor = ThreadPoolExecutor(max_workers=3)
 collection_future = None
+kanji_future = None
 
 focused_field_index = None
 
