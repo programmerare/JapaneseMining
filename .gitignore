@@ -220,3 +220,4 @@ __marimo__/
 # Other files
 *.rtf
 .DS_Store
+vendor/
