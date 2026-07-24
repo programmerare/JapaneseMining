@@ -221,3 +221,4 @@ __marimo__/
 *.rtf
 .DS_Store
 vendor/
+*.jsonl
