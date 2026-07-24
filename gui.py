@@ -11,6 +11,8 @@ from aqt.qt import (
     QTextBrowser,
     QTextEdit,
     QVBoxLayout,
+    QTabWidget,
+    QWidget,
 )
 from . import features, helpers, globals
 from .setup import save_config
@@ -80,31 +82,103 @@ def show_today_words():
     dialog.exec()
 
 
+from aqt.qt import (
+    QDialog,
+    QVBoxLayout,
+    QFormLayout,
+    QLineEdit,
+    QDialogButtonBox,
+    QTabWidget,
+    QWidget,
+)
+
+
 def show_settings():
     dialog = QDialog(mw)
     dialog.setWindowTitle("JapaneseMining Settings")
-    dialog.resize(720, 260)
+    dialog.resize(720, 400)
     dialog.setMinimumWidth(640)
 
-    layout = QFormLayout(dialog)
+    main_layout = QVBoxLayout(dialog)
+
+    tabs = QTabWidget()
+
+    # -------------------
+    # General tab
+    # -------------------
+    general_tab = QWidget()
+    general_layout = QFormLayout(general_tab)
 
     note_type_edit = QLineEdit(globals.note_type)
     note_type_edit.setMinimumWidth(420)
+
     rtk_deck_edit = QLineEdit(globals.rtk_deck)
     rtk_deck_edit.setMinimumWidth(420)
+
     deepl_key_edit = QLineEdit(globals.deepl_api_key)
     deepl_key_edit.setMinimumWidth(420)
     deepl_key_edit.setEchoMode(QLineEdit.EchoMode.Password)
+
     deepl_url_edit = QLineEdit(globals.deepl_url)
     deepl_url_edit.setMinimumWidth(420)
 
-    layout.addRow("JapaneseMining note type", note_type_edit)
-    layout.addRow("RTK deck", rtk_deck_edit)
-    layout.addRow("DeepL API key", deepl_key_edit)
-    layout.addRow("DeepL URL", deepl_url_edit)
+    general_layout.addRow("JapaneseMining note type", note_type_edit)
+    general_layout.addRow("RTK deck", rtk_deck_edit)
+    general_layout.addRow("DeepL API key", deepl_key_edit)
+    general_layout.addRow("DeepL URL", deepl_url_edit)
 
-    buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
-    layout.addRow(buttons)
+    tabs.addTab(general_tab, "General")
+
+
+    # -------------------
+    # Translate tab
+    # -------------------
+    translate_tab = QWidget()
+    translate_layout = QFormLayout(translate_tab)
+
+    # Add translate settings here later
+    translate_layout.addRow("Example", QLineEdit())
+
+    tabs.addTab(translate_tab, "Translate")
+
+
+    # -------------------
+    # AJC tab
+    # -------------------
+    ajc_tab = QWidget()
+    ajc_layout = QFormLayout(ajc_tab)
+
+    # Add AJC settings here later
+    ajc_layout.addRow("Example", QLineEdit())
+
+    tabs.addTab(ajc_tab, "AJC")
+
+
+    # -------------------
+    # HyperTTS tab
+    # -------------------
+    hypertts_tab = QWidget()
+    hypertts_layout = QFormLayout(hypertts_tab)
+
+    # Add HyperTTS settings here later
+    hypertts_layout.addRow("Example", QLineEdit())
+
+    tabs.addTab(hypertts_tab, "HyperTTS")
+
+
+    main_layout.addWidget(tabs)
+
+
+    # -------------------
+    # Buttons
+    # -------------------
+    buttons = QDialogButtonBox(
+        QDialogButtonBox.StandardButton.Save |
+        QDialogButtonBox.StandardButton.Cancel
+    )
+
+    main_layout.addWidget(buttons)
+
 
     def save_and_close():
         config = {
@@ -113,8 +187,10 @@ def show_settings():
             "deepl_api_key": deepl_key_edit.text().strip(),
             "deepl_url": deepl_url_edit.text().strip() or globals.deepl_url,
         }
+
         save_config(config)
         dialog.accept()
+
 
     buttons.accepted.connect(save_and_close)
     buttons.rejected.connect(dialog.reject)
