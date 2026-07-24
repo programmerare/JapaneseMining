@@ -1,0 +1,129 @@
+{
+    "language": "en",
+    "style_mode": "legacy_and_stable",
+    "show_welcome_dialog": false,
+    "active_profile": "Default",
+    "editor_button_position": "toolbar",
+    "card_type": "JapaneseMining",
+    "target_deck": "",
+    "search_field": "Word",
+    "mappings": [
+        {
+            "jisho": "Word",
+            "field": "Word"
+        },
+        {
+            "jisho": "Reading",
+            "field": "Reading"
+        },
+        {
+            "jisho": "Meaning",
+            "field": "Meaning"
+        },
+        {
+            "jisho": "Part of speech",
+            "field": "Part of Speech"
+        },
+        {
+            "jisho": "Info",
+            "field": "Info"
+        },
+        {
+            "jisho": "Tags",
+            "field": "Tags"
+        },
+        {
+            "jisho": "Other forms",
+            "field": "Other Forms"
+        },
+        {
+            "jisho": "JLPT Level",
+            "field": "JLPT Level"
+        },
+        {
+            "jisho": "Wanikani Level",
+            "field": "Wanikani Level"
+        },
+        {
+            "jisho": "Is Common",
+            "field": "Is Common"
+        },
+        {
+            "jisho": "See also",
+            "field": "See Also"
+        }
+    ],
+    "fill_mode": "replace",
+    "multi_meaning_format": "semicolon_merged",
+    "disable_multi_word_warning": false,
+    "remove_pos_ending": true,
+    "remove_furigana_search": true,
+    "multi_word_format": "inline",
+    "open_shortcut": "Alt+J",
+    "quick_fill_shortcut": "Ctrl+J",
+    "quick_fill_mode": "all",
+    "show_quick_fill_success": false,
+    "profiles": {
+        "Default": {
+            "card_type": "JapaneseMining",
+            "target_deck": "",
+            "search_field": "Word",
+            "mappings": [
+                {
+                    "jisho": "Word",
+                    "field": "Word"
+                },
+                {
+                    "jisho": "Reading",
+                    "field": "Reading"
+                },
+                {
+                    "jisho": "Meaning",
+                    "field": "Meaning"
+                },
+                {
+                    "jisho": "Part of speech",
+                    "field": "Part of Speech"
+                },
+                {
+                    "jisho": "Info",
+                    "field": "Info"
+                },
+                {
+                    "jisho": "Tags",
+                    "field": "Tags"
+                },
+                {
+                    "jisho": "Other forms",
+                    "field": "Other Forms"
+                },
+                {
+                    "jisho": "JLPT Level",
+                    "field": "JLPT Level"
+                },
+                {
+                    "jisho": "Wanikani Level",
+                    "field": "Wanikani Level"
+                },
+                {
+                    "jisho": "Is Common",
+                    "field": "Is Common"
+                },
+                {
+                    "jisho": "See also",
+                    "field": "See Also"
+                }
+            ],
+            "fill_mode": "replace",
+            "multi_meaning_format": "semicolon_merged",
+            "disable_multi_word_warning": false,
+            "remove_pos_ending": true,
+            "remove_furigana_search": true,
+            "multi_word_format": "inline",
+            "open_shortcut": "Alt+J",
+            "quick_fill_shortcut": "Ctrl+J",
+            "quick_fill_mode": "all",
+            "show_quick_fill_success": false
+        }
+    }
+}
