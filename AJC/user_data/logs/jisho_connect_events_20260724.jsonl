@@ -8,3 +8,8 @@
 {"timestamp": "2026-07-24T14:31:06.714517", "event": "Anki Jisho Connect loaded", "category": "info", "context": {"logger": "ajc_jisho_connect", "module": "bootstrap", "func": "initialize_ajc", "line": 40}, "details": {}}
 {"timestamp": "2026-07-24T14:31:49.549811", "event": "Anki Jisho Connect loaded", "category": "info", "context": {"logger": "ajc_jisho_connect", "module": "bootstrap", "func": "initialize_ajc", "line": 40}, "details": {}}
 {"timestamp": "2026-07-24T14:46:05.807854", "event": "Anki Jisho Connect loaded", "category": "info", "context": {"logger": "ajc_jisho_connect", "module": "bootstrap", "func": "initialize_ajc", "line": 40}, "details": {}}
+{"timestamp": "2026-07-24T15:39:02.228821", "event": "Anki Jisho Connect loaded", "category": "info", "context": {"logger": "ajc_jisho_connect", "module": "bootstrap", "func": "initialize_ajc", "line": 40}, "details": {}}
+{"timestamp": "2026-07-24T15:40:31.456890", "event": "Anki Jisho Connect loaded", "category": "info", "context": {"logger": "ajc_jisho_connect", "module": "bootstrap", "func": "initialize_ajc", "line": 40}, "details": {}}
+{"timestamp": "2026-07-24T15:42:36.011225", "event": "Anki Jisho Connect loaded", "category": "info", "context": {"logger": "ajc_jisho_connect", "module": "bootstrap", "func": "initialize_ajc", "line": 40}, "details": {}}
+{"timestamp": "2026-07-24T15:45:26.947041", "event": "Anki Jisho Connect loaded", "category": "info", "context": {"logger": "ajc_jisho_connect", "module": "bootstrap", "func": "initialize_ajc", "line": 40}, "details": {}}
+{"timestamp": "2026-07-24T15:50:39.277246", "event": "Anki Jisho Connect loaded", "category": "info", "context": {"logger": "ajc_jisho_connect", "module": "bootstrap", "func": "initialize_ajc", "line": 40}, "details": {}}

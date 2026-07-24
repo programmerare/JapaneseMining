@@ -199,7 +199,7 @@ def apply_mappings_and_fill(note, entries_data, config: Dict[str, Any]):
                 value = ", ".join(selected_other_forms) if selected_other_forms else ""
             
             elif map_type == "Word":
-                value = first_jap.get("word", "")
+                value = headword
             
             elif map_type == "Reading":
                 value = first_jap.get("reading", "")
