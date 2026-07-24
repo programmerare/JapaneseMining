@@ -32,7 +32,7 @@ from .logger import logger
 _INITIALIZED = False
 
 
-def initialize() -> None:
+def initialize_ajc() -> None:
     global _INITIALIZED
     if _INITIALIZED:
         return
@@ -58,6 +58,6 @@ def initialize() -> None:
 
 
 __all__ = [
-    "initialize",
+    "initialize_ajc",
     "show_results_dialog",
 ]

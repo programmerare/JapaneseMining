@@ -7,6 +7,7 @@ from pathlib import Path
 from aqt import gui_hooks
 
 from . import globals, helpers
+from .AJC.runtime.bootstrap import initialize_ajc
 
 CONFIG_PATH = Path(__file__).resolve().parent / "config.json"
 
@@ -53,6 +54,7 @@ def setup_addon():
     apply_config(config)
     gui_hooks.collection_did_load.append(_setup_collection)
     from . import gui   # Import gui to ensure that the GUI hooks are registered when the addon is loaded
+    initialize_ajc()  # Call initialize_ajc to set up AJC
 
 
 def _setup_collection(col):
@@ -114,7 +116,7 @@ def _load_collection_data(media_dir):
 
 def load_kanji_dictionary(media_dir):
     """Load the kanji dictionary from the XML file."""
-    file_path = globals.kanji_dictionary_file_path or os.path.join(media_dir, globals.kanji_dictionary_file)
+    file_path = globals.kanji_dictionary_file_path or os.path.join(globals.vendor_path, globals.kanji_dictionary_file)
 
     dictionary = {}
 
