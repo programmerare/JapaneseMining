@@ -38,3 +38,9 @@ kanji_future = None
 focused_field_index = None
 
 shortcut = "Ctrl+T"
+
+current_editor = None
+
+hypertts = None
+
+use_hypertts = True

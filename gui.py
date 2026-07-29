@@ -282,12 +282,14 @@ def inject_editor_css(editor):
     """)
 
 
-gui_hooks.add_cards_did_add_note.append(on_note_added)
 gui_hooks.reviewer_did_answer_card.append(on_card_answered)
 gui_hooks.editor_did_init.append(inject_editor_css)
 gui_hooks.editor_did_init_buttons.append(set_translate_btn)
 gui_hooks.editor_did_focus_field.append(helpers.set_focused_field_index)
 gui_hooks.editor_did_fire_typing_timer.append(features.segment_sentence)
+gui_hooks.editor_did_init.append(helpers.set_hypertts)
+gui_hooks.editor_did_init.append(helpers.safe_current_editor)
+gui_hooks.add_cards_will_add_note.append(helpers.on_card_will_add_note)
 
 
 my_menu = QMenu("JapaneseMining", mw)

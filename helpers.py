@@ -1,5 +1,6 @@
 import unicodedata
 
+import aqt
 from aqt import mw
 from anki.notes import Note
 
@@ -121,3 +122,39 @@ def ensure_collection_loaded():
 def set_focused_field_index(note, index):
     """Set the index of the currently focused field (editor) in the globals module."""
     globals.focused_field_index = str(index)
+
+
+def get_hypertts():
+    """Return the running HyperTTS instance, or None if not available."""
+    for player in aqt.sound.av_player.players:
+        if isinstance(player, aqt.tts.TTSProcessPlayer) and hasattr(player, "hypertts"):
+            return player.hypertts
+    return None
+
+def set_hypertts(editor):
+    """Set the HyperTTS instance in the globals module."""
+    if globals.hypertts is None:
+        globals.hypertts = get_hypertts()
+
+
+def safe_current_editor(editor) -> None:
+    globals.current_editor = editor
+
+
+def on_card_will_add_note(problem, note) -> str | None:
+    if not globals.use_hypertts:
+        return
+
+    if note is None or note.note_type()["name"] != globals.note_type:
+        return
+
+    if globals.hypertts is None:
+        return
+
+    try:
+        editor_context = globals.hypertts.get_editor_context(globals.current_editor)
+        globals.hypertts.apply_all_mapping_rules(editor_context)
+    except Exception as e:
+        print(f"Error applying mapping rules: {e}")
+
+    return None
