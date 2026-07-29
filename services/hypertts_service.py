@@ -1,4 +1,7 @@
+from anki.notes import Note
 import aqt
+from aqt.editor import Editor
+
 from config import Config
 
 
@@ -16,7 +19,8 @@ class HyperTTSService:
                     break
         return self._instane
 
-    def on_card_will_add_note(self, problem, note, editor=None):
+    def add_audio(self, problem: str | None, note: Note, editor: Editor = None) -> None:
+        """Add audio to the note using HyperTTS."""
         if not self._config.use_hypertts:
             return None
         if problem is not None or note is None:
