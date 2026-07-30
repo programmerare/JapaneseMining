@@ -12,6 +12,7 @@ from aqt.qt import (
     QVBoxLayout,
     QTabWidget,
     QWidget,
+    QCheckBox,
 )
 
 
@@ -79,11 +80,29 @@ def make_show_settings(config, save_config_fn):
         general_tab = QWidget()
         general_layout = QFormLayout(general_tab)
 
-        note_type_edit = QLineEdit(config.mining_note_type)
-        note_type_edit.setMinimumWidth(420)
+        mining_note_type_edit = QLineEdit(config.mining_note_type)
+        mining_note_type_edit.setMinimumWidth(420)
 
         rtk_deck_edit = QLineEdit(config.rtk_deck)
         rtk_deck_edit.setMinimumWidth(420)
+
+        rtk_note_type_edit = QLineEdit(config.rtk_note_type)
+        rtk_note_type_edit.setMinimumWidth(420)
+
+        rtk_kanji_field_edit = QLineEdit(config.rtk_kanji_field)
+        rtk_kanji_field_edit.setMinimumWidth(420)
+
+        rtk_alternative_kanji_field_edit = QLineEdit(config.rtk_alternative_kanji_field)
+        rtk_alternative_kanji_field_edit.setMinimumWidth(420)
+
+        rtk_keyword_field_edit = QLineEdit(config.rtk_keyword_field)
+        rtk_keyword_field_edit.setMinimumWidth(420)
+
+        rtk_heisig_number_field_edit = QLineEdit(config.rtk_heisig_number_field)
+        rtk_heisig_number_field_edit.setMinimumWidth(420)
+
+        rtk_stroke_count_field_edit = QLineEdit(config.rtk_stroke_count_field)
+        rtk_stroke_count_field_edit.setMinimumWidth(420)
 
         deepl_key_edit = QLineEdit(config.deepl_api_key)
         deepl_key_edit.setMinimumWidth(420)
@@ -92,8 +111,14 @@ def make_show_settings(config, save_config_fn):
         deepl_url_edit = QLineEdit(config.deepl_url)
         deepl_url_edit.setMinimumWidth(420)
 
-        general_layout.addRow("JapaneseMining note type", note_type_edit)
+        general_layout.addRow("JapaneseMining note type", mining_note_type_edit)
         general_layout.addRow("RTK deck", rtk_deck_edit)
+        general_layout.addRow("RTK note type", rtk_note_type_edit)
+        general_layout.addRow("RTK kanji field", rtk_kanji_field_edit)
+        general_layout.addRow("RTK alternative kanji field", rtk_alternative_kanji_field_edit)
+        general_layout.addRow("RTK keyword field", rtk_keyword_field_edit)
+        general_layout.addRow("RTK Heisig number field", rtk_heisig_number_field_edit)
+        general_layout.addRow("RTK stroke count field", rtk_stroke_count_field_edit)
         general_layout.addRow("DeepL API key", deepl_key_edit)
         general_layout.addRow("DeepL URL", deepl_url_edit)
 
@@ -127,9 +152,10 @@ def make_show_settings(config, save_config_fn):
         hypertts_tab = QWidget()
         hypertts_layout = QFormLayout(hypertts_tab)
 
-        # Add HyperTTS settings here later
-        hypertts_layout.addRow("Example", QLineEdit())
+        hypertts_use_checkbox = QCheckBox("Enable HyperTTS")
+        hypertts_use_checkbox.setChecked(config.use_hypertts)
 
+        hypertts_layout.addRow(hypertts_use_checkbox)
         tabs.addTab(hypertts_tab, "HyperTTS")
 
 
@@ -146,10 +172,17 @@ def make_show_settings(config, save_config_fn):
         main_layout.addWidget(buttons)
 
         def save_and_close():
-            config.mining_note_type = note_type_edit.text().strip() or config.mining_note_type
-            config.rtk_deck = rtk_deck_edit.text().strip() or config.rtk_deck
+            config.mining_note_type = mining_note_type_edit.text().strip() or config.mining_note_type
+            config.rtk_deck = rtk_deck_edit.text().strip()
+            config.rtk_note_type = rtk_note_type_edit.text().strip()
+            config.rtk_kanji_field = rtk_kanji_field_edit.text().strip()
+            config.rtk_alternative_kanji_field = rtk_alternative_kanji_field_edit.text().strip()
+            config.rtk_keyword_field = rtk_keyword_field_edit.text().strip()
+            config.rtk_heisig_number_field = rtk_heisig_number_field_edit.text().strip()
+            config.rtk_stroke_count_field = rtk_stroke_count_field_edit.text().strip()
             config.deepl_api_key = deepl_key_edit.text().strip()
             config.deepl_url = deepl_url_edit.text().strip() or config.deepl_url
+            config.use_hypertts = hypertts_use_checkbox.isChecked()
             # later: add other fields here
 
             save_config_fn(config)
