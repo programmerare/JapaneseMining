@@ -1,134 +1,151 @@
-import csv
-import json
-import os
-import xml.etree.ElementTree as ET
-from pathlib import Path
+from anki.notes import Note
+from aqt import gui_hooks, mw
+from aqt.editor import Editor
+from aqt.qt import QAction, QMenu
+from concurrent.futures import ThreadPoolExecutor
 
-from aqt import gui_hooks
-
-from . import globals, helpers
-from .AJC.runtime.bootstrap import initialize_ajc
-
-CONFIG_PATH = Path(__file__).resolve().parent / "config.json"
-
-DEFAULT_CONFIG = {
-    "note_type": globals.note_type,
-    "rtk_deck": globals.rtk_deck,
-    "deepl_api_key": globals.deepl_api_key,
-    "deepl_url": globals.deepl_url,
-}
+from .config import load_config, save_config
+from .services.collection_service import CollectionService
+from .services.deepl_service import DeeplService
+from .services.jisho_service import JishoService
+from .services.hypertts_service import HyperTTSService
+from .services.kanji_data_service import KanjiDataService
+from .ui.dialogs import make_show_settings, make_show_todays_words
+from .ui.editor import make_translate_btn_setup, inject_editor_css, make_segment_sentence
 
 
-def load_config():
-    try:
-        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-            config = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        config = {}
+_executor = ThreadPoolExecutor(max_workers=2)
 
-    merged_config = DEFAULT_CONFIG.copy()
-    merged_config.update(config)
-    if not CONFIG_PATH.exists() or not config:
-        save_config(merged_config)
-    return merged_config
+_current_editor: Editor | None = None
 
+def _set_current_editor(editor: Editor) -> None:
+    global _current_editor
+    _current_editor = editor
 
-def save_config(config):
-    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-        json.dump(config, f, indent=2, ensure_ascii=False)
-    apply_config(config)
+def _get_current_editor():
+    return _current_editor
 
+_focused_field_index: str | None = None
 
-def apply_config(config):
-    globals.addon_config = config
-    globals.note_type = config.get("note_type", DEFAULT_CONFIG["note_type"])
-    globals.rtk_deck = config.get("rtk_deck", DEFAULT_CONFIG["rtk_deck"])
-    globals.deepl_api_key = config.get("deepl_api_key", DEFAULT_CONFIG["deepl_api_key"])
-    globals.deepl_url = config.get("deepl_url", DEFAULT_CONFIG["deepl_url"])
+def _set_focused_field(note, index):
+    global _focused_field_index
+    _focused_field_index = str(index) if index is not None else None
 
+def _get_focused_field_index():
+    return _focused_field_index
 
 def setup_addon():
-    """Register addon hooks and initialize collection-dependent globals later."""
-    future = globals.executor.submit(load_config) # Run load_config in a separate thread to avoid blocking the main thread
-    config = future.result()
-    apply_config(config)
-    gui_hooks.collection_did_load.append(_setup_collection)
-    from . import gui   # Import gui to ensure that the GUI hooks are registered when the addon is loaded
-    initialize_ajc()  # Call initialize_ajc to set up AJC
+    """Set up the JapaneseMining add-on, including services, hooks, and menu actions."""
+    print("Setting up new JapaneseMining add-on...")
+    config = load_config()
 
+    # Create services
+    kanji_data_service = KanjiDataService(config)
+    collection_service = CollectionService(config, kanji_data_service)
+    deepl_service = DeeplService(config)
+    jisho_service = JishoService(config)
+    jisho_service.initialize()
+    hypertts_service = HyperTTSService(config)
 
-def _setup_collection(col):
-    """Initialize collection-dependent globals after the collection is loaded."""
-    globals.show_tooltip = True
-    globals.seen_words = set()
+    # --- data loading in background (must run after collection is ready) ---
+    def on_collection_loaded(col):
+        def load():
+            kanji_data_service.load_learned_kanji()
+            kanji_data_service.load_kanji_meanings()
+            kanji_data_service.load_todays_words()
+        _executor.submit(load)
 
-    globals.collection_future = globals.executor.submit(    # Run _load_collection_data in a separate thread to avoid blocking the main thread
-        _load_collection_data,
-        col.media.dir(),
+    gui_hooks.collection_did_load.append(on_collection_loaded)
+
+    # --- editor tracking ---
+    gui_hooks.editor_did_init.append(_set_current_editor)
+
+    # --- focused field tracking ---
+    gui_hooks.editor_did_focus_field.append(_set_focused_field)
+
+    # --- hooks ---
+    def on_note_added(note: Note):
+        collection_service.update_single_note_kanji_knowledge(note)
+
+    def on_will_add_note(problem: str | None, note: Note):
+        editor = _get_current_editor()
+        return hypertts_service.add_audio(problem, note, editor)
+
+    gui_hooks.add_cards_did_add_note.append(on_note_added)
+    gui_hooks.add_cards_will_add_note.append(on_will_add_note)
+
+    gui_hooks.editor_did_init.append(inject_editor_css)
+
+    set_translate_btn = make_translate_btn_setup(deepl_service, config)
+    gui_hooks.editor_did_init_buttons.append(set_translate_btn)
+
+    segment_sentence = make_segment_sentence(config, _get_focused_field_index)
+    gui_hooks.editor_did_fire_typing_timer.append(segment_sentence)
+
+    def on_card_answered(reviewer, card, ease):
+        if card.reps != 1:
+            return
+        note = card.note()
+        if note.note_type()["name"] != config.mining_note_type:
+            return
+        word = note["Word"] if "Word" in note else ""
+        reading = note["Reading"] if "Reading" in note else ""
+        meaning = note["Meaning"] if "Meaning" in note else ""
+        if word:
+            kanji_data_service.save_todays_word(word, reading, meaning)
+
+    gui_hooks.reviewer_did_answer_card.append(on_card_answered)
+
+    # --- Setup menu actions ---
+    show_todays_words = make_show_todays_words(kanji_data_service)
+    show_settings = make_show_settings(config, save_config)
+
+    setup_menus(
+        config,
+        collection_service,
+        kanji_data_service,
+        show_todays_words,
+        show_settings,
     )
 
-    globals.kanji_future = globals.executor.submit(
-        load_kanji_dictionary,
-        col.media.dir(),
-    )
+def setup_menus(config, collection_service, kanji_data_service, show_todays_words, show_settings):
+    """Set up the JapaneseMining menu in Anki's Tools menu."""
+    my_menu = QMenu("JapaneseMining", mw)
 
-    helpers.ensure_collection_loaded()
+    action = QAction("Show Today's Words", mw)
+    action.triggered.connect(show_todays_words)
+    my_menu.addAction(action)
 
+    action = QAction("Settings", mw)
+    action.triggered.connect(show_settings)
+    my_menu.addAction(action)
 
-def _load_collection_data(media_dir):
-    """Load learned kanji and today's words from CSV files."""
-    learned_kanji_file_path = os.path.join(media_dir, globals.learned_kanji_file)
-    todays_words_file_path = os.path.join(media_dir, globals.todays_words_file)
+    my_menu.addSeparator()
 
-    learned_kanji = {}
-    current_day = None
+    action = QAction("Soft Update Everything", mw)
+    action.triggered.connect(collection_service.update_japanese_mining_cards)
+    my_menu.addAction(action)
 
-    try:
-        with open(learned_kanji_file_path, "r", newline="", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            learned_kanji = {
-                row["Kanji"]: {
-                    "Keyword": row.get("Keyword", ""),
-                    "Learned": str(row.get("Learned", "1")).lower() in {"1", "true", "yes"},
-                }
-                for row in reader
-                if row.get("Kanji")
-            }
-    except FileNotFoundError:
-        pass
+    action = QAction("Force Update Keywords", mw)
+    action.triggered.connect(collection_service.force_update_keywords)
+    my_menu.addAction(action)
 
-    try:
-        with open(todays_words_file_path, "r", newline="", encoding="utf-8") as f:
-            reader = csv.reader(f)
-            next(reader)
-            row = next(reader)
-            if row:
-                current_day = row[0]
-    except (FileNotFoundError, StopIteration):
-        pass
+    action = QAction("Force Update Meanings", mw)
+    action.triggered.connect(collection_service.force_update_meanings)
+    my_menu.addAction(action)
 
-    return (
-        learned_kanji,
-        current_day,
-        learned_kanji_file_path,
-        todays_words_file_path,
-    )
+    action = QAction("Force Update Everything", mw)
+    action.triggered.connect(collection_service.force_update_everything)
+    my_menu.addAction(action)
 
-def load_kanji_dictionary(media_dir):
-    """Load the kanji dictionary from the XML file."""
-    file_path = globals.kanji_dictionary_file_path or os.path.join(globals.vendor_path, globals.kanji_dictionary_file)
+    my_menu.addSeparator()
+    action = QAction("Add Unknown Kanji", mw)
+    action.triggered.connect(collection_service.add_unknown_kanji)
+    my_menu.addAction(action)
 
-    dictionary = {}
+    my_menu.addSeparator()
+    action = QAction("Export Learned Kanji", mw)
+    action.triggered.connect(collection_service.export_learned_kanji)
+    my_menu.addAction(action)
 
-    try:
-        tree = ET.parse(file_path)
-        root = tree.getroot()
-
-        for kanji in root.findall("kanji"):
-            character = kanji.get("char")
-            meanings = [meaning.text for meaning in kanji.findall("meaning") if meaning.text]
-            dictionary[character] = meanings
-    except FileNotFoundError:
-        pass
-
-    return dictionary
+    mw.form.menuTools.addMenu(my_menu)
