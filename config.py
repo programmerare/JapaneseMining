@@ -7,8 +7,14 @@ import json
 class Config:
     # --- GENERAL ---
     show_tooltip: bool = True
-    note_type: str = "JapaneseMining"
+    mining_note_type: str = "JapaneseMining"
     rtk_deck: str = ""
+    rtk_note_type: str = ""
+    rtk_kanji_field: str = ""
+    rtk_alternative_kanji_field: str = ""
+    rtk_keyword_field: str = ""
+    rtk_heisig_number_field: str = ""
+    rtk_stroke_count_field: str = ""
 
     # --- TRANSLATE ---
     use_deepL: bool = False
