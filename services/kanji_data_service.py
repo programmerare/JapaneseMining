@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
-from config import Config
+from ..config import Config
 
 
 class KanjiDataService:

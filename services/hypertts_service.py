@@ -2,7 +2,7 @@ from anki.notes import Note
 import aqt
 from aqt.editor import Editor
 
-from config import Config
+from ..config import Config
 
 
 class HyperTTSService:
@@ -17,7 +17,7 @@ class HyperTTSService:
             return None
         if problem is not None or note is None:
             return None
-        if note.note_type()["name"] != self._config.note_type:
+        if note.note_type()["name"] != self._config.mining_note_type:
             return None
         if editor is None:
             return None

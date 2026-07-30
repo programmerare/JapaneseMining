@@ -1,7 +1,7 @@
 from aqt.editor import Editor
 import requests
 
-from config import Config
+from ..config import Config
 
 class DeeplService:
     def __init__(self, config: Config):
@@ -15,8 +15,8 @@ class DeeplService:
         note = editor.note
         if not note:
             return None
-        if note.note_type()["name"] != self._config.note_type:
-            print(f"Note type '{note.note_type()['name']}' does not match the configured note type '{self._config.note_type}'.")
+        if note.note_type()["name"] != self._config.mining_note_type:
+            print(f"Note type '{note.note_type()['name']}' does not match the configured note type '{self._config.mining_note_type}'.")
             return None
 
         text = note["Example Sentence"]

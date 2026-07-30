@@ -5,9 +5,9 @@ import csv
 import os
 from pathlib import Path
 
-from config import Config
-from kanji_data_service import KanjiDataService
-from domain.kanji import is_kanji
+from ..config import Config
+from .kanji_data_service import KanjiDataService
+from ..domain.kanji import is_kanji
 
 
 class CollectionService:
@@ -27,13 +27,13 @@ class CollectionService:
 
     # --- PUBLIC METHODS --- #
     def force_update_keywords(self) -> None:
-        self._update_japanese_mining_cards(force_update_keywords=True)
+        self.update_japanese_mining_cards(force_update_keywords=True)
 
     def force_update_meanings(self) -> None:
-        self._update_japanese_mining_cards(force_update_meanings=True)
+        self.update_japanese_mining_cards(force_update_meanings=True)
 
     def force_update_everything(self) -> None:
-        self._update_japanese_mining_cards(force_update_meanings=True, force_update_keywords=True)
+        self.update_japanese_mining_cards(force_update_meanings=True, force_update_keywords=True)
 
     def fetch_kanji_keyword(self, kanji: str) -> str:
         """Returns one learned keyword associated with kanji from RTK deck"""
