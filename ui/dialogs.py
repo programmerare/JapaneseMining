@@ -13,10 +13,9 @@ from aqt.qt import (
     QTabWidget,
     QWidget,
 )
-import features
 
 
-def make_show_today_words(kanji_data_service):
+def make_show_todays_words(kanji_data_service):
     def show_todays_words():
         """Show a dialog with the words learned today."""
         dialog = QDialog(mw)
@@ -147,16 +146,14 @@ def make_show_settings(config, save_config_fn):
         main_layout.addWidget(buttons)
 
         def save_and_close():
-            config = {
-                "note_type": note_type_edit.text().strip() or config.mining_note_type,
-                "rtk_deck": rtk_deck_edit.text().strip() or config.rtk_deck,
-                "deepl_api_key": deepl_key_edit.text().strip(),
-                "deepl_url": deepl_url_edit.text().strip() or config.deepl_url,
-            }
+            config.mining_note_type = note_type_edit.text().strip() or config.mining_note_type
+            config.rtk_deck = rtk_deck_edit.text().strip() or config.rtk_deck
+            config.deepl_api_key = deepl_key_edit.text().strip()
+            config.deepl_url = deepl_url_edit.text().strip() or config.deepl_url
+            # later: add other fields here
 
             save_config_fn(config)
             dialog.accept()
-
 
         buttons.accepted.connect(save_and_close)
         buttons.rejected.connect(dialog.reject)
