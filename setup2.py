@@ -1,10 +1,12 @@
 from anki.notes import Note
 from aqt import gui_hooks, mw
 from aqt.editor import Editor
+from aqt.qt import QAction, QMenu
 from concurrent.futures import ThreadPoolExecutor
 
-from config import load_config
+from config import load_config, save_config
 from services import CollectionService, DeeplService, HyperTTSService, KanjiDataService
+from ui.dialogs import make_show_settings, make_show_today_words
 from ui.editor import make_translate_btn_setup, inject_editor_css, make_segment_sentence
 
 
@@ -29,6 +31,7 @@ def _get_focused_field_index():
     return _focused_field_index
 
 def setup_addon():
+    """Set up the JapaneseMining add-on, including services, hooks, and menu actions."""
     config = load_config()
 
     # Create services
@@ -87,3 +90,56 @@ def setup_addon():
 
     gui_hooks.reviewer_did_answer_card.append(on_card_answered)
 
+    # --- Setup menu actions ---
+    show_today_words = make_show_today_words(kanji_data_service)
+    show_settings = make_show_settings(config, save_config)
+
+    setup_menus(
+        config,
+        collection_service,
+        kanji_data_service,
+        show_today_words,
+        show_settings,
+    )
+
+def setup_menus(config, collection_service, kanji_data_service, show_todays_words, show_settings):
+    """Set up the JapaneseMining menu in Anki's Tools menu."""
+    my_menu = QMenu("JapaneseMining", mw)
+
+    action = QAction("Show Today's Words", mw)
+    action.triggered.connect(show_todays_words)
+    my_menu.addAction(action)
+
+    action = QAction("Settings", mw)
+    action.triggered.connect(show_settings)
+    my_menu.addAction(action)
+
+    my_menu.addSeparator()
+
+    action = QAction("Soft Update Everything", mw)
+    action.triggered.connect(collection_service.update_japanese_mining_cards)
+    my_menu.addAction(action)
+
+    action = QAction("Force Update Keywords", mw)
+    action.triggered.connect(collection_service.force_update_keywords)
+    my_menu.addAction(action)
+
+    action = QAction("Force Update Meanings", mw)
+    action.triggered.connect(collection_service.force_update_meanings)
+    my_menu.addAction(action)
+
+    action = QAction("Force Update Everything", mw)
+    action.triggered.connect(collection_service.force_update_everything)
+    my_menu.addAction(action)
+
+    my_menu.addSeparator()
+    action = QAction("Add Unknown Kanji", mw)
+    action.triggered.connect(kanji_data_service.add_unknown_kanji)
+    my_menu.addAction(action)
+
+    my_menu.addSeparator()
+    action = QAction("Export Learned Kanji", mw)
+    action.triggered.connect(kanji_data_service.export_learned_kanji)
+    my_menu.addAction(action)
+
+    mw.form.menuTools.addMenu(my_menu)
