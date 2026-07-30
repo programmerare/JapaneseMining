@@ -1,0 +1,20 @@
+{
+  "show_tooltip": true,
+  "mining_note_type": "JapaneseMining",
+  "rtk_deck": "日本語::RTK",
+  "rtk_note_type": "Remembering the Kanji",
+  "rtk_kanji_field": "Kanji",
+  "rtk_alternative_kanji_field": "Alternative Kanji",
+  "rtk_keyword_field": "Keyword",
+  "rtk_heisig_number_field": "Heisig Number",
+  "rtk_stroke_count_field": "Stroke Count",
+  "use_deepL": false,
+  "deepl_api_key": "c377eefb-0df6-4501-bd74-3c3deeeb1ad2:fx",
+  "deepl_url": "https://api-free.deepl.com/v2/translate",
+  "deepl_shortcut": "Ctrl+T",
+  "target_lang": "EN-US",
+  "use_jisho": true,
+  "jisho_shortcut": "Ctrl+J",
+  "jisho_fastfill_shortcut": "Ctrl+Shift+J",
+  "use_hypertts": false
+}
