@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from config import load_config, save_config
 from services import CollectionService, DeeplService, HyperTTSService, KanjiDataService
-from ui.dialogs import make_show_settings, make_show_today_words
+from ui.dialogs import make_show_settings, make_show_todays_words
 from ui.editor import make_translate_btn_setup, inject_editor_css, make_segment_sentence
 
 
@@ -91,14 +91,14 @@ def setup_addon():
     gui_hooks.reviewer_did_answer_card.append(on_card_answered)
 
     # --- Setup menu actions ---
-    show_today_words = make_show_today_words(kanji_data_service)
+    show_todays_words = make_show_todays_words(kanji_data_service)
     show_settings = make_show_settings(config, save_config)
 
     setup_menus(
         config,
         collection_service,
         kanji_data_service,
-        show_today_words,
+        show_todays_words,
         show_settings,
     )
 
@@ -134,12 +134,12 @@ def setup_menus(config, collection_service, kanji_data_service, show_todays_word
 
     my_menu.addSeparator()
     action = QAction("Add Unknown Kanji", mw)
-    action.triggered.connect(kanji_data_service.add_unknown_kanji)
+    action.triggered.connect(collection_service.add_unknown_kanji)
     my_menu.addAction(action)
 
     my_menu.addSeparator()
     action = QAction("Export Learned Kanji", mw)
-    action.triggered.connect(kanji_data_service.export_learned_kanji)
+    action.triggered.connect(collection_service.export_learned_kanji)
     my_menu.addAction(action)
 
     mw.form.menuTools.addMenu(my_menu)
