@@ -6,6 +6,7 @@ from aqt.qt import (
     QDialog,
     QDialogButtonBox,
     QFormLayout,
+    QHBoxLayout,
     QKeySequence,
     QKeySequenceEdit,
     QLabel,
@@ -136,13 +137,13 @@ def make_show_settings(config, save_config_fn):
         translate_target_lang_combo.addItems(["Ace","Af","Sq","Ar","An","Hy","As","Ay","Az","Ba","Eu","Be","Bn","Bho","Bs","Br","Bg","My","Yue","Ca","Ceb","Zh-Hans","Zh-Hant","Zh","Hr","Cs","Da","Prs","Nl","En","En-Us","En-Gb","Eo","Et","Fi","Fr","Fr-Ca","Fr-Fr","Gl","Ka","De","De-De","De-Ch","El","Gn","Gu","Ht","Ha","He","Hi","Hu","Is","Ig","Id","Ga","It","Ja","Jv","Pam","Kk","Gom","Ko","Kmr","Ckb","Ky","La","Lv","Ln","Lt","Lmo","Lb","Mk","Mai","Mg","Ms","Ml","Mt","Mi","Mr","Mn","Ne","Nb","Oc","Om","Pag","Ps","Fa","Pl","Pt-Br","Pt-Pt","Pt","Pa","Qu","Ro","Ru","Sa","Sr","St","Scn","Sk","Sl","Es","Es-419","Su","Sw","Sv","Tl","Tg","Ta","Tt","Te","Th","Ts","Tn","Tr","Tk","Uk","Ur","Uz","Vi","Cy","Wo","Xh","Yi","Zu"])
         translate_target_lang_combo.setCurrentText(config.deepl_target_lang)
 
-        shortcut_edit = QKeySequenceEdit()
-        shortcut_edit.setKeySequence(QKeySequence(config.deepl_shortcut))
+        deepl_shortcut_edit = QKeySequenceEdit()
+        deepl_shortcut_edit.setKeySequence(QKeySequence(config.deepl_shortcut))
 
         translate_layout.addRow("DeepL API key", deepl_key_edit)
         translate_layout.addRow("DeepL URL", deepl_url_edit)
         translate_layout.addRow("DeepL target language", translate_target_lang_combo)
-        translate_layout.addRow("Translate shortcut", shortcut_edit)
+        translate_layout.addRow("Translate shortcut", deepl_shortcut_edit)
 
         tabs.addTab(translate_tab, "Translate")
 
@@ -155,12 +156,23 @@ def make_show_settings(config, save_config_fn):
         jisho_use_checkbox = QCheckBox("Enable Jisho")
         jisho_use_checkbox.setChecked(config.use_jisho)
 
-        jisho_layout.addRow(jisho_use_checkbox)
-        tabs.addTab(jisho_tab, "Jisho")
-
         note = QLabel("Restart Anki to make this setting effective.")
         note.setStyleSheet("color: gray; font-size: 11px;")
-        jisho_layout.addRow("", note)
+
+        checkbox_row = QHBoxLayout()
+        checkbox_row.addWidget(jisho_use_checkbox)
+        checkbox_row.addWidget(note)
+        checkbox_row.addStretch()
+
+        jisho_shortcut_edit = QKeySequenceEdit()
+        jisho_shortcut_edit.setKeySequence(QKeySequence(config.jisho_shortcut))
+
+        jisho_fastfill_shortcut_edit = QKeySequenceEdit()
+        jisho_fastfill_shortcut_edit.setKeySequence(QKeySequence(config.jisho_fastfill_shortcut))
+
+        jisho_layout.addRow("", checkbox_row)
+        jisho_layout.addRow("Jisho shortcut", jisho_shortcut_edit)
+        jisho_layout.addRow("Jisho fast-fill shortcut", jisho_fastfill_shortcut_edit)
 
         tabs.addTab(jisho_tab, "Jisho")
 
@@ -173,7 +185,7 @@ def make_show_settings(config, save_config_fn):
         hypertts_use_checkbox = QCheckBox("Enable HyperTTS")
         hypertts_use_checkbox.setChecked(config.use_hypertts)
 
-        hypertts_layout.addRow(hypertts_use_checkbox)
+        hypertts_layout.addRow("", hypertts_use_checkbox)
         tabs.addTab(hypertts_tab, "HyperTTS")
 
 
@@ -190,7 +202,7 @@ def make_show_settings(config, save_config_fn):
         main_layout.addWidget(buttons)
 
         def save_and_close():
-            seq = shortcut_edit.keySequence()
+            seq = deepl_shortcut_edit.keySequence()
             config.mining_note_type = mining_note_type_edit.text().strip() or config.mining_note_type
             config.rtk_deck = rtk_deck_edit.text().strip()
             config.rtk_note_type = rtk_note_type_edit.text().strip()
@@ -203,6 +215,8 @@ def make_show_settings(config, save_config_fn):
             config.deepl_url = deepl_url_edit.text().strip() or config.deepl_url
             config.deepl_target_lang = translate_target_lang_combo.currentText()
             config.deepl_shortcut = seq.toString(QKeySequence.SequenceFormat.NativeText) if not seq.isEmpty() else config.deepl_shortcut
+            config.jisho_shortcut = jisho_shortcut_edit.keySequence().toString(QKeySequence.SequenceFormat.NativeText) if not jisho_shortcut_edit.keySequence().isEmpty() else config.jisho_shortcut
+            config.jisho_fastfill_shortcut = jisho_fastfill_shortcut_edit.keySequence().toString(QKeySequence.SequenceFormat.NativeText) if not jisho_fastfill_shortcut_edit.keySequence().isEmpty() else config.jisho_fastfill_shortcut
             config.use_hypertts = hypertts_use_checkbox.isChecked()
             config.use_jisho = jisho_use_checkbox.isChecked()
             # later: add other fields here
