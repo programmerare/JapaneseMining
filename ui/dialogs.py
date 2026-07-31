@@ -82,6 +82,9 @@ def make_show_settings(config, save_config_fn):
         # -------------------
         # General tab
         # -------------------
+        show_tooltips_checkbox = QCheckBox("Show ToolTips")
+        show_tooltips_checkbox.setChecked(config.show_tooltip)
+
         general_tab = QWidget()
         general_layout = QFormLayout(general_tab)
 
@@ -109,6 +112,7 @@ def make_show_settings(config, save_config_fn):
         rtk_stroke_count_field_edit = QLineEdit(config.rtk_stroke_count_field)
         rtk_stroke_count_field_edit.setMinimumWidth(420)
 
+        general_layout.addRow("", show_tooltips_checkbox)
         general_layout.addRow("JapaneseMining note type", mining_note_type_edit)
         general_layout.addRow("RTK deck", rtk_deck_edit)
         general_layout.addRow("RTK note type", rtk_note_type_edit)
@@ -202,8 +206,13 @@ def make_show_settings(config, save_config_fn):
         main_layout.addWidget(buttons)
 
         def save_and_close():
-            seq = deepl_shortcut_edit.keySequence()
+            deepl_seq = deepl_shortcut_edit.keySequence()
+            jisho_seq = jisho_shortcut_edit.keySequence()
+            jisho_fastfill_seq = jisho_fastfill_shortcut_edit.keySequence()
+
+            config.show_tooltip = show_tooltips_checkbox.isChecked()
             config.mining_note_type = mining_note_type_edit.text().strip() or config.mining_note_type
+
             config.rtk_deck = rtk_deck_edit.text().strip()
             config.rtk_note_type = rtk_note_type_edit.text().strip()
             config.rtk_kanji_field = rtk_kanji_field_edit.text().strip()
