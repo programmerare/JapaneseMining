@@ -44,8 +44,10 @@ def setup_addon():
     collection_service = CollectionService(config, kanji_data_service)
     deepl_service = DeeplService(config)
     jisho_service = JishoService(config)
-    jisho_service.initialize()
     hypertts_service = HyperTTSService(config)
+
+    # --- Initialize services that require it ---
+    jisho_service.initialize()
 
     # --- data loading in background (must run after collection is ready) ---
     def on_collection_loaded(col):
