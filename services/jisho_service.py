@@ -7,4 +7,6 @@ class JishoService:
 
     def initialize(self):
         """Initialize the JishoService, ensuring that the AJC runtime is set up."""
+        if not self._config.use_jisho:
+            return
         initialize_ajc()
