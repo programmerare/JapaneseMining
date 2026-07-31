@@ -21,7 +21,7 @@ class Config:
     deepl_api_key: str = ""
     deepl_url: str = "https://api-free.deepl.com/v2/translate"
     deepl_shortcut: str = "Ctrl+T"
-    target_lang: str = "EN-US"
+    deepl_target_lang: str = "EN-US"
 
     # --- JISHO ---
     use_jisho: bool = True
