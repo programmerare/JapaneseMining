@@ -91,7 +91,9 @@ class KanjiDataService:
                 reader = csv.reader(f)
                 next(reader)
                 for row in reader:
-                    if row[0] == today:
+                    if self._current_day is None:
+                        self._current_day = row[0]
+                    if self._current_day == today:
                         words.append((row[1], row[2], row[3]))
         except FileNotFoundError:
             pass
@@ -122,6 +124,8 @@ class KanjiDataService:
         if key in self._seen_words:
             return
         self._seen_words.add(key)
+
+        self._todays_words.append((word, reading, meaning))
 
         file_path = self._media_path(self._TODAYS_WORDS_FILE)
         with file_path.open("a", newline="", encoding="utf-8") as f:
