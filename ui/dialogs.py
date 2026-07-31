@@ -8,6 +8,7 @@ from aqt.qt import (
     QFormLayout,
     QKeySequence,
     QKeySequenceEdit,
+    QLabel,
     QLineEdit,
     QMenu,
     QPushButton,
@@ -151,8 +152,15 @@ def make_show_settings(config, save_config_fn):
         jisho_tab = QWidget()
         jisho_layout = QFormLayout(jisho_tab)
 
-        # Add Jisho settings here later
-        jisho_layout.addRow("Example", QLineEdit())
+        jisho_use_checkbox = QCheckBox("Enable Jisho")
+        jisho_use_checkbox.setChecked(config.use_jisho)
+
+        jisho_layout.addRow(jisho_use_checkbox)
+        tabs.addTab(jisho_tab, "Jisho")
+
+        note = QLabel("Restart Anki to make this setting effective.")
+        note.setStyleSheet("color: gray; font-size: 11px;")
+        jisho_layout.addRow("", note)
 
         tabs.addTab(jisho_tab, "Jisho")
 
@@ -196,6 +204,7 @@ def make_show_settings(config, save_config_fn):
             config.deepl_target_lang = translate_target_lang_combo.currentText()
             config.deepl_shortcut = seq.toString(QKeySequence.SequenceFormat.NativeText) if not seq.isEmpty() else config.deepl_shortcut
             config.use_hypertts = hypertts_use_checkbox.isChecked()
+            config.use_jisho = jisho_use_checkbox.isChecked()
             # later: add other fields here
 
             save_config_fn(config)
