@@ -17,7 +17,7 @@ class Config:
     rtk_stroke_count_field: str = ""
 
     # --- TRANSLATE ---
-    use_deepL: bool = False
+    use_deepl: bool = False
     deepl_api_key: str = ""
     deepl_url: str = "https://api-free.deepl.com/v2/translate"
     deepl_shortcut: str = "Ctrl+T"
