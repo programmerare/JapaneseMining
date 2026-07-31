@@ -9,6 +9,8 @@ class DeeplService:
 
     def translate(self, editor: Editor) -> None:
         """Translate the Example Sentence field of a note using DeepL API."""
+        if not self._config.use_deepl:
+            return None
         if not editor:
             return None
 
