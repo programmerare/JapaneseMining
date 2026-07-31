@@ -130,6 +130,9 @@ def make_show_settings(config, save_config_fn):
         translate_tab = QWidget()
         translate_layout = QFormLayout(translate_tab)
 
+        deepl_use_checkbox = QCheckBox("Enable DeepL")
+        deepl_use_checkbox.setChecked(config.use_deepl)
+
         deepl_key_edit = QLineEdit(config.deepl_api_key)
         deepl_key_edit.setMinimumWidth(420)
         deepl_key_edit.setEchoMode(QLineEdit.EchoMode.Password)
@@ -144,6 +147,7 @@ def make_show_settings(config, save_config_fn):
         deepl_shortcut_edit = QKeySequenceEdit()
         deepl_shortcut_edit.setKeySequence(QKeySequence(config.deepl_shortcut))
 
+        translate_layout.addRow("", deepl_use_checkbox)
         translate_layout.addRow("DeepL API key", deepl_key_edit)
         translate_layout.addRow("DeepL URL", deepl_url_edit)
         translate_layout.addRow("DeepL target language", translate_target_lang_combo)
