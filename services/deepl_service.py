@@ -32,7 +32,7 @@ class DeeplService:
 
         payload = {
             "text": [f"{text}"],
-            "target_lang": self._config.target_lang,
+            "target_lang": self._config.deepl_target_lang,
             "source_lang": "JA",
             "show_billed_characters": True,
             "split_sentences": "nonewlines",
