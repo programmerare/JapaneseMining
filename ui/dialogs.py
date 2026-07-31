@@ -224,14 +224,18 @@ def make_show_settings(config, save_config_fn):
             config.rtk_keyword_field = rtk_keyword_field_edit.text().strip()
             config.rtk_heisig_number_field = rtk_heisig_number_field_edit.text().strip()
             config.rtk_stroke_count_field = rtk_stroke_count_field_edit.text().strip()
+
+            config.use_deepl = deepl_use_checkbox.isChecked()
             config.deepl_api_key = deepl_key_edit.text().strip()
             config.deepl_url = deepl_url_edit.text().strip() or config.deepl_url
             config.deepl_target_lang = translate_target_lang_combo.currentText()
-            config.deepl_shortcut = seq.toString(QKeySequence.SequenceFormat.NativeText) if not seq.isEmpty() else config.deepl_shortcut
-            config.jisho_shortcut = jisho_shortcut_edit.keySequence().toString(QKeySequence.SequenceFormat.NativeText) if not jisho_shortcut_edit.keySequence().isEmpty() else config.jisho_shortcut
-            config.jisho_fastfill_shortcut = jisho_fastfill_shortcut_edit.keySequence().toString(QKeySequence.SequenceFormat.NativeText) if not jisho_fastfill_shortcut_edit.keySequence().isEmpty() else config.jisho_fastfill_shortcut
-            config.use_hypertts = hypertts_use_checkbox.isChecked()
+            config.deepl_shortcut = deepl_seq.toString(QKeySequence.SequenceFormat.NativeText) if not deepl_seq.isEmpty() else config.deepl_shortcut
+
             config.use_jisho = jisho_use_checkbox.isChecked()
+            config.jisho_shortcut = jisho_seq.toString(QKeySequence.SequenceFormat.NativeText) if not jisho_seq.isEmpty() else config.jisho_shortcut
+            config.jisho_fastfill_shortcut = jisho_fastfill_seq.toString(QKeySequence.SequenceFormat.NativeText) if not jisho_fastfill_seq.isEmpty() else config.jisho_fastfill_shortcut
+
+            config.use_hypertts = hypertts_use_checkbox.isChecked()
             # later: add other fields here
 
             save_config_fn(config)
