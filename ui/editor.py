@@ -1,5 +1,6 @@
 from aqt import mw
 from aqt.editor import Editor
+from aqt.qt import QTextDocument
 from sudachipy import tokenizer, dictionary
 
 
@@ -118,7 +119,14 @@ def make_segment_sentence(config, get_focused_field_index):
         index = fmap_entry[0]
         text = note.fields[index]
 
+        # Convert HTML to plain text to remove any HTML tags before tokenization
+        doc = QTextDocument()
+        doc.setHtml(text)
+        text = doc.toPlainText()
+
         tokens = tokenizer_obj.tokenize(text, tokenizer.Tokenizer.SplitMode.C)
+        tokens = [t for t in tokens if t.surface().strip()]
+        
         html = "".join(
             f'<span class="token" data-token="{str(token)}">{str(token)}</span>'
             for token in tokens
