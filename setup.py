@@ -10,8 +10,10 @@ from .services.deepl_service import DeeplService
 from .services.jisho_service import JishoService
 from .services.hypertts_service import HyperTTSService
 from .services.kanji_data_service import KanjiDataService
-from .ui.dialogs import make_show_settings, make_show_todays_words
+from .ui.settings.dialog import make_show_settings
+from .ui.todays_words import make_show_todays_words
 from .ui.editor import make_translate_btn_setup, inject_editor_css, make_segment_sentence
+from .ui.menu import setup_menu
 
 
 _executor = ThreadPoolExecutor(max_workers=2)
@@ -57,6 +59,7 @@ def setup_addon():
             kanji_data_service.load_todays_words()
         _executor.submit(load)
 
+    # --- HOOKS ---
     gui_hooks.collection_did_load.append(on_collection_loaded)
 
     # --- editor tracking ---
@@ -65,7 +68,6 @@ def setup_addon():
     # --- focused field tracking ---
     gui_hooks.editor_did_focus_field.append(_set_focused_field)
 
-    # --- hooks ---
     def on_note_added(note: Note):
         collection_service.update_single_note_kanji_knowledge(note)
 
@@ -102,52 +104,9 @@ def setup_addon():
     show_todays_words = make_show_todays_words(kanji_data_service)
     show_settings = make_show_settings(config, save_config)
 
-    setup_menus(
+    setup_menu(
         config,
         collection_service,
-        kanji_data_service,
         show_todays_words,
         show_settings,
     )
-
-def setup_menus(config, collection_service, kanji_data_service, show_todays_words, show_settings):
-    """Set up the JapaneseMining menu in Anki's Tools menu."""
-    my_menu = QMenu("JapaneseMining", mw)
-
-    action = QAction("Show Today's Words", mw)
-    action.triggered.connect(show_todays_words)
-    my_menu.addAction(action)
-
-    action = QAction("Settings", mw)
-    action.triggered.connect(show_settings)
-    my_menu.addAction(action)
-
-    my_menu.addSeparator()
-
-    action = QAction("Soft Update Everything", mw)
-    action.triggered.connect(collection_service.update_japanese_mining_cards)
-    my_menu.addAction(action)
-
-    action = QAction("Force Update Keywords", mw)
-    action.triggered.connect(collection_service.force_update_keywords)
-    my_menu.addAction(action)
-
-    action = QAction("Force Update Meanings", mw)
-    action.triggered.connect(collection_service.force_update_meanings)
-    my_menu.addAction(action)
-
-    action = QAction("Force Update Everything", mw)
-    action.triggered.connect(collection_service.force_update_everything)
-    my_menu.addAction(action)
-
-    my_menu.addSeparator()
-    action = QAction("Add Unknown Kanji", mw)
-    action.triggered.connect(collection_service.add_unknown_kanji)
-    my_menu.addAction(action)
-
-    my_menu.addSeparator()
-    action = QAction("Export Learned Kanji", mw)
-    action.triggered.connect(collection_service.export_learned_kanji)
-    my_menu.addAction(action)
-
-    mw.form.menuTools.addMenu(my_menu)
