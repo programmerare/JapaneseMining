@@ -73,7 +73,7 @@ def setup_addon():
 
     def on_will_add_note(problem: str | None, note: Note):
         editor = _get_current_editor()
-        return hypertts_service.add_audio(problem, note, editor)
+        hypertts_service.add_audio(problem, note, editor)
 
     gui_hooks.add_cards_did_add_note.append(on_note_added)
     gui_hooks.add_cards_will_add_note.append(on_will_add_note)
