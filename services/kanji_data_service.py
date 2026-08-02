@@ -105,6 +105,7 @@ class KanjiDataService:
 
         if self._current_day != today:
             self._current_day = today
+            self._todays_words = []
             self._overwrite_file()
 
         self._append_word(word, reading, meaning)
