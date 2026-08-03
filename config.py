@@ -1,4 +1,4 @@
-from dataclasses import dataclass, asdict, fields
+from dataclasses import dataclass, asdict, field, fields
 from pathlib import Path
 import json
 
@@ -30,6 +30,22 @@ class Config:
 
     # --- HYPERTTS ---
     use_hypertts: bool = False
+
+    # --- Migrating Jisho ---
+    card_type: str = "JapaneseMining"
+    search_field: str = "Reading"
+    mappings: list = field(default_factory=list)          # list[dict]
+    fill_mode: str = "replace"
+    multi_meaning_format: str = "semicolon_merged"
+    remove_pos_ending: bool = True
+    remove_furigana_search: bool = True
+    multi_word_format: str = "inline"
+    open_shortcut: str = "Ctrl+J"
+    quick_fill_shortcut: str = "Ctrl+Shift+J"
+
+    language: str = "en"
+    editor_button_position: str = "toolbar"
+    show_welcome_dialog: bool = False
 
 
 CONFIG_PATH = Path(__file__).parent / "config.json"
