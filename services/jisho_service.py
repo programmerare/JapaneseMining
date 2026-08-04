@@ -9,4 +9,4 @@ class JishoService:
         """Initialize the JishoService, ensuring that the AJC runtime is set up."""
         if not self._config.use_jisho:
             return
-        initialize_ajc()
+        initialize_ajc(self._config)

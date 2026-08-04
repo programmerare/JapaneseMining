@@ -15,7 +15,7 @@ from aqt.webview import WebContent
 from ..constants import _
 from ..field_processor import apply_mappings_and_fill
 from ..icon_utils import get_icon_path
-from ..jisho_client import JishoFetchWorker, load_config
+from ..jisho_client import JishoFetchWorker
 from ..logger import logger
 from ..text_utils import clean_search_term
 from ..ui.results_dialog import ResultsDialog
@@ -55,12 +55,11 @@ TOOLBAR_BUTTON_STYLE = (
 )
 
 
-def _editor_button_position(config: dict | None = None) -> str:
-    cfg = config if isinstance(config, dict) else load_config()
-    value = str(cfg.get("editor_button_position", "") or "").strip().lower()
+def _editor_button_position(config) -> str:
+    value = str(config.get("editor_button_position", "") or "").strip().lower()
     if value in {"toolbar", "field_label", "both"}:
         return value
-    return "field_label" if cfg else "toolbar"
+    return "field_label" if config else "toolbar"
 
 
 def _uses_toolbar_button(config: dict | None = None) -> bool:
@@ -78,10 +77,9 @@ def _style_toolbar_button_html(button_html: str) -> str:
     return button_html.replace(marker, f'style="{TOOLBAR_BUTTON_STYLE}" {marker}', 1)
 
 
-def show_results_dialog(initial_term: str = "", note=None, editor=None) -> None:
+def show_results_dialog(config, initial_term: str = "", note=None, editor=None) -> None:
     """Show or reuse results dialog."""
     if state.results_dialog is not None and state.results_dialog.isVisible():
-        config = load_config()
         clean_term = clean_search_term(initial_term, config.get("remove_furigana_search", True))
         state.results_dialog.search_box.setText(clean_term)
         state.results_dialog.perform_search(clean_term)
@@ -92,7 +90,6 @@ def show_results_dialog(initial_term: str = "", note=None, editor=None) -> None:
         if note is None:
             showWarning(_("warning_no_active_editor"))
             return
-        config = load_config()
         try:
             apply_mappings_and_fill(note, selected_entries_data, config)
             refresh_editor(editor, note)
@@ -101,7 +98,8 @@ def show_results_dialog(initial_term: str = "", note=None, editor=None) -> None:
             showWarning(f"Error filling fields: {str(exc)}")
 
     state.results_dialog = ResultsDialog(
-        clean_search_term(initial_term, load_config().get("remove_furigana_search", True)),
+        config,
+        clean_search_term(initial_term, config.get("remove_furigana_search", True)),
         on_select,
     )
     state.results_dialog.show()
@@ -112,10 +110,9 @@ def addon_web_url(file_name: str) -> str:
     return f"/_addons/{addon_package}/assets/web/{file_name}"
 
 
-def resolve_search_field_ord(editor: Editor) -> int:
+def resolve_search_field_ord(config, editor: Editor) -> int:
     if not editor or not getattr(editor, "note", None):
         return -1
-    config = load_config()
     search_field = config.get("search_field", "")
     if not search_field:
         return -1
@@ -130,7 +127,7 @@ def resolve_search_field_ord(editor: Editor) -> int:
         return -1
 
 
-def build_header_button_state(editor: Editor) -> dict:
+def build_header_button_state(config, editor: Editor) -> dict:
     state_payload = {
         "search_ord": -1,
         "search_field": "",
@@ -138,12 +135,11 @@ def build_header_button_state(editor: Editor) -> dict:
     }
     if not editor or not getattr(editor, "note", None):
         return state_payload
-    config = load_config()
     if not _uses_header_button(config):
         return state_payload
     search_field = str(config.get("search_field", "") or "").strip()
     state_payload["search_field"] = search_field
-    search_ord = resolve_search_field_ord(editor)
+    search_ord = resolve_search_field_ord(config, editor)
     state_payload["search_ord"] = search_ord
     if search_ord < 0:
         return state_payload
@@ -248,21 +244,20 @@ def load_editor_header_assets(web_content: WebContent, context) -> None:
         web_content.css.append(css_url)
 
 
-def on_editor_js_message(handled, message, context):
+def on_editor_js_message(config, handled, message, context):
     if not isinstance(context, Editor):
         return handled
     if message == HEADER_BUTTON_STATE_CMD:
-        return True, build_header_button_state(context)
+        return True, build_header_button_state(config, context)
     if isinstance(message, str) and message.startswith(HEADER_BUTTON_OPEN_PREFIX):
-        handle_jisho_lookup(context)
+        handle_jisho_lookup(config, context)
         return True, None
     return handled
 
 
-def add_jisho_editor_button(buttons, editor):
+def add_jisho_editor_button(config, buttons, editor):
     """Setup editor integrations and optional toolbar button."""
-    register_editor_shortcuts(editor)
-    config = load_config()
+    register_editor_shortcuts(config, editor)
     if not _uses_toolbar_button(config):
         return buttons
     shortcut = str(config.get("open_shortcut", "Alt+J") or "Alt+J")
@@ -271,7 +266,7 @@ def add_jisho_editor_button(buttons, editor):
             icon=None,
             cmd=TOOLBAR_BUTTON_CMD,
             tip=f"{_('editor_button_tooltip')} ({shortcut})" if shortcut else _("editor_button_tooltip"),
-            func=lambda ed=editor: handle_jisho_lookup(ed),
+            func=lambda ed=editor: handle_jisho_lookup(config, ed),
             label=TOOLBAR_LABEL,
             keys="",
         )
@@ -282,56 +277,54 @@ def add_jisho_editor_button(buttons, editor):
     return buttons
 
 
-def handle_jisho_lookup(editor) -> None:
+def handle_jisho_lookup(config, editor) -> None:
     if not editor or not getattr(editor, "note", None):
         showWarning(_("warning_no_active_editor"))
         return
     note = editor.note
-    config = load_config()
     search_field = config.get("search_field", "N/A")
     initial_term = note[search_field] if search_field in note else ""
-    show_results_dialog(initial_term, note, editor)
+    show_results_dialog(config, initial_term, note, editor)
 
 
-def register_editor_shortcuts(editor) -> None:
+def register_editor_shortcuts(config, editor) -> None:
     if hasattr(editor, "_ajc_actions"):
         return
     editor._ajc_actions = []
-    config = load_config()
     open_shortcut = config.get("open_shortcut", "Alt+J")
     quick_shortcut = config.get("quick_fill_shortcut", "Ctrl+Alt+J")
     target = get_shortcut_target(editor)
 
-    add_editor_action(target, editor, open_shortcut, lambda: handle_jisho_lookup(editor))
-    add_editor_action(target, editor, quick_shortcut, lambda: handle_quick_fill(editor))
+    add_editor_action(target, editor, open_shortcut, lambda: handle_jisho_lookup(config, editor))
+    add_editor_action(target, editor, quick_shortcut, lambda: handle_quick_fill(config, editor))
 
 
-def on_editor_will_load_note(js: str, note: Note, editor: Editor) -> str:
+def on_editor_will_load_note(config, js: str, note: Note, editor: Editor) -> str:
     if not isinstance(editor, Editor) or note is None:
         return js
-    return js + ";" + _header_button_eval_script(build_header_button_state(editor))
+    return js + ";" + _header_button_eval_script(build_header_button_state(config, editor))
 
 
-def refresh_header_button_state(editor: Editor) -> None:
+def refresh_header_button_state(config, editor: Editor) -> None:
     if not isinstance(editor, Editor) or not getattr(editor, "web", None):
         return
     try:
-        editor.web.eval(_header_button_eval_script(build_header_button_state(editor)))
+        editor.web.eval(_header_button_eval_script(build_header_button_state(config, editor)))
     except Exception:
         logger.exception("Failed to refresh Anki Jisho Connect field-label button")
 
 
-def on_editor_did_load_note(editor: Editor) -> None:
+def on_editor_did_load_note(config, editor: Editor) -> None:
     if not isinstance(editor, Editor):
         return
-    refresh_header_button_state(editor)
+    refresh_header_button_state(config, editor)
     try:
-        QTimer.singleShot(60, lambda ed=editor: refresh_header_button_state(ed))
+        QTimer.singleShot(60, lambda ed=editor: refresh_header_button_state(config, ed))
     except Exception:
         pass
 
 
-def install_editor_bridge_refresh() -> None:
+def install_editor_bridge_refresh(config) -> None:
     global _BRIDGE_REFRESH_INSTALLED
     if not hasattr(Editor, "onBridgeCmd"):
         return
@@ -340,7 +333,7 @@ def install_editor_bridge_refresh() -> None:
 
     def _on_bridge_cmd_wrapper(self: Editor, cmd: str):
         if isinstance(cmd, str) and cmd.startswith("key:"):
-            refresh_header_button_state(self)
+            refresh_header_button_state(config, self)
 
     Editor.onBridgeCmd = wrap(Editor.onBridgeCmd, _on_bridge_cmd_wrapper, "before")
     setattr(Editor, "_ajc_jisho_bridge_refresh_installed", True)
@@ -369,12 +362,11 @@ def add_editor_action(target, editor, shortcut: str, callback) -> None:
         logger.exception("Error adding editor action")
 
 
-def handle_quick_fill(editor) -> None:
+def handle_quick_fill(config,editor) -> None:
     if not editor or not getattr(editor, "note", None):
         showWarning(_("warning_no_active_editor"))
         return
     note = editor.note
-    config = load_config()
     if not config.get("mappings"):
         showWarning(_("warning_no_mappings"))
         return

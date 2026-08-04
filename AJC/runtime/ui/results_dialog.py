@@ -14,7 +14,7 @@ from aqt.qt import (
 from PyQt6.QtCore import QThread
 
 from ..constants import _, LightTheme, DarkTheme
-from ..jisho_client import load_config, JishoFetchWorker
+from ..jisho_client import JishoFetchWorker
 from ..text_utils import clean_search_term
 from ..icon_utils import get_icon_path
 from ..logger import logger
@@ -29,11 +29,12 @@ _RUNTIME_STYLE_MODE = "legacy_and_stable"
 class ResultsDialog(QDialog):
     """Dialog to display Jisho search results with checkboxes for selection."""
     
-    def __init__(self, initial_term: str, on_select: Callable):
+    def __init__(self, config, initial_term: str, on_select: Callable):
         super().__init__()
         self.is_loading = False
         self.on_select = on_select
         self.initial_term = initial_term
+        self.config = config
         self._search_thread: Optional[QThread] = None
         self._search_worker: Optional[JishoFetchWorker] = None
         self._last_search_term = ""
@@ -172,8 +173,7 @@ class ResultsDialog(QDialog):
         if not search_term:
             return
 
-        config = load_config()
-        search_term = clean_search_term(search_term, config.get("remove_furigana_search", True))
+        search_term = clean_search_term(search_term, self.config.get("remove_furigana_search", True))
         
         if not search_term:
             return
@@ -433,14 +433,13 @@ class ResultsDialog(QDialog):
 
     def confirm_selection(self, *args, **kwargs):
         """Handle confirm button click."""
-        config = load_config()
-        if not config.get("mappings"):
+        if not self.config.get("mappings"):
             showWarning(_("warning_no_mappings"))
             return
         
         checked_entries_indices = [i for i, item in enumerate(self.entry_widgets) if any(cb.isChecked() for cb in item.get("sense_checkboxes", []))]
         
-        if not config.get("disable_multi_word_warning", False) and len(checked_entries_indices) > 1:
+        if not self.config.get("disable_multi_word_warning", False) and len(checked_entries_indices) > 1:
             msg_box = QMessageBox()
             msg_box.setIcon(QMessageBox.Icon.Warning)
             msg_box.setText(_("multi_word_warning_title"))
@@ -457,9 +456,9 @@ class ResultsDialog(QDialog):
                 return 
             
             if clicked == dont_warn_button:
-                config["disable_multi_word_warning"] = True
+                self.config["disable_multi_word_warning"] = True
                 from ..jisho_client import save_config as save_cfg
-                save_cfg(config)
+                save_cfg(self.config)
         
         # Collect all selected entries
         all_selected_data = []
