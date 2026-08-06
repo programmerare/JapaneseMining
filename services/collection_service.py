@@ -87,12 +87,12 @@ class CollectionService:
 
         return len(unknown_kanji)
 
-    def export_learned_kanji(self) -> int:
+    def export_learned_kanji(self) -> tuple[int, int]:
         """Save all Kanji, keywords, and learned status in a csv file."""
         if not self._rtk_configured():
             if self._config.show_tooltip:
                 tooltip("RTK deck is not configured. Please check your settings.")
-            return 0
+            return 0, 0
 
         col = mw.col
         deck = self._config.rtk_deck
@@ -146,7 +146,10 @@ class CollectionService:
         if self._kanji_data:
             self._kanji_data.save_learned_kanji(learned_kanji_rows, learned_kanji_cache)
 
-        return len(kanji_rows)
+        if self._config.show_tooltip:
+            tooltip(f"Exported {count_learned_kanji + count_learned_alternative_kanji} learned kanji and {count_unknown_kanji} unknown kanji.")
+
+        return count_learned_kanji + count_learned_alternative_kanji, count_unknown_kanji
 
     def update_single_note_kanji_knowledge(self, note: Note, force_update_meanings: bool = False, force_update_keywords: bool = False) -> tuple[int, int]:
         """Update kanji fields for a single note added from the editor."""
@@ -167,7 +170,7 @@ class CollectionService:
 
     def update_japanese_mining_cards(self, force_update_meanings: bool = False, force_update_keywords: bool = False) -> None:
         """Update all JapaneseMining cards in a single pass over each word."""
-        number_kanji = self.export_learned_kanji()
+        number_learned_kanji, count_unknown_kanji = self.export_learned_kanji()
         newly_known_count, number_updated_cards = self._update_kanji_knowledge(
             force_update_meanings=force_update_meanings,
             force_update_keywords=force_update_keywords,
@@ -176,7 +179,8 @@ class CollectionService:
 
         if self._config.show_tooltip:
             tooltip(
-                f"Exported {number_kanji} kanji. {newly_known_count} card(s) became known. "
+                f"Exported {number_learned_kanji} learned and {count_unknown_kanji} not learned kanji. "
+                f"{newly_known_count} card(s) became known. "
                 f"{number_updated_cards} card(s) were updated. {number_unknown_kanji} unknown kanji were added."
             )
 
