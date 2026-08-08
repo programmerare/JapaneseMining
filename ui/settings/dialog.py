@@ -45,6 +45,12 @@ def make_show_settings(config, save_config_fn):
             for apply_fn in apply_fns:
                 apply_fn(config)    # Each tab writes its own settings to the config object
             save_config_fn(config)
+
+            if config.use_jisho:
+                from ...jisho_adapter import to_ajc_runtime_config
+                from ...AJC.runtime.config_holder import set_runtime_config
+                set_runtime_config(to_ajc_runtime_config(config))
+
             dialog.accept()
 
         buttons.accepted.connect(save_and_close)
