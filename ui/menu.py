@@ -4,13 +4,14 @@ from aqt.qt import QAction, QMenu
 
 def setup_menu(config, collection_service, show_todays_words, show_settings):
     """Set up the JapaneseMining menu in Anki's Tools menu."""
-    my_menu = QMenu("JapaneseMining", mw)
+    my_menu = QMenu("JM", mw)
 
     action = QAction("Show Today's Words", mw)
     action.triggered.connect(show_todays_words)
     my_menu.addAction(action)
 
     action = QAction("Settings", mw)
+    action.setMenuRole(QAction.MenuRole.NoRole)
     action.triggered.connect(show_settings)
     my_menu.addAction(action)
 
