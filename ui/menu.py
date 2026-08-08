@@ -43,4 +43,4 @@ def setup_menu(config, collection_service, show_todays_words, show_settings):
     action.triggered.connect(collection_service.export_learned_kanji)
     my_menu.addAction(action)
 
-    mw.form.menuTools.addMenu(my_menu)
+    mw.form.menubar.addMenu(my_menu)
