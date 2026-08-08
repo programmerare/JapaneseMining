@@ -30,49 +30,147 @@ class Config:
     jisho_shortcut: str = "Ctrl+J"
     jisho_fastfill_shortcut: str = "Ctrl+Shift+J"
 
-    # --- HYPERTTS ---
-    use_hypertts: bool = False
-
-    # --- Migrating Jisho ---
-    card_type: str = "JapaneseMining"
-    search_field: str = "Reading"
-    mappings: list = field(default_factory=list)          # list[dict]
-    fill_mode: str = "replace"
+    card_type: str = "JapaneseMining"   # note type
+    target_deck: str = ""
+    search_field: str = "Word"
+    mappings: list = field(default_factory=list)    # list[{"jisho": str "field": str}]
+    fill_mode: str = "replace"  # replace | append
     multi_meaning_format: str = "semicolon_merged"
+    multi_word_format: str = "inline"
     remove_pos_ending: bool = True
     remove_furigana_search: bool = True
-    multi_word_format: str = "inline"
-    open_shortcut: str = "Ctrl+J"
-    quick_fill_shortcut: str = "Ctrl+Shift+J"
-
+    disable_multi_word_warning: bool = False
+    show_quick_fill_successs: bool = True
+    quick_fill_mode: str = "all"    # all | first
+    editor_button_position: str = "toolbar" # toolbarl | field_label | both
     language: str = "en"
-    editor_button_position: str = "toolbar"
     show_welcome_dialog: bool = False
+
+    # --- HYPERTTS ---
+    use_hypertts: bool = False
 
 
 CONFIG_PATH = Path(__file__).parent / "config.json"
 
 
 def load_config() -> Config:
-    """Load config from disk, falling back to defaults."""
+    """Load config from disk. Always returns a complete, normalized Config."""
     defaults = Config()
+
     if not CONFIG_PATH.exists():
         save_config(defaults)
         return defaults
 
     try:
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except (json.JSONDecodeError, FileNotFoundError):
+            raw = json.load(f)
+    except (json.JSONDecodeError, OSError):
         save_config(defaults)
         return defaults
 
-    valid = {f.name for f in fields(Config)}
-    filtered_data = {k: v for k, v in data.items() if k in valid}
-    return Config(**{**asdict(defaults), **filtered_data})
+    if not isinstance(raw, dict):
+        save_config(defaults)
+        return defaults
+
+    normalized = _normalize_config_dict(raw)
+    config = Config(**normalized)
+
+    # Keep the file on disk clean (optional but recommended)
+    if normalized != raw:
+        save_config(config)
+
+    return config
 
 
-def save_config(config: Config):
-    """Persist the given config to disk."""
+def save_config(config: Config) -> None:
+    """Persist a clean, normalized config."""
+    data = _normalize_config_dict(asdict(config))
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-        json.dump(asdict(config), f, indent=2, ensure_ascii=False)
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+
+ALLOWED_FILL_MODES = {"replace", "append"}
+ALLOWED_MULTI_MEANING = {"pipe_merged", "numbered", "semicolon_merged"}
+ALLOWED_MULTI_WORD = {"basic", "inline", "tagged", "numbered", "tagged_numbered"}
+ALLOWED_QUICK_FILL = {"all", "first"}
+ALLOWED_BUTTON_POS = {"toolbar", "field_label", "both"}
+ALLOWED_LANG = {"en", "pt"}
+
+JISHO_MAPPING_OPTIONS = {
+    "", "Word", "Reading", "Meaning", "Part of speech", "Info", "Tags",
+    "See also", "Other forms", "JLPT Level", "Wanikani Level", "Is Common"
+}
+
+
+def _normalize_mappings(raw: Any) -> list[dict[str, str]]:
+    """Accept both old dict style and new list style. Keep only valid entries."""
+    if isinstance(raw, dict):
+        items = [{"jisho": jisho, "field": field} for field, jisho in raw.items()]
+    elif isinstance(raw, list):
+        items = [m for m in raw if isinstance(m, dict)]
+    else:
+        items = []
+
+    normalized = []
+    for m in items:
+        jisho = str(m.get("jisho", "") or "").strip()
+        field_name = str(m.get("field", "") or "").strip()
+
+        if jisho == "Is_Common":
+            jisho = "Is Common"
+
+        if jisho not in JISHO_MAPPING_OPTIONS:
+            continue
+
+        normalized.append({"jisho": jisho, "field": field_name})
+    return normalized
+
+
+def _normalize_config_dict(data: dict) -> dict:
+    """Make any raw dict safe and complete."""
+    defaults = asdict(Config())
+    result = deepcopy(defaults)
+
+    # Only keep keys that exist on Config
+    for key in defaults:
+        if key not in data:
+            continue
+        result[key] = data[key]
+
+    # --- force correct types / allowed values ---
+    result["mappings"] = _normalize_mappings(result.get("mappings"))
+
+    if result["fill_mode"] not in ALLOWED_FILL_MODES:
+        result["fill_mode"] = "replace"
+
+    if result["multi_meaning_format"] not in ALLOWED_MULTI_MEANING:
+        result["multi_meaning_format"] = "semicolon_merged"
+
+    if result["multi_word_format"] not in ALLOWED_MULTI_WORD:
+        result["multi_word_format"] = "inline"
+
+    if result["quick_fill_mode"] not in ALLOWED_QUICK_FILL:
+        result["quick_fill_mode"] = "all"
+
+    if result["editor_button_position"] not in ALLOWED_BUTTON_POS:
+        result["editor_button_position"] = "toolbar"
+
+    if result["language"] not in ALLOWED_LANG:
+        result["language"] = "en"
+
+    # Booleans
+    for bool_key in (
+        "use_jisho", "remove_pos_ending", "remove_furigana_search",
+        "disable_multi_word_warning", "show_quick_fill_success",
+        "show_welcome_dialog", "use_deepl", "use_hypertts", "show_tooltip"
+    ):
+        result[bool_key] = bool(result.get(bool_key, defaults[bool_key]))
+
+    # Shortcuts – never empty
+    if not str(result.get("jisho_shortcut") or "").strip():
+        result["jisho_shortcut"] = defaults["jisho_shortcut"]
+    if not str(result.get("jisho_fastfill_shortcut") or "").strip():
+        result["jisho_fastfill_shortcut"] = defaults["jisho_fastfill_shortcut"]
+
+    return result
