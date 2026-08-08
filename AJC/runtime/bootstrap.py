@@ -11,7 +11,6 @@ from aqt.gui_hooks import (
     webview_did_receive_js_message,
     webview_will_set_content,
 )
-from dataclasses import asdict
 
 from .constants import set_language
 from .integration.editor_hooks import (
@@ -40,37 +39,28 @@ def initialize_ajc(cfg) -> None:
 
     logger.info("Anki Jisho Connect loaded")
 
-    config = asdict(cfg)
+    if hasattr(cfg, "__dataclass_fields__"):
+        from .config_holder import set_runtime_config
+        from ...jisho_adapter import to_ajc_runtime_config
+        config = to_ajc_runtime_config(cfg)
+        set_runtime_config(config)
+    else:
+        config = cfg
+
     set_language(config.get("language", "en"))
     mw.addonManager.setWebExports(
         ROOT_MODULE_NAME,
         r"(assets/web/.*\.(js|css)|assets/icons/jisho_icon\.(png|svg))",
     )
-
-    def helper_add_jisho_editor_button(buttons, editor):
-        return add_jisho_editor_button(config, buttons, editor)
-
-    def helper_on_editor_js_message(handled, message, context):
-        return on_editor_js_message(config, handled, message, context)
-
-    def helper_on_editor_will_load_note(js, note, editor):
-        return on_editor_will_load_note(config, js, note, editor)
-
-    def helper_on_editor_did_load_note(editor):
-        return on_editor_did_load_note(config, editor)
-
-    def helper_show_welcome_if_needed():
-        return show_welcome_if_needed(config)
-
-    editor_did_init_buttons.append(helper_add_jisho_editor_button)
+    editor_did_init_buttons.append(add_jisho_editor_button)
     theme_did_change.append(on_theme_changed)
     webview_will_set_content.append(load_editor_header_assets)
-    webview_did_receive_js_message.append(helper_on_editor_js_message)
-    editor_will_load_note.append(helper_on_editor_will_load_note)
-    editor_did_load_note.append(helper_on_editor_did_load_note)
-    install_editor_bridge_refresh(config)
+    webview_did_receive_js_message.append(on_editor_js_message)
+    editor_will_load_note.append(on_editor_will_load_note)
+    editor_did_load_note.append(on_editor_did_load_note)
+    install_editor_bridge_refresh()
     setup_menu_action()
-    profile_did_open.append(helper_show_welcome_if_needed)
+    profile_did_open.append(show_welcome_if_needed)
     _INITIALIZED = True
 
 

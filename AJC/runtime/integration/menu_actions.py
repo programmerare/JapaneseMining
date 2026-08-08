@@ -7,7 +7,7 @@ from aqt import mw
 from aqt.qt import QAction
 
 from ..get_ajc_menu import get_ajc_menu
-from ..jisho_client import save_config
+from ..jisho_client import load_config, save_config
 from ..ui.config_dialog import ConfigDialog
 from ..ui.info_dialogs import show_about_ajc_dialog, show_welcome_dialog
 from . import state
@@ -38,9 +38,10 @@ def ensure_about_ajc_action(menu) -> None:
     menu.addAction(action)
 
 
-def show_welcome_if_needed(config) -> None:
+def show_welcome_if_needed() -> None:
     if not mw:
         return
+    config = load_config()
     if not config.get("show_welcome_dialog", True):
         return
     config["show_welcome_dialog"] = False
