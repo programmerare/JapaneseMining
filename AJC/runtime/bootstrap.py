@@ -59,8 +59,8 @@ def initialize_ajc(cfg) -> None:
     editor_will_load_note.append(on_editor_will_load_note)
     editor_did_load_note.append(on_editor_did_load_note)
     install_editor_bridge_refresh()
-    setup_menu_action()
-    profile_did_open.append(show_welcome_if_needed)
+    #setup_menu_action()
+    #profile_did_open.append(show_welcome_if_needed)
     _INITIALIZED = True
 
 
