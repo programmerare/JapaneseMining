@@ -1,15 +1,18 @@
 # jisho_tab.py
 from aqt import mw
 from aqt.qt import (
-    QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QTabWidget,
-    QLabel, QCheckBox, QComboBox, QPushButton, QKeySequenceEdit,
+    QWidget, QVBoxLayout, QHBoxLayout, QInputDialog, QFormLayout, QTabWidget,
+    QLabel, QCheckBox, QComboBox, QMessageBox, QPushButton, QKeySequenceEdit,
     QKeySequence, QScrollArea, QFrame, Qt, QSizePolicy
 )
+from copy import deepcopy
 
 # Re-use the same constants we put in config.py
 from ...config import (
     JISHO_MAPPING_OPTIONS,
     ALLOWED_MULTI_WORD,
+    default_jisho_profile,
+    save_config,
 )
 
 # Compatibility matrix (copied from foreign code)
@@ -45,7 +48,9 @@ def make_jisho_tab(config):
     # State that the three sub-tabs share
     # ------------------------------------------------------------------
     state = {
-        "mapping_rows": [dict(m) for m in (config.mappings or [])],  # deep copy
+        "profiles": deepcopy(config.jisho_profiles or {}),
+        "active": config.active_jisho_profile or next(iter(config.jisho_profiles or {}), ""),
+        "mapping_rows": [],
         "current_fields": [],
     }
 
@@ -67,22 +72,170 @@ def make_jisho_tab(config):
     enable_row.addStretch()
     g_layout.addRow(enable_row)
 
-    # Note type
-    card_type_cb = QComboBox()
-    card_type_cb.setEditable(False)
-    try:
-        models = mw.col.models.all_names() if mw.col else []
-        card_type_cb.addItems(sorted(models))
-    except Exception:
-        pass
-    if config.card_type:
-        idx = card_type_cb.findText(config.card_type)
-        if idx >= 0:
-            card_type_cb.setCurrentIndex(idx)
-        else:
-            card_type_cb.addItem(config.card_type)
-            card_type_cb.setCurrentText(config.card_type)
-    g_layout.addRow("Note type:", card_type_cb)
+    # Profile
+    profile_row = QHBoxLayout()
+    profile_cb = QComboBox()
+    profile_cb.setEditable(False)
+
+    def refresh_profile_combo():
+        profile_cb.blockSignals(True)
+        profile_cb.clear()
+        for name in sorted(state["profiles"].keys()):
+            profile_cb.addItem(name)
+        idx = profile_cb.findText(state["active"])
+        profile_cb.setCurrentIndex(idx if idx >= 0 else 0)
+        state["active"] = profile_cb.currentText()
+        profile_cb.blockSignals(False)
+
+    refresh_profile_combo()
+
+    profile_row.addWidget(QLabel("Profile (Note type):"))
+    profile_row.addWidget(profile_cb, 1)
+
+    add_profile_btn = QPushButton("Add")
+    delete_profile_btn = QPushButton("Delete")
+
+    profile_row.addWidget(add_profile_btn)
+    profile_row.addWidget(delete_profile_btn)
+
+    g_layout.addRow(profile_row)
+
+    def get_current_profile():
+        note_type = profile_cb.currentText()
+        return note_type, config.jisho_profiles.get(note_type, {})
+
+    def add_profile():
+        try:
+            models = mw.col.models.all_names() if mw.col else []
+        except Exception:
+            models = []
+
+        dlg = QInputDialog(general)
+        dlg.setWindowTitle("Add Jisho Profile")
+        dlg.setLabelText("Note type:")
+        dlg.setComboBoxItems(sorted(models))
+        dlg.setComboBoxEditable(True)
+        if dlg.exec() != QInputDialog.DialogCode.Accepted:
+            return
+
+        note_type = dlg.textValue().strip()
+        if not note_type:
+            return
+        if note_type in state["profiles"]:
+            QMessageBox.warning(general, "Profile exists", f"A profile for '{note_type}' already exists.")
+            return
+
+        persist_current_profile()                     # save what we were editing
+        state["profiles"][note_type] = default_jisho_profile()
+        state["active"] = note_type
+        refresh_profile_combo()
+        load_profile_into_ui(note_type)
+
+
+    def delete_profile():
+        note_type = profile_cb.currentText()
+        if not note_type:
+            return
+        if len(state["profiles"]) <= 1:
+            QMessageBox.warning(general, "Cannot delete profile", "At least one profile must remain.")
+            return
+
+        answer = QMessageBox.question(
+            general, "Delete profile",
+            f"Are you sure you want to delete the profile for '{note_type}'?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        del state["profiles"][note_type]
+        state["active"] = next(iter(state["profiles"]))
+        refresh_profile_combo()
+        load_profile_into_ui(state["active"])
+
+    add_profile_btn.clicked.connect(add_profile)
+    delete_profile_btn.clicked.connect(delete_profile)
+
+    def persist_current_profile():
+        """Write current widget values into state['profiles'][active]."""
+        name = state["active"]
+        if not name:
+            return
+        p = state["profiles"].setdefault(name, default_jisho_profile())
+
+        p["target_deck"] = target_deck_cb.currentText().strip()
+        p["search_field"] = search_field_cb.currentText()
+        p["fill_mode"] = fill_mode_cb.currentData()
+        p["multi_meaning_format"] = multi_meaning_cb.currentData()
+        p["multi_word_format"] = multi_word_cb.currentData() or "inline"
+        p["quick_fill_mode"] = quick_fill_mode_cb.currentData()
+        p["remove_pos_ending"] = remove_pos_cb.isChecked()
+        p["remove_furigana_search"] = remove_furigana_cb.isChecked()
+        p["disable_multi_word_warning"] = disable_multi_word_cb.isChecked()
+        p["show_quick_fill_success"] = show_quick_success_cb.isChecked()
+        p["mappings"] = [dict(r) for r in state["mapping_rows"] if r.get("jisho") or r.get("field")]
+
+        state["profiles"][name] = p
+
+    def load_profile_into_ui(name: str):
+        profile = state["profiles"].get(name) or default_jisho_profile()
+        state["active"] = name
+
+        target_deck_cb.setCurrentText(profile.get("target_deck", ""))
+
+        # Fill mode
+        fill_mode_cb.setCurrentIndex(0 if profile.get("fill_mode") == "replace" else 1)
+
+        # Multi-meaning
+        mm_map = {"pipe_merged": 0, "numbered": 1, "semicolon_merged": 2}
+        multi_meaning_cb.setCurrentIndex(mm_map.get(profile.get("multi_meaning_format"), 2))
+        refresh_multi_word_options()
+        for i in range(multi_word_cb.count()):
+            if multi_word_cb.itemData(i) == profile.get("multi_word_format"):
+                multi_word_cb.setCurrentIndex(i)
+                break
+
+        # Quick-fill mode
+        quick_fill_mode_cb.setCurrentIndex(0 if profile.get("quick_fill_mode") == "all" else 1)
+
+        # Checkboxes (Advanced tab)
+        remove_pos_cb.setChecked(bool(profile.get("remove_pos_ending", True)))
+        remove_furigana_cb.setChecked(bool(profile.get("remove_furigana_search", True)))
+        disable_multi_word_cb.setChecked(bool(profile.get("disable_multi_word_warning", False)))
+        show_quick_success_cb.setChecked(bool(profile.get("show_quick_fill_success", False)))
+
+        state["mapping_rows"] = [dict(m) for m in profile.get("mappings", [])]
+        refresh_fields_for_note_type(name)
+        rebuild_mapping_rows()
+
+    def refresh_fields_for_note_type(note_type: str):
+        fields = []
+        try:
+            model = mw.col.models.by_name(note_type) if mw.col and note_type else None
+            if model:
+                fields = [f["name"] for f in model["flds"]]
+        except Exception:
+            pass
+        state["current_fields"] = fields
+
+        search_field_cb.blockSignals(True)
+        search_field_cb.clear()
+        search_field_cb.addItems(fields)
+        wanted = (state["profiles"].get(note_type) or {}).get("search_field", "")
+        if wanted in fields:
+            search_field_cb.setCurrentText(wanted)
+        search_field_cb.blockSignals(False)
+
+    def on_profile_changed(_index: int):
+        old = state["active"]
+        new = profile_cb.currentText()
+        if not new or new == old:
+            return
+        persist_current_profile()          # save the one we are leaving
+        load_profile_into_ui(new)          # load the one we are entering
+
+    profile_cb.currentIndexChanged.connect(on_profile_changed)
 
     # Target deck (optional)
     target_deck_cb = QComboBox()
@@ -285,70 +438,43 @@ def make_jisho_tab(config):
 
     tabs.addTab(advanced, "Advanced")
 
-    # ==================================================================
-    # Shared helpers – note type → fields
-    # ==================================================================
-    def refresh_fields_from_note_type():
-        model_name = card_type_cb.currentText()
-        fields = []
-        try:
-            model = mw.col.models.by_name(model_name) if mw.col and model_name else None
-            if model:
-                fields = [f["name"] for f in model["flds"]]
-        except Exception:
-            pass
-
-        state["current_fields"] = fields
-
-        # Search field
-        current_search = search_field_cb.currentText()
-        search_field_cb.blockSignals(True)
-        search_field_cb.clear()
-        search_field_cb.addItems(fields)
-        if current_search in fields:
-            search_field_cb.setCurrentText(current_search)
-        elif config.search_field in fields:
-            search_field_cb.setCurrentText(config.search_field)
-        search_field_cb.blockSignals(False)
-
-        # Rebuild mapping rows so right-side combos have the new fields
-        rebuild_mapping_rows()
-
-    card_type_cb.currentIndexChanged.connect(refresh_fields_from_note_type)
-    refresh_fields_from_note_type()   # initial fill
+    # Initial load
+    load_profile_into_ui(state["active"])
 
     # ==================================================================
     # apply_to_config – called when user clicks Save
     # ==================================================================
     def apply_to_config(cfg):
+        persist_current_profile()
+
+        # Globals
         cfg.use_jisho = use_jisho_cb.isChecked()
-
-        cfg.card_type = card_type_cb.currentText()
-        cfg.target_deck = target_deck_cb.currentText().strip()
-        cfg.search_field = search_field_cb.currentText()
-
-        cfg.fill_mode = fill_mode_cb.currentData()
-        cfg.multi_meaning_format = multi_meaning_cb.currentData()
-        cfg.multi_word_format = multi_word_cb.currentData() or "inline"
-        cfg.quick_fill_mode = quick_fill_mode_cb.currentData()
-
-        # Shortcuts
         seq = open_shortcut_edit.keySequence()
         if not seq.isEmpty():
             cfg.jisho_shortcut = seq.toString(QKeySequence.SequenceFormat.NativeText)
         seq = quick_shortcut_edit.keySequence()
         if not seq.isEmpty():
             cfg.jisho_fastfill_shortcut = seq.toString(QKeySequence.SequenceFormat.NativeText)
-
-        # Mapping
-        cfg.mappings = [dict(r) for r in state["mapping_rows"] if r.get("jisho") or r.get("field")]
-
-        # Advanced
         cfg.editor_button_position = button_pos_cb.currentData()
-        cfg.remove_pos_ending = remove_pos_cb.isChecked()
-        cfg.remove_furigana_search = remove_furigana_cb.isChecked()
-        cfg.disable_multi_word_warning = disable_multi_word_cb.isChecked()
-        cfg.show_quick_fill_success = show_quick_success_cb.isChecked()
         cfg.language = lang_cb.currentData()
+
+        # Profiles (source of truth)
+        cfg.jisho_profiles = deepcopy(state["profiles"])
+        cfg.active_jisho_profile = state["active"]
+
+        # Mirror active profile onto the flat keys (for runtime adapter)
+        active_p = state["profiles"].get(state["active"], default_jisho_profile())
+        cfg.card_type = state["active"]
+        cfg.target_deck = active_p.get("target_deck", "")
+        cfg.search_field = active_p.get("search_field", "")
+        cfg.mappings = active_p.get("mappings", [])
+        cfg.fill_mode = active_p.get("fill_mode", "replace")
+        cfg.multi_meaning_format = active_p.get("multi_meaning_format", "semicolon_merged")
+        cfg.multi_word_format = active_p.get("multi_word_format", "inline")
+        cfg.remove_pos_ending = active_p.get("remove_pos_ending", True)
+        cfg.remove_furigana_search = active_p.get("remove_furigana_search", True)
+        cfg.disable_multi_word_warning = active_p.get("disable_multi_word_warning", False)
+        cfg.quick_fill_mode = active_p.get("quick_fill_mode", "all")
+        cfg.show_quick_fill_success = active_p.get("show_quick_fill_success", False)
 
     return outer, "Jisho", apply_to_config

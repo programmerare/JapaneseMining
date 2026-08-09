@@ -5,6 +5,23 @@ from typing import Any
 import json
 
 
+CONFIG_PATH = Path(__file__).parent / "config.json"
+
+JISHO_PROFILE_KEYS = (
+    "search_field",
+    "target_deck",
+    "mappings",
+    "fill_mode",
+    "multi_meaning_format",
+    "multi_word_format",
+    "remove_pos_ending",
+    "remove_furigana_search",
+    "disable_multi_word_warning",
+    "quick_fill_mode",
+    "show_quick_fill_success",
+)
+
+
 @dataclass
 class Config:
     # --- GENERAL ---
@@ -29,6 +46,12 @@ class Config:
     use_jisho: bool = True
     jisho_shortcut: str = "Ctrl+J"
     jisho_fastfill_shortcut: str = "Ctrl+Shift+J"
+    editor_button_position: str = "toolbar" # toolbarl | field_label | both
+    language: str = "en"
+    show_welcome_dialog: bool = False
+
+    jisho_profiles: dict = field(default_factory=dict)  # {note_type: {profile_fields}}
+    active_jisho_profile: str = ""  # last selected / fallback name
 
     card_type: str = "JapaneseMining"   # note type
     target_deck: str = ""
@@ -42,15 +65,9 @@ class Config:
     disable_multi_word_warning: bool = False
     show_quick_fill_success: bool = True
     quick_fill_mode: str = "all"    # all | first
-    editor_button_position: str = "toolbar" # toolbarl | field_label | both
-    language: str = "en"
-    show_welcome_dialog: bool = False
 
     # --- HYPERTTS ---
     use_hypertts: bool = False
-
-
-CONFIG_PATH = Path(__file__).parent / "config.json"
 
 
 def load_config() -> Config:
@@ -173,4 +190,69 @@ def _normalize_config_dict(data: dict) -> dict:
     if not str(result.get("jisho_fastfill_shortcut") or "").strip():
         result["jisho_fastfill_shortcut"] = defaults["jisho_fastfill_shortcut"]
 
+    _migrate_to_jisho_profiles(result)
+
     return result
+
+
+def default_jisho_profile() -> dict:
+    return {
+        "search_field": "Word",
+        "target_deck": "",
+        "mappings": [],
+        "fill_mode": "replace",
+        "multi_meaning_format": "semicolon_merged",
+        "multi_word_format": "inline",
+        "remove_pos_ending": True,
+        "remove_furigana_search": True,
+        "disable_multi_word_warning": False,
+        "quick_fill_mode": "all",
+        "show_quick_fill_success": False,
+    }
+
+
+def _migrate_to_jisho_profiles(data: dict) -> dict:
+    profiles = data.get("jisho_profiles")
+    if not isinstance(profiles, dict):
+        profiles = {}
+
+    # If we still have old flat fields, turn them into the first profile
+    if not profiles:
+        old_note_type = (
+            data.get("card_type")
+            or data.get("mining_note_type")
+            or "JapaneseMining"
+        )
+        profile = default_jisho_profile()
+        for key in JISHO_PROFILE_KEYS:
+            if key in data:
+                profile[key] = data[key]
+        # mappings need the same cleaning you already do
+        profile["mappings"] = _normalize_mappings(profile.get("mappings"))
+        profiles[old_note_type] = profile
+
+    # Make sure every profile is complete
+    clean_profiles = {}
+    for name, raw in profiles.items():
+        name = str(name or "").strip()
+        if not name:
+            continue
+        p = default_jisho_profile()
+        if isinstance(raw, dict):
+            for key in JISHO_PROFILE_KEYS:
+                if key in raw:
+                    p[key] = raw[key]
+        p["mappings"] = _normalize_mappings(p.get("mappings"))
+        clean_profiles[name] = p
+
+    if not clean_profiles:
+        clean_profiles["JapaneseMining"] = default_jisho_profile()
+
+    data["jisho_profiles"] = clean_profiles
+
+    active = str(data.get("active_jisho_profile") or "").strip()
+    if active not in clean_profiles:
+        active = next(iter(clean_profiles))
+    data["active_jisho_profile"] = active
+
+    return data
