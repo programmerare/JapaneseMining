@@ -1,14 +1,22 @@
 from aqt import mw
 from aqt.qt import QAction, QMenu
 
+from .kanji_heatmap import show_kanji_heatmap
 
-def setup_menu(config, collection_service, show_todays_words, show_settings):
+
+def setup_menu(config, collection_service, kanji_data_service, show_todays_words, show_settings):
     """Set up the JapaneseMining menu in Anki's Tools menu."""
     my_menu = QMenu("JapaneseMining", mw)
 
     action = QAction("Show Today's Words", mw)
     action.triggered.connect(show_todays_words)
     my_menu.addAction(action)
+
+    action = QAction("Show Kanji Heat Map", mw)
+    action.triggered.connect(lambda: show_kanji_heatmap(kanji_data_service))
+    my_menu.addAction(action)
+
+    my_menu.addSeparator()
 
     action = QAction("Settings", mw)
     action.setMenuRole(QAction.MenuRole.NoRole)
