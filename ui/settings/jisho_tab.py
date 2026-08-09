@@ -1,4 +1,5 @@
 # jisho_tab.py
+
 from aqt import mw
 from aqt.qt import (
     QWidget, QVBoxLayout, QHBoxLayout, QInputDialog, QFormLayout, QTabWidget,
@@ -59,7 +60,15 @@ def make_jisho_tab(config):
     # ==================================================================
     general = QWidget()
     g_layout = QFormLayout(general)
+    g_layout.setContentsMargins(16, 12, 16, 12)
+    g_layout.setSpacing(10)
     g_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+    g_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+
+    # Section header
+    header = QLabel("Jisho")
+    header.setStyleSheet("font-weight: 600; color: #555; margin-top: 4px;")
+    g_layout.addRow(header)
 
     # Enable
     use_jisho_cb = QCheckBox("Enable Jisho")
@@ -67,13 +76,22 @@ def make_jisho_tab(config):
     note = QLabel("Restart Anki after changing this.")
     note.setStyleSheet("color: gray; font-size: 11px;")
     enable_row = QHBoxLayout()
+    enable_row.setContentsMargins(0, 0, 0, 0)
+    enable_row.setSpacing(8)
     enable_row.addWidget(use_jisho_cb)
     enable_row.addWidget(note)
     enable_row.addStretch()
     g_layout.addRow(enable_row)
 
+    # Thin separator
+    sep = QFrame()
+    sep.setFrameShape(QFrame.Shape.HLine)
+    sep.setStyleSheet("color: #ddd;")
+    g_layout.addRow(sep)
+
     # Profile
     profile_row = QHBoxLayout()
+    profile_row.setSpacing(8)
     profile_cb = QComboBox()
     profile_cb.setEditable(False)
 
@@ -350,7 +368,8 @@ def make_jisho_tab(config):
         for idx, row_data in enumerate(state["mapping_rows"]):
             row_widget = QWidget()
             row = QHBoxLayout(row_widget)
-            row.setContentsMargins(0, 2, 0, 2)
+            row.setContentsMargins(4, 4, 4, 4)
+            row.setSpacing(8)
 
             left = QComboBox()
             left.addItems(sorted(JISHO_MAPPING_OPTIONS))
@@ -360,8 +379,10 @@ def make_jisho_tab(config):
             )
 
             arrow = QLabel("→")
+            arrow.setFixedWidth(24)
             arrow.setFixedWidth(20)
             arrow.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            arrow.setStyleSheet("color: #888;")
 
             right = QComboBox()
             right.addItem("")  # empty allowed
@@ -372,7 +393,8 @@ def make_jisho_tab(config):
             )
 
             remove_btn = QPushButton("✕")
-            remove_btn.setFixedWidth(28)
+            remove_btn.setFixedSize(28, 28)
+            remove_btn.setStyleSheet("QPushButton { color: #c44; border: none; }")
             remove_btn.clicked.connect(lambda _, i=idx: remove_mapping_row(i))
 
             row.addWidget(left, 1)
@@ -402,6 +424,9 @@ def make_jisho_tab(config):
     # ==================================================================
     advanced = QWidget()
     a_layout = QFormLayout(advanced)
+    a_layout.setContentsMargins(16, 12, 16, 12)
+    a_layout.setSpacing(10)
+    a_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
     # Button position
     button_pos_cb = QComboBox()

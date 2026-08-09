@@ -2,39 +2,56 @@ from aqt import (
     QCheckBox,
     QComboBox,
     QFormLayout,
+    QFrame,
     QKeySequence,
     QKeySequenceEdit,
+    QLabel,
     QLineEdit,
     QWidget,
+    Qt,
 )
 
 
 def make_translate_tab(config):
     translate_tab = QWidget()
     translate_layout = QFormLayout(translate_tab)
+    translate_layout.setContentsMargins(16, 12, 16, 12)
+    translate_layout.setSpacing(10)
+    translate_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+    translate_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+
+    # Section header
+    header = QLabel("DeepL")
+    header.setStyleSheet("font-weight: 600; color: #555; margin-top: 4px;")
+    translate_layout.addRow(header)
 
     deepl_use_checkbox = QCheckBox("Enable DeepL")
     deepl_use_checkbox.setChecked(config.use_deepl)
+    translate_layout.addRow(deepl_use_checkbox)
+
+    # Thin separator
+    sep = QFrame()
+    sep.setFrameShape(QFrame.Shape.HLine)
+    sep.setStyleSheet("color: #ddd;")
+    translate_layout.addRow(sep)
 
     deepl_key_edit = QLineEdit(config.deepl_api_key)
-    deepl_key_edit.setMinimumWidth(420)
+    deepl_key_edit.setMinimumWidth(380)
     deepl_key_edit.setEchoMode(QLineEdit.EchoMode.Password)
+    translate_layout.addRow("API key", deepl_key_edit)
 
     deepl_url_edit = QLineEdit(config.deepl_url)
-    deepl_url_edit.setMinimumWidth(420)
+    deepl_url_edit.setMinimumWidth(380)
+    translate_layout.addRow("URL", deepl_url_edit)
 
     translate_target_lang_combo = QComboBox()
     translate_target_lang_combo.addItems(["Ace","Af","Sq","Ar","An","Hy","As","Ay","Az","Ba","Eu","Be","Bn","Bho","Bs","Br","Bg","My","Yue","Ca","Ceb","Zh-Hans","Zh-Hant","Zh","Hr","Cs","Da","Prs","Nl","En","En-Us","En-Gb","Eo","Et","Fi","Fr","Fr-Ca","Fr-Fr","Gl","Ka","De","De-De","De-Ch","El","Gn","Gu","Ht","Ha","He","Hi","Hu","Is","Ig","Id","Ga","It","Ja","Jv","Pam","Kk","Gom","Ko","Kmr","Ckb","Ky","La","Lv","Ln","Lt","Lmo","Lb","Mk","Mai","Mg","Ms","Ml","Mt","Mi","Mr","Mn","Ne","Nb","Oc","Om","Pag","Ps","Fa","Pl","Pt-Br","Pt-Pt","Pt","Pa","Qu","Ro","Ru","Sa","Sr","St","Scn","Sk","Sl","Es","Es-419","Su","Sw","Sv","Tl","Tg","Ta","Tt","Te","Th","Ts","Tn","Tr","Tk","Uk","Ur","Uz","Vi","Cy","Wo","Xh","Yi","Zu"])
     translate_target_lang_combo.setCurrentText(config.deepl_target_lang)
+    translate_layout.addRow("Target language", translate_target_lang_combo)
 
     deepl_shortcut_edit = QKeySequenceEdit()
     deepl_shortcut_edit.setKeySequence(QKeySequence(config.deepl_shortcut))
-
-    translate_layout.addRow("", deepl_use_checkbox)
-    translate_layout.addRow("DeepL API key", deepl_key_edit)
-    translate_layout.addRow("DeepL URL", deepl_url_edit)
-    translate_layout.addRow("DeepL target language", translate_target_lang_combo)
-    translate_layout.addRow("Translate shortcut", deepl_shortcut_edit)
+    translate_layout.addRow("Shortcut", deepl_shortcut_edit)
 
     def apply_to_config(cfg):
         seq = deepl_shortcut_edit.keySequence()

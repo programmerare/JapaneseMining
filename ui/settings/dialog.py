@@ -1,5 +1,3 @@
-
-
 from aqt import mw
 from aqt.qt import (
     QDialog,
@@ -19,10 +17,13 @@ def make_show_settings(config, save_config_fn):
         """Show a dialog for configuring the JapaneseMining add-on."""
         dialog = QDialog(mw)
         dialog.setWindowTitle("JapaneseMining Settings")
-        dialog.resize(720, 400)
-        dialog.setMinimumWidth(640)
+        dialog.resize(760, 520)
+        dialog.setMinimumSize(680, 420)
 
         main_layout = QVBoxLayout(dialog)
+        main_layout.setContentsMargins(12, 12, 12, 8)
+        main_layout.setSpacing(10)
+
         tabs = QTabWidget()
 
         # Collect the apply functions and add the tabs to the QTabWidget
