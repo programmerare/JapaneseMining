@@ -107,6 +107,7 @@ def setup_addon():
     setup_menu(
         config,
         collection_service,
+        kanji_data_service,
         show_todays_words,
         show_settings,
     )
