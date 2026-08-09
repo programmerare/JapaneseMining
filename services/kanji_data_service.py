@@ -34,6 +34,19 @@ class KanjiDataService:
         """Return the words learned today from the cache."""
         return self._todays_words
 
+    def get_heatmap_data(self) -> tuple[list[str], list[str], int, int]:
+        """Return the learned and remaining kanji for the heatmap."""
+        data = self._learned_kanji
+        learned = [k for k, v in data.items() if v.get("Learned")]
+        remaining = [k for k, v in data.items() if not v.get("Learned")]
+
+        learned.sort()
+        remaining.sort()
+
+        keywords = {k: v.get("Keyword", "") for k, v in data.items()}
+
+        return learned, remaining, len(learned), len(learned) + len(remaining), keywords
+
     def load_learned_kanji(self) -> None:
         """Load learned kanji and their keywords from a csv file."""
         file_path = self._media_path(self._LEARNED_KANJI_FILE)
