@@ -4,16 +4,14 @@ from aqt import mw
 from aqt.qt import (
     QWidget, QVBoxLayout, QHBoxLayout, QInputDialog, QFormLayout, QTabWidget,
     QLabel, QCheckBox, QComboBox, QMessageBox, QPushButton, QKeySequenceEdit,
-    QKeySequence, QScrollArea, QFrame, Qt, QSizePolicy
+    QKeySequence, QScrollArea, QFrame, Qt,
 )
 from copy import deepcopy
 
 # Re-use the same constants we put in config.py
 from ...config import (
     JISHO_MAPPING_OPTIONS,
-    ALLOWED_MULTI_WORD,
     default_jisho_profile,
-    save_config,
 )
 
 # Compatibility matrix (copied from foreign code)
@@ -117,10 +115,6 @@ def make_jisho_tab(config):
     profile_row.addWidget(delete_profile_btn)
 
     g_layout.addRow(profile_row)
-
-    def get_current_profile():
-        note_type = profile_cb.currentText()
-        return note_type, config.jisho_profiles.get(note_type, {})
 
     def add_profile():
         try:
