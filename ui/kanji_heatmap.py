@@ -70,11 +70,12 @@ def show_kanji_heatmap(kanji_data_service=None):
         chunk = all_kanji[i:i + KANJI_PER_ROW]
         html.append('<div class="row">')
         for j, k in enumerate(chunk):
-            global_idx = i + j
             keyword = keywords.get(k, "").replace('"', "&quot;")
 
             if k in learned_set:
-                color = RAINBOW[global_idx % len(RAINBOW)]
+                row = i // KANJI_PER_ROW
+                col = j
+                color = RAINBOW[(row + col) % len(RAINBOW)]
                 html.append(
                     f'<span class="k learned" style="color:{color}" title="{keyword}">{k}</span>'
                 )
