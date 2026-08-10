@@ -2,7 +2,7 @@ from aqt import mw
 from aqt.utils import tooltip
 from anki.notes import Note
 import csv
-import os
+import math
 from pathlib import Path
 
 from ..config import Config
@@ -385,3 +385,70 @@ class CollectionService:
     def _media_path(self, filename: str) -> Path:
         """Return the full path to a file in the Anki media directory."""
         return Path(mw.col.media.dir()) / filename
+
+    def _get_card_knowledge(self, card) -> float:
+        """
+        Return a knowledge score in [0.0, 1.0] suitable for the heatmap.
+
+        - New cards → 0.0
+        - Main signal: log-scaled Stability (long-term strength)
+        - Small contribution from current Retrievability
+        """
+        if card.type == 0:          # new
+            return 0.0
+
+        stability = None
+        retrievability = None
+
+        # 1. Prefer the official stats object
+        try:
+            stats = mw.col.card_stats_data(card.id)
+
+            for attr in ("stability", "fsrs_stability", "s"):
+                if hasattr(stats, attr):
+                    val = getattr(stats, attr)
+                    if val is not None:
+                        stability = float(val)
+                        break
+
+            for attr in ("retrievability", "fsrs_retrievability", "r"):
+                if hasattr(stats, attr):
+                    val = getattr(stats, attr)
+                    if val is not None:
+                        retrievability = float(val)
+                        break
+        except Exception:
+            pass
+
+        # 2. Fallback to memory_state (FSRS)
+        if stability is None:
+            try:
+                if getattr(card, "memory_state", None) is not None:
+                    ms = card.memory_state
+                    if hasattr(ms, "stability") and ms.stability is not None:
+                        stability = float(ms.stability)
+                    if hasattr(ms, "difficulty") and retrievability is None:
+                        # we don't have R here, leave it None
+                        pass
+            except Exception:
+                pass
+
+        # 3. Build the score
+        if stability is None or stability <= 0:
+            return 0.0
+
+        # Log-scale stability so that the difference between
+        # 3 days and 30 days is still visible, while very high
+        # values (years) don't dominate everything.
+        # S_max = 365 → a one-year stability maps to ~1.0
+        S_MAX = 365.0
+        stab_norm = min(1.0, math.log1p(stability) / math.log1p(S_MAX))
+
+        if retrievability is None:
+            retrievability = 0.9          # neutral default when missing
+
+        retrievability = max(0.0, min(1.0, retrievability))
+
+        # Final blend: stability is the dominant signal
+        knowledge = 0.75 * stab_norm + 0.25 * retrievability
+        return max(0.0, min(1.0, knowledge))
