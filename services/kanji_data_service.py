@@ -37,15 +37,28 @@ class KanjiDataService:
     def get_heatmap_data(self) -> tuple[list[str], list[str], int, int]:
         """Return the learned and remaining kanji for the heatmap."""
         data = self._learned_kanji
+
         learned = [k for k, v in data.items() if v.get("Learned")]
         remaining = [k for k, v in data.items() if not v.get("Learned")]
 
-        learned.sort()
+        learned.sort(key=lambda k: (-data[k].get("Knowledge", 0.0), k))  # Sort by knowledge descending, then kanji
         remaining.sort()
 
         keywords = {k: v.get("Keyword", "") for k, v in data.items()}
+        knowledge = {
+            k: float(v.get("Knowledge", 0.0))
+            for k, v in data.items()
+            if v.get("Learned")
+        }
 
-        return learned, remaining, len(learned), len(learned) + len(remaining), keywords
+        return (
+            learned,
+            remaining,
+            len(learned),
+            len(learned) + len(remaining),
+            keywords, 
+            knowledge
+        )
 
     def load_learned_kanji(self) -> None:
         """Load learned kanji and their keywords from a csv file."""
