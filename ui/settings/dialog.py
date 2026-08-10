@@ -18,7 +18,7 @@ def make_show_settings(config, save_config_fn):
         """Show a dialog for configuring the JapaneseMining add-on."""
         dialog = QDialog(mw)
         dialog.setWindowTitle("JapaneseMining Settings")
-        dialog.resize(760, 520)
+        dialog.resize(760, 620)
         dialog.setMinimumSize(680, 420)
 
         main_layout = QVBoxLayout(dialog)
