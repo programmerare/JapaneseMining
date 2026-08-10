@@ -140,8 +140,29 @@ class CollectionService:
         for kanji in sorted(kanji_rows, key=lambda item: (not kanji_rows[item], item)):
             keyword = self.fetch_kanji_keyword(kanji)
             learned = kanji_rows[kanji]
-            learned_kanji_rows.append({"Kanji": kanji, "Keyword": keyword, "Learned": "1" if learned else ""})
-            learned_kanji_cache[kanji] = {"Keyword": keyword, "Learned": learned}
+
+            knowledge = 0.0
+            if learned:
+                card_ids = col.find_cards(
+                    f'deck:"{deck}" ({kanji_field}:{kanji} OR "{alt_kanji_field}:{kanji}")'
+                )
+                for cid in card_ids:
+                    card = col.get_card(cid)
+                    r = self._get_card_knowledge(card)
+                    if r > knowledge:
+                        knowledge = r
+
+            learned_kanji_rows.append({
+                "Kanji": kanji,
+                "Keyword": keyword,
+                "Learned": "1" if learned else "",
+                "Knowledge": f"{knowledge:.4f}" if learned else "",
+            })
+            learned_kanji_cache[kanji] = {
+                "Keyword": keyword,
+                "Learned": learned,
+                "Knowledge": knowledge if learned else 0.0,
+            }
 
         if self._kanji_data:
             self._kanji_data.save_learned_kanji(learned_kanji_rows, learned_kanji_cache)
