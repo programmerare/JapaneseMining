@@ -7,6 +7,7 @@ from aqt.qt import (
 )
 
 from .general_tab import make_general_tab
+from .rtk_tab import make_rtk_tab
 from .translate_tab import make_translate_tab
 from .jisho_tab import make_jisho_tab
 from .hypertts_tab import make_hypertts_tab
@@ -29,7 +30,7 @@ def make_show_settings(config, save_config_fn):
         # Collect the apply functions and add the tabs to the QTabWidget
         apply_fns = []
 
-        for make_tab in [make_general_tab, make_translate_tab, make_jisho_tab, make_hypertts_tab]:
+        for make_tab in [make_general_tab, make_rtk_tab, make_translate_tab, make_jisho_tab, make_hypertts_tab]:
             tab, title, apply_fn = make_tab(config)
             tabs.addTab(tab, title)
             apply_fns.append(apply_fn)
