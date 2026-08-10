@@ -5,8 +5,15 @@ from aqt.qt import (
     QFormLayout,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
+    QPushButton,
+    QRadioButton,
+    QSpinBox,
+    QTabWidget,
+    QVBoxLayout,
     QWidget,
     Qt,
+    QButtonGroup,
 )
 
 
@@ -40,41 +47,56 @@ def _field_names(note_type: str) -> list[str]:
     return []
 
 
-def _set_combo_value(combo: QComboBox, value: str, items: list[str]) -> None:
-    """Populate combo with items and select value. Inserts value if missing so nothing is lost."""
+def _set_combo_value(
+    combo: QComboBox,
+    value: str,
+    items: list[str],
+    *,
+    preserve_missing: bool = True,
+) -> None:
+    """Populate combo and select value. Optionally keep stale config values visible."""
     combo.blockSignals(True)
     combo.clear()
     combo.addItems(items)
     value = (value or "").strip()
     if value and combo.findText(value) < 0:
-        combo.insertItem(0, value)
+        if preserve_missing:
+            combo.insertItem(0, value)
+        else:
+            value = ""
     idx = combo.findText(value)
-    if idx >= 0:
-        combo.setCurrentIndex(idx)
+    combo.setCurrentIndex(idx if idx >= 0 else -1)
     combo.blockSignals(False)
 
 
 def make_rtk_tab(config):
-    rtk_tab = QWidget()
-    rtk_layout = QFormLayout(rtk_tab)
-    rtk_layout.setContentsMargins(16, 12, 16, 12)
-    rtk_layout.setSpacing(10)
-    rtk_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
-    rtk_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+    """Return (widget, title, apply_to_config)."""
+    outer = QWidget()
+    outer_layout = QVBoxLayout(outer)
+    outer_layout.setContentsMargins(8, 8, 8, 8)
+    outer_layout.setSpacing(6)
 
-    # --- Section: RTK ---
-    rtk_header = QLabel("Remembering the Kanji (Heisig)")
-    rtk_header.setStyleSheet("font-weight: 600; color: #555; margin-top: 12px;")
-    rtk_layout.addRow(rtk_header)
+    tabs = QTabWidget()
+    outer_layout.addWidget(tabs)
+
+    # ==================================================================
+    # Tab 1 – Deck Mapping
+    # ==================================================================
+    mapping_tab = QWidget()
+    mapping_layout = QFormLayout(mapping_tab)
+    mapping_layout.setContentsMargins(16, 12, 16, 12)
+    mapping_layout.setSpacing(10)
+    mapping_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+    mapping_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+
+    mapping_header = QLabel("Remembering the Kanji (Heisig)")
+    mapping_header.setStyleSheet("font-weight: 600; color: #555; margin-top: 4px;")
+    mapping_layout.addRow(mapping_header)
 
     rtk_deck_cb = QComboBox()
     rtk_deck_cb.setMinimumWidth(380)
-    _set_combo_value(
-        rtk_deck_cb,
-        getattr(config, "rtk_deck", "") or "",
-        _deck_names(),
-    )
-    rtk_layout.addRow("Deck", rtk_deck_cb)
+    _set_combo_value(rtk_deck_cb, getattr(config, "rtk_deck", "") or "", _deck_names())
+    mapping_layout.addRow("Deck", rtk_deck_cb)
 
     rtk_note_type_cb = QComboBox()
     rtk_note_type_cb.setMinimumWidth(380)
@@ -83,28 +105,27 @@ def make_rtk_tab(config):
         getattr(config, "rtk_note_type", "") or "",
         _note_type_names(),
     )
-    rtk_layout.addRow("Note type", rtk_note_type_cb)
+    mapping_layout.addRow("Note type", rtk_note_type_cb)
 
-    # Field combos — populated from the selected RTK note type
     rtk_kanji_field_cb = QComboBox()
     rtk_kanji_field_cb.setMinimumWidth(380)
-    rtk_layout.addRow("Kanji field", rtk_kanji_field_cb)
+    mapping_layout.addRow("Kanji field", rtk_kanji_field_cb)
 
     rtk_alternative_kanji_field_cb = QComboBox()
     rtk_alternative_kanji_field_cb.setMinimumWidth(380)
-    rtk_layout.addRow("Alternative kanji field", rtk_alternative_kanji_field_cb)
+    mapping_layout.addRow("Alternative kanji field", rtk_alternative_kanji_field_cb)
 
     rtk_keyword_field_cb = QComboBox()
     rtk_keyword_field_cb.setMinimumWidth(380)
-    rtk_layout.addRow("Keyword field", rtk_keyword_field_cb)
+    mapping_layout.addRow("Keyword field", rtk_keyword_field_cb)
 
     rtk_heisig_number_field_cb = QComboBox()
     rtk_heisig_number_field_cb.setMinimumWidth(380)
-    rtk_layout.addRow("Heisig number field", rtk_heisig_number_field_cb)
+    mapping_layout.addRow("Heisig number field", rtk_heisig_number_field_cb)
 
     rtk_stroke_count_field_cb = QComboBox()
     rtk_stroke_count_field_cb.setMinimumWidth(380)
-    rtk_layout.addRow("Stroke count field", rtk_stroke_count_field_cb)
+    mapping_layout.addRow("Stroke count field", rtk_stroke_count_field_cb)
 
     field_combos = [
         (rtk_kanji_field_cb, getattr(config, "rtk_kanji_field", "") or ""),
@@ -114,20 +135,152 @@ def make_rtk_tab(config):
         (rtk_stroke_count_field_cb, getattr(config, "rtk_stroke_count_field", "") or ""),
     ]
 
-    def refresh_rtk_fields(note_type: str | None = None) -> None:
+    def refresh_rtk_fields(note_type: str | None = None, *, preserve_missing: bool = False) -> None:
         note_type = note_type if note_type is not None else rtk_note_type_cb.currentText()
         fields = _field_names(note_type)
         for combo, saved in field_combos:
-            # Prefer currently selected text if the user already picked something
-            current = combo.currentText() if combo.count() else saved
-            _set_combo_value(combo, current or saved, fields)
+            if preserve_missing:
+                value = combo.currentText() if combo.count() else saved
+                _set_combo_value(combo, value or saved, fields, preserve_missing=True)
+            else:
+                current = combo.currentText()
+                value = current if current in fields else ""
+                _set_combo_value(combo, value, fields, preserve_missing=False)
 
     def on_rtk_note_type_changed(_index: int = -1) -> None:
-        refresh_rtk_fields(rtk_note_type_cb.currentText())
+        refresh_rtk_fields(rtk_note_type_cb.currentText(), preserve_missing=False)
 
     rtk_note_type_cb.currentIndexChanged.connect(on_rtk_note_type_changed)
-    refresh_rtk_fields()  # initial population from config
+    refresh_rtk_fields(preserve_missing=True)
 
+    # Small helper so the Setup tab can refresh the combos after creating a deck
+    def refresh_mapping_combos() -> None:
+        _set_combo_value(rtk_deck_cb, rtk_deck_cb.currentText(), _deck_names())
+        _set_combo_value(rtk_note_type_cb, rtk_note_type_cb.currentText(), _note_type_names())
+        refresh_rtk_fields(preserve_missing=True)
+
+    tabs.addTab(mapping_tab, "Deck Mapping")
+
+    # ==================================================================
+    # Tab 2 – Setup & Import
+    # ==================================================================
+    setup_tab = QWidget()
+    setup_layout = QVBoxLayout(setup_tab)
+    setup_layout.setContentsMargins(16, 12, 16, 12)
+    setup_layout.setSpacing(14)
+
+    # ----- Create section -----
+    create_header = QLabel("Create RTK Deck & Note Type")
+    create_header.setStyleSheet("font-weight: 600; color: #555;")
+    setup_layout.addWidget(create_header)
+
+    create_form = QFormLayout()
+    create_form.setSpacing(8)
+    create_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+
+    create_deck_edit = QLineEdit(getattr(config, "rtk_deck", "") or "日本語::RTK")
+    create_deck_edit.setMinimumWidth(320)
+    create_form.addRow("Deck name", create_deck_edit)
+
+    create_note_type_edit = QLineEdit(getattr(config, "rtk_note_type", "") or "Remembering the Kanji")
+    create_note_type_edit.setMinimumWidth(320)
+    create_form.addRow("Note type name", create_note_type_edit)
+
+    create_all_notes_cb = QCheckBox("Also create notes for all Heisig kanji (≈2200)")
+    create_all_notes_cb.setChecked(True)
+    create_form.addRow("", create_all_notes_cb)
+
+    setup_layout.addLayout(create_form)
+
+    create_btn = QPushButton("Create Deck & Note Type")
+    create_btn.setMinimumWidth(220)
+    setup_layout.addWidget(create_btn, alignment=Qt.AlignmentFlag.AlignLeft)
+
+    # Placeholder – we will wire this in step 2
+    def on_create_clicked() -> None:
+        # TODO: call CollectionService.create_rtk_deck_and_note_type(...)
+        # After success:
+        #   1. update config fields
+        #   2. refresh_mapping_combos()
+        #   3. switch to Deck Mapping tab (optional)
+        pass
+
+    create_btn.clicked.connect(on_create_clicked)
+
+    # ----- Import section (scaffolding only) -----
+    setup_layout.addSpacing(10)
+    import_header = QLabel("Import Known Kanji")
+    import_header.setStyleSheet("font-weight: 600; color: #555;")
+    setup_layout.addWidget(import_header)
+
+    import_info = QLabel(
+        "You will be able to import a list of known kanji from a file\n"
+        "or mark everything up to a given Heisig number.\n"
+        "(Implementation comes in the next step.)"
+    )
+    import_info.setStyleSheet("color: #666;")
+    setup_layout.addWidget(import_info)
+
+    # Future controls (disabled for now so the layout is already correct)
+    file_btn = QPushButton("Choose file…")
+    file_btn.setEnabled(False)
+    setup_layout.addWidget(file_btn, alignment=Qt.AlignmentFlag.AlignLeft)
+
+    heisig_row = QHBoxLayout()
+    heisig_row.addWidget(QLabel("Heisig number up to:"))
+    heisig_spin = QSpinBox()
+    heisig_spin.setRange(1, 3100)
+    heisig_spin.setValue(1)
+    heisig_spin.setEnabled(False)
+    heisig_row.addWidget(heisig_spin)
+    heisig_row.addStretch()
+    setup_layout.addLayout(heisig_row)
+
+    fill_keywords_cb = QCheckBox("Fill missing keywords from Heisig data")
+    fill_keywords_cb.setChecked(True)
+    fill_keywords_cb.setEnabled(False)
+    setup_layout.addWidget(fill_keywords_cb)
+
+    # Scheduling policy
+    sched_label = QLabel("When creating cards for known kanji:")
+    setup_layout.addWidget(sched_label)
+
+    suspend_radio = QRadioButton("Suspend the cards")
+    suspend_radio.setChecked(True)
+    suspend_radio.setEnabled(False)
+    setup_layout.addWidget(suspend_radio)
+
+    schedule_radio = QRadioButton("Schedule as review cards with due dates between")
+    schedule_radio.setEnabled(False)
+    setup_layout.addWidget(schedule_radio)
+
+    range_row = QHBoxLayout()
+    min_days_spin = QSpinBox()
+    min_days_spin.setRange(1, 3650)
+    min_days_spin.setValue(30)
+    min_days_spin.setEnabled(False)
+    max_days_spin = QSpinBox()
+    max_days_spin.setRange(1, 3650)
+    max_days_spin.setValue(700)
+    max_days_spin.setEnabled(False)
+    range_row.addWidget(min_days_spin)
+    range_row.addWidget(QLabel("and"))
+    range_row.addWidget(max_days_spin)
+    range_row.addWidget(QLabel("days"))
+    range_row.addStretch()
+    setup_layout.addLayout(range_row)
+
+    sched_group = QButtonGroup(setup_tab)
+    sched_group.addButton(suspend_radio)
+    sched_group.addButton(schedule_radio)
+
+    setup_layout.addStretch()
+
+    tabs.addTab(setup_tab, "Setup & Import")
+
+    # ==================================================================
+    # apply_to_config – only the mapping fields matter for now
+    # ==================================================================
     def apply_to_config(cfg):
         cfg.rtk_deck = rtk_deck_cb.currentText().strip()
         cfg.rtk_note_type = rtk_note_type_cb.currentText().strip()
@@ -137,4 +290,10 @@ def make_rtk_tab(config):
         cfg.rtk_heisig_number_field = rtk_heisig_number_field_cb.currentText().strip()
         cfg.rtk_stroke_count_field = rtk_stroke_count_field_cb.currentText().strip()
 
-    return rtk_tab, "RTK", apply_to_config
+    # Expose a couple of helpers so step 2 can talk to the mapping tab
+    outer.refresh_mapping_combos = refresh_mapping_combos
+    outer.rtk_deck_cb = rtk_deck_cb
+    outer.rtk_note_type_cb = rtk_note_type_cb
+    # … add more if needed later
+
+    return outer, "RTK", apply_to_config
