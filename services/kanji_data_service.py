@@ -53,14 +53,22 @@ class KanjiDataService:
         try:
             with file_path.open("r", newline="", encoding="utf-8") as f:
                 reader = csv.DictReader(f)
-                self._learned_kanji = {
-                    row["Kanji"]: {
+                self._learned_kanji = {}
+                for row in reader:
+                    kanji = row.get("Kanji")
+                    if not kanji:
+                        continue
+                    knowledge_raw = row.get("Knowledge", "")
+                    try:
+                        knowledge = float(knowledge_raw) if knowledge_raw not in (None, "") else 0.0
+                    except ValueError:
+                        knowledge = 0.0
+
+                    self._learned_kanji[kanji] = {
                         "Keyword": row.get("Keyword", ""),
                         "Learned": str(row.get("Learned", "1")).lower() in {"1", "true", "yes"},
+                        "Knowledge": knowledge,
                     }
-                    for row in reader
-                    if row.get("Kanji")
-                }
         except FileNotFoundError:
             self._learned_kanji = {}
 
@@ -70,7 +78,9 @@ class KanjiDataService:
 
         file_path = self._media_path(self._LEARNED_KANJI_FILE)
         with file_path.open("w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=["Kanji", "Keyword", "Learned"])
+            writer = csv.DictWriter(
+                f, fieldnames=["Kanji", "Keyword", "Learned", "Knowledge"]
+            )
             writer.writeheader()
             writer.writerows(rows)
 
