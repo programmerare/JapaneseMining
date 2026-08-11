@@ -72,7 +72,7 @@ def _set_combo_value(
     combo.blockSignals(False)
 
 
-def make_rtk_tab(config):
+def make_rtk_tab(config, collection_service):
     """Return (widget, title, apply_to_config)."""
     outer = QWidget()
     outer_layout = QVBoxLayout(outer)
@@ -259,62 +259,56 @@ def make_rtk_tab(config):
 
     create_btn.clicked.connect(on_create_clicked)
 
-    # ----- Import section (scaffolding only) -----
+    # ----- Import section -----
     setup_layout.addSpacing(10)
     import_header = QLabel("Import Known Kanji")
     import_header.setStyleSheet("font-weight: 600; color: #555;")
     setup_layout.addWidget(import_header)
 
     import_info = QLabel(
-        "You will be able to import a list of known kanji from a file\n"
-        "or mark everything up to a given Heisig number.\n"
-        "(Implementation comes in the next step.)"
+        "Import a list of known kanji from a file, or mark everything\n"
+        "up to a given Heisig number. The learned_kanji.csv cache is\n"
+        "always updated. Card creation only happens when an RTK deck\n"
+        "is already configured."
     )
     import_info.setStyleSheet("color: #666;")
     setup_layout.addWidget(import_info)
 
-    # Future controls (disabled for now so the layout is already correct)
     file_btn = QPushButton("Choose file…")
-    file_btn.setEnabled(False)
     setup_layout.addWidget(file_btn, alignment=Qt.AlignmentFlag.AlignLeft)
 
     heisig_row = QHBoxLayout()
     heisig_row.addWidget(QLabel("Heisig number up to:"))
     heisig_spin = QSpinBox()
     heisig_spin.setRange(1, 3100)
-    heisig_spin.setValue(1)
-    heisig_spin.setEnabled(False)
+    heisig_spin.setValue(2200)
     heisig_row.addWidget(heisig_spin)
+    heisig_apply_btn = QPushButton("Apply")
+    heisig_row.addWidget(heisig_apply_btn)
     heisig_row.addStretch()
     setup_layout.addLayout(heisig_row)
 
     fill_keywords_cb = QCheckBox("Fill missing keywords from Heisig data")
     fill_keywords_cb.setChecked(True)
-    fill_keywords_cb.setEnabled(False)
     setup_layout.addWidget(fill_keywords_cb)
 
-    # Scheduling policy
-    sched_label = QLabel("When creating cards for known kanji:")
+    sched_label = QLabel("When creating / updating RTK cards for known kanji:")
     setup_layout.addWidget(sched_label)
 
     suspend_radio = QRadioButton("Suspend the cards")
     suspend_radio.setChecked(True)
-    suspend_radio.setEnabled(False)
     setup_layout.addWidget(suspend_radio)
 
     schedule_radio = QRadioButton("Schedule as review cards with due dates between")
-    schedule_radio.setEnabled(False)
     setup_layout.addWidget(schedule_radio)
 
     range_row = QHBoxLayout()
     min_days_spin = QSpinBox()
     min_days_spin.setRange(1, 3650)
     min_days_spin.setValue(30)
-    min_days_spin.setEnabled(False)
     max_days_spin = QSpinBox()
     max_days_spin.setRange(1, 3650)
     max_days_spin.setValue(700)
-    max_days_spin.setEnabled(False)
     range_row.addWidget(min_days_spin)
     range_row.addWidget(QLabel("and"))
     range_row.addWidget(max_days_spin)
@@ -325,6 +319,44 @@ def make_rtk_tab(config):
     sched_group = QButtonGroup(setup_tab)
     sched_group.addButton(suspend_radio)
     sched_group.addButton(schedule_radio)
+
+    def _update_range_enabled() -> None:
+        enabled = schedule_radio.isChecked()
+        min_days_spin.setEnabled(enabled)
+        max_days_spin.setEnabled(enabled)
+
+    schedule_radio.toggled.connect(_update_range_enabled)
+    _update_range_enabled()
+
+    def _schedule_opts() -> dict:
+        return {
+            "fill_keywords": fill_keywords_cb.isChecked(),
+            "suspend": suspend_radio.isChecked(),
+            "schedule_min_days": min_days_spin.value(),
+            "schedule_max_days": max_days_spin.value(),
+        }
+
+    def on_file_import() -> None:
+        from aqt.qt import QFileDialog
+        path, _ = QFileDialog.getOpenFileName(
+            outer,
+            "Select kanji list",
+            "",
+            "Text / CSV (*.txt *.csv);;All files (*)",
+        )
+        if not path:
+            return
+        success, message = collection_service.import_known_kanji_from_file(path, **_schedule_opts())
+        tooltip(message)
+
+    def on_heisig_import() -> None:
+        success, message = collection_service.import_known_kanji_up_to_heisig(
+            heisig_spin.value(), **_schedule_opts()
+        )
+        tooltip(message)
+
+    file_btn.clicked.connect(on_file_import)
+    heisig_apply_btn.clicked.connect(on_heisig_import)
 
     setup_layout.addStretch()
 
