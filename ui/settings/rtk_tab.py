@@ -15,6 +15,8 @@ from aqt.qt import (
     Qt,
     QButtonGroup,
 )
+import random
+import string
 
 
 def _note_type_names() -> list[str]:
@@ -178,7 +180,9 @@ def make_rtk_tab(config):
     create_form.setSpacing(8)
     create_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
-    create_deck_edit = QLineEdit(getattr(config, "rtk_deck", "") or "日本語::RTK")
+    # create a random RTK name to avoid collisions with existing decks/note types
+    random_suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+    create_deck_edit = QLineEdit(getattr(config, "rtk_deck", "") or f"RTK _{random_suffix}")
     create_deck_edit.setMinimumWidth(320)
     create_form.addRow("Deck name", create_deck_edit)
 
