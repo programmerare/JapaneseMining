@@ -205,6 +205,128 @@ class CollectionService:
                 f"{number_updated_cards} card(s) were updated. {number_unknown_kanji} unknown kanji were added."
             )
 
+    def create_rtk_deck_and_note_type(
+        self,
+        deck_name: str,
+        note_type_name: str,
+        create_all_notes: bool = True,
+    ) -> tuple[bool, str]:
+        """
+        Create (or reuse) the RTK note type + deck.
+        Optionally bulk-create notes from heisig-kanjis.csv.
+        Updates self._config with the standard field mapping.
+        Returns (success, human-readable message).
+        """
+        col = mw.col
+        if not col:
+            return False, "No collection open."
+
+        deck_name = (deck_name or "").strip()
+        note_type_name = (note_type_name or "").strip()
+        if not deck_name or not note_type_name:
+            return False, "Deck name and note type name are required."
+
+        # ----- 1. Note type -----
+        mm = col.models
+        model = mm.by_name(note_type_name)
+        created_model = False
+
+        if model is None:
+            model = mm.new(note_type_name)
+
+            for field_name in (
+                "Kanji",
+                "Alternative Kanji",
+                "Keyword",
+                "Heisig Number",
+                "Stroke Count",
+            ):
+                mm.add_field(model, mm.new_field(field_name))
+
+            t = mm.new_template("Recognition")
+            t["qfmt"] = "{{Keyword}}"
+            t["afmt"] = (
+                "{{FrontSide}}\n\n<hr id=answer>\n\n"
+                "<div style='font-size: 48px;'>{{Kanji}}</div>\n"
+                "{{#Alternative Kanji}}<div>{{Alternative Kanji}}</div>{{/Alternative Kanji}}\n"
+                "<div style='margin-top: 12px; color: #666;'>"
+                "{{#Heisig Number}}Heisig #{{Heisig Number}} · {{/Heisig Number}}"
+                "{{#Stroke Count}}{{Stroke Count}} strokes{{/Stroke Count}}"
+                "</div>"
+            )
+            mm.add_template(model, t)
+
+            model["css"] = """
+                .card {
+                font-family: "Hiragino Sans", "Noto Sans CJK JP", "Yu Gothic", sans-serif;
+                font-size: 22px;
+                text-align: center;
+                color: #222;
+                background-color: #fff;
+                }
+            """
+            mm.add(model)
+            created_model = True
+        else:
+            existing = {f["name"] for f in model["flds"]}
+            required = {"Kanji", "Alternative Kanji", "Keyword"}
+            missing = required - existing
+            if missing:
+                return False, (
+                    f"Note type “{note_type_name}” already exists but is missing "
+                    f"required fields: {', '.join(sorted(missing))}. "
+                    "Choose a different name or fix the note type."
+                )
+
+        # ----- 2. Deck (creates if missing) -----
+        deck_id = col.decks.id(deck_name)
+
+        # ----- 3. Update config so the rest of the addon is consistent -----
+        self._config.rtk_deck = deck_name
+        self._config.rtk_note_type = note_type_name
+        self._config.rtk_kanji_field = "Kanji"
+        self._config.rtk_alternative_kanji_field = "Alternative Kanji"
+        self._config.rtk_keyword_field = "Keyword"
+        self._config.rtk_heisig_number_field = "Heisig Number"
+        self._config.rtk_stroke_count_field = "Stroke Count"
+
+        # ----- 4. Optionally create all Heisig notes -----
+        notes_created = 0
+        if create_all_notes:
+            path = self._resolve_heisig_csv()
+            if path is None:
+                return False, (
+                    f"Could not find {self._HEISIG_KANJIS_FILE}. "
+                    "Put it in the Anki media folder or in the add-on’s vendor/ directory."
+                )
+
+            with path.open("r", newline="", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                kanji_rows = {row["kanji"]: row for row in reader if row.get("kanji")}
+
+            for kanji in kanji_rows:
+                note = self._create_rtk_note(
+                    kanji=kanji,
+                    tags=["Heisig"],
+                    heisig_kanjis=kanji_rows,
+                )
+                if note:
+                    col.add_note(note, deck_id)
+                    notes_created += 1
+
+        col.save()
+
+        parts = []
+        if created_model:
+            parts.append(f"Created note type “{note_type_name}”")
+        else:
+            parts.append(f"Re-used existing note type “{note_type_name}”")
+        parts.append(f"Deck “{deck_name}” is ready")
+        if create_all_notes:
+            parts.append(f"Added {notes_created} new notes")
+
+        return True, ". ".join(parts) + "."
+
     # --- PRIVATE METHODS --- #
     def _find_unknown_kanji(self) -> list[str]:
         """Find all unknown Kanji in JapaneseMining cards"""
@@ -452,3 +574,18 @@ class CollectionService:
         # Final blend: stability is the dominant signal
         knowledge = 0.75 * stab_norm + 0.25 * retrievability
         return max(0.0, min(1.0, knowledge))
+
+    def _resolve_heisig_csv(self) -> Path | None:
+        """Prefer media folder, fall back to vendor/ inside the add-on package."""
+        media = self._media_path(self._HEISIG_KANJIS_FILE)
+        if media.exists():
+            return media
+
+        vendor = Path(__file__).resolve().parent.parent / "vendor" / self._HEISIG_KANJIS_FILE
+        if vendor.exists():
+            # Copy once into media so later runs (and the user) can find it easily
+            import shutil
+            shutil.copy(vendor, media)
+            return media
+
+        return None
