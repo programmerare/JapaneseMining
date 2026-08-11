@@ -182,11 +182,11 @@ def make_rtk_tab(config):
 
     # create a random RTK name to avoid collisions with existing decks/note types
     random_suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
-    create_deck_edit = QLineEdit(getattr(config, "rtk_deck", "") or f"RTK _{random_suffix}")
+    create_deck_edit = QLineEdit(getattr(config, "rtk_deck", "") or f"RTK_{random_suffix}")
     create_deck_edit.setMinimumWidth(320)
     create_form.addRow("Deck name", create_deck_edit)
 
-    create_note_type_edit = QLineEdit(getattr(config, "rtk_note_type", "") or "Remembering the Kanji")
+    create_note_type_edit = QLineEdit(getattr(config, "rtk_note_type", "") or "Remembering the Kanji_{random_suffix}")
     create_note_type_edit.setMinimumWidth(320)
     create_form.addRow("Note type name", create_note_type_edit)
 
