@@ -13,7 +13,7 @@ from .jisho_tab import make_jisho_tab
 from .hypertts_tab import make_hypertts_tab
 
 
-def make_show_settings(config, save_config_fn):
+def make_show_settings(config, save_config_fn, collection_service):
     def show_settings():
         """Show a dialog for configuring the JapaneseMining add-on."""
         dialog = QDialog(mw)
@@ -31,7 +31,10 @@ def make_show_settings(config, save_config_fn):
         apply_fns = []
 
         for make_tab in [make_general_tab, make_rtk_tab, make_translate_tab, make_jisho_tab, make_hypertts_tab]:
-            tab, title, apply_fn = make_tab(config)
+            if make_tab == make_rtk_tab:
+                tab, title, apply_fn = make_tab(config, collection_service)
+            else:
+                tab, title, apply_fn = make_tab(config)
             tabs.addTab(tab, title)
             apply_fns.append(apply_fn)
         main_layout.addWidget(tabs)
