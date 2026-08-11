@@ -102,7 +102,7 @@ def setup_addon():
 
     # --- Setup menu actions ---
     show_todays_words = make_show_todays_words(kanji_data_service)
-    show_settings = make_show_settings(config, save_config)
+    show_settings = make_show_settings(config, save_config, collection_service)
 
     setup_menu(
         config,
