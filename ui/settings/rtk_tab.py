@@ -186,7 +186,7 @@ def make_rtk_tab(config):
     create_deck_edit.setMinimumWidth(320)
     create_form.addRow("Deck name", create_deck_edit)
 
-    create_note_type_edit = QLineEdit(getattr(config, "rtk_note_type", "") or "Remembering the Kanji_{random_suffix}")
+    create_note_type_edit = QLineEdit(getattr(config, "rtk_note_type", "") or f"Remembering the Kanji_{random_suffix}")
     create_note_type_edit.setMinimumWidth(320)
     create_form.addRow("Note type name", create_note_type_edit)
 
