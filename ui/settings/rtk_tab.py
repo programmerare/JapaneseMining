@@ -1,4 +1,5 @@
 from aqt import mw
+from aqt.utils import tooltip
 from aqt.qt import (
     QCheckBox,
     QComboBox,
@@ -200,14 +201,61 @@ def make_rtk_tab(config):
     create_btn.setMinimumWidth(220)
     setup_layout.addWidget(create_btn, alignment=Qt.AlignmentFlag.AlignLeft)
 
-    # Placeholder – we will wire this in step 2
     def on_create_clicked() -> None:
-        # TODO: call CollectionService.create_rtk_deck_and_note_type(...)
-        # After success:
-        #   1. update config fields
-        #   2. refresh_mapping_combos()
-        #   3. switch to Deck Mapping tab (optional)
-        pass
+        from ...config import save_config
+
+        deck_name = create_deck_edit.text().strip()
+        note_type_name = create_note_type_edit.text().strip()
+        create_all = create_all_notes_cb.isChecked()
+
+        if not deck_name or not note_type_name:
+            tooltip("Please enter both a deck name and a note type name.")
+            return
+
+        # TODO
+        # --- obtain the service ---
+        # Option A (preferred once DI is in place):
+        #   svc = collection_service   # passed into make_rtk_tab
+        #
+        # Option B (works right now while the codebase is still migrating):
+        from ...config import load_config
+        from ...services.collection_service import CollectionService
+        from ...services.kanji_data_service import KanjiDataService
+
+        cfg = load_config()
+        kanji_data = KanjiDataService(cfg)
+        svc = CollectionService(cfg, kanji_data)
+
+        success, message = svc.create_rtk_deck_and_note_type(
+            deck_name=deck_name,
+            note_type_name=note_type_name,
+            create_all_notes=create_all,
+        )
+
+        if not success:
+            tooltip(message)
+            return
+
+        # Config object was mutated inside the service – persist it
+        save_config(svc._config)
+
+        # Update the mapping tab UI immediately
+        _set_combo_value(rtk_deck_cb, deck_name, _deck_names())
+        _set_combo_value(rtk_note_type_cb, note_type_name, _note_type_names())
+        refresh_rtk_fields(note_type_name, preserve_missing=False)
+        # force the five field combos to the standard names we just wrote
+        for combo, name in (
+            (rtk_kanji_field_cb, "Kanji"),
+            (rtk_alternative_kanji_field_cb, "Alternative Kanji"),
+            (rtk_keyword_field_cb, "Keyword"),
+            (rtk_heisig_number_field_cb, "Heisig Number"),
+            (rtk_stroke_count_field_cb, "Stroke Count"),
+        ):
+            _set_combo_value(combo, name, _field_names(note_type_name))
+
+        tooltip(message)
+        # jump to the mapping tab so the user sees the result
+        tabs.setCurrentIndex(0)
 
     create_btn.clicked.connect(on_create_clicked)
 
