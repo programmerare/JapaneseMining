@@ -291,8 +291,8 @@ class CollectionService:
                 reader = csv.DictReader(f)
                 kanji_rows = {row["kanji"]: row for row in reader if row.get("kanji")}
 
-            # sort by Heisig number (id_6th_ed) so that the cards are added in order
-            sorted_rows = sorted(kanji_rows.values(), key=self._heisig_key)
+            # sort by Heisig number (id_6th_ed) so that the cards are added in order (id_5th_ed is fallback)
+            sorted_rows = sorted(kanji_rows.values(), key=lambda row: self._heisig_number_and_edition(row)[0])
 
             for row in sorted_rows:
                 kanji = row["kanji"]
@@ -306,7 +306,7 @@ class CollectionService:
 
                 col.add_note(note, deck_id)
 
-                heisig_num = self._heisig_key(row)
+                heisig_num = self._heisig_number_and_edition(row)[0]
                 for card in note.cards():
                     card.due = heisig_num
                     col.update_card(card)
@@ -324,7 +324,93 @@ class CollectionService:
         if create_all_notes:
             parts.append(f"Added {notes_created} new notes")
 
+        self._ensure_rtk_fonts()
+
         return True, ". ".join(parts) + "."
+
+    def import_known_kanji_from_file(
+        self,
+        file_path: str | Path,
+        *,
+        fill_keywords: bool = True,
+        suspend: bool = True,
+        schedule_min_days: int = 30,
+        schedule_max_days: int = 700,
+    ) -> tuple[bool, str]:
+        """
+        Parse a file of known kanji (one per line, or kanji,keyword).
+        Updates learned_kanji.csv. Optionally creates/updates RTK cards.
+        """
+        path = Path(file_path)
+        if not path.exists():
+            return False, f"File not found: {path}"
+
+        try:
+            entries = self._parse_kanji_file(path)
+        except Exception as e:
+            return False, f"Coudl not read file: {e}"
+
+        if not entries:
+            return False, "No kanji found in the file."
+
+        # Make sure we start from whatever is already on disk
+        self._kanji_data.load_learned_kanji()
+
+        marked, touched = self._apply_known_kanji(
+            entries,
+            fill_keywords=fill_keywords,
+            suspend = suspend,
+            schedule_min_days=schedule_min_days,
+            schedule_max_days=schedule_max_days,
+        )
+        return True, f"Marked {marked} kanji as known. Touched {touched} card(s)."
+
+    def import_known_kanji_up_to_heisig(
+        self,
+        heisig_number: int,
+        *,
+        fill_keywords: bool = True,
+        suspend: bool = True,
+        schedule_min_days: int = 30,
+        schedule_max_days: int = 700,
+    ):
+        """
+        Mark every Heisig kanji with id_6th_ed ≤ heisig_number as learned.
+        """
+        if heisig_number < 1:
+            return False, "Heisig number must be ≥ 1."
+
+        path = self._resolve_heisig_csv()
+        if path is None:
+            return False, "Heisig CSV not found."
+
+        with path.open("r", newline="", encoding="utf-8") as f:
+            rows = list(csv.DictReader(f))
+
+        entries: list[tuple[str, str]] = []
+        for row in rows:
+            n, edition = self._heisig_number_and_edition(row)
+            if n == 99999:  # Missing
+                continue
+            if n > heisig_number:
+                continue
+            keyword = self._heisig_keyword(row) if fill_keywords else ""
+            entries.append((row["kanji"], keyword))
+
+        if not entries:
+            return False, f"No kanji found with Heisig number ≤ {heisig_number}."
+
+        # Make sure we start from whatever is already on disk
+        self._kanji_data.load_learned_kanji()
+
+        marked, touched = self._apply_known_kanji(
+            entries,
+            fill_keywords=fill_keywords,
+            suspend=suspend,
+            schedule_min_days=schedule_min_days,
+            schedule_max_days=schedule_max_days,
+        )
+        return True, f"Marked {marked} kanji as known. Touched {touched} card(s)."
 
     # --- PRIVATE METHODS --- #
     def _find_unknown_kanji(self) -> list[str]:
@@ -589,12 +675,159 @@ class CollectionService:
 
         return None
 
-    def _heisig_key(self, row: dict) -> int:
-        """Return the Heisig number (id_6th_ed) as an integer, or a large number if missing."""
-        try:
-            return int(row.get("id_6th_ed") or 99999)
-        except (TypeError, ValueError):
-            return 99999
+    def _heisig_number_and_edition(self, row: dict) -> tuple[int, str]:
+        """
+        Return (number, edition).
+        Prefer 6th edition; fall back to 5th. Missing → (99999, "").
+        """
+        for key, edition in (("id_6th_ed", "6th"), ("id_5th_ed", "5th")):
+            raw = (row.get(key) or "").strip()
+            if raw:
+                try:
+                    return int(raw), edition
+                except ValueError:
+                    pass
+        return 99999, ""
+
+    def _heisig_keyword(self, row: dict, prefer_6th: bool = True) -> str:
+        if prefer_6th:
+            order = ("keyword_6th_ed", "keyword_5th_ed")
+        else:
+            order = ("keyword_5th_ed", "keyword_6th_ed")
+        for key in order:
+            val = (row.get(key) or "").strip()
+            if val:
+                return val
+        return ""
+
+    def _apply_known_kanji(
+        self,
+        entries: list[tuple[str, str]],
+        *,
+        fill_keywords: bool,
+        suspend: bool,
+        schedule_min_days: int,
+        schedule_max_days: int,
+    ) -> tuple[int, int]:
+        from datetime import date, timedelta
+        import random
+
+        # 1. Load Heisig data once (for keywords + later card creation)
+        heisig_rows: dict[str, dict] = {}
+        path = self._resolve_heisig_csv()
+        if path is not None:
+            with path.open("r", newline="", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                heisig_rows = {row["kanji"]: row for row in reader if row.get("kanji")}
+
+        # 2. Build the new learned cache entries
+        cache = dict(self._kanji_data.get_learned_kanji())  # start from current
+        rows_for_csv = []
+
+        for kanji, keyword in entries:
+            kanji = (kanji or "").strip()
+            if not kanji or not is_kanji(kanji[0]):   # simple guard
+                continue
+            kanji = kanji[0]  # take first character if someone pasted a compound
+
+            if not keyword and fill_keywords and kanji in heisig_rows:
+                keyword = self._heisig_keyword(heisig_rows[kanji])
+
+            cache[kanji] = {
+                "Keyword": keyword or cache.get(kanji, {}).get("Keyword", ""),
+                "Learned": True,
+                "Knowledge": 1.0,
+            }
+
+        # Rebuild full CSV rows (keep previously known + newly imported)
+        for k, v in sorted(cache.items(), key=lambda kv: (not kv[1]["Learned"], kv[0])):
+            rows_for_csv.append({
+                "Kanji": k,
+                "Keyword": v.get("Keyword", ""),
+                "Learned": "1" if v.get("Learned") else "",
+                "Knowledge": f"{v.get('Knowledge', 0.0):.4f}" if v.get("Learned") else "",
+            })
+
+        self._kanji_data.save_learned_kanji(rows_for_csv, cache)
+
+        # 3. Optionally touch RTK cards
+        cards_touched = 0
+        if self._rtk_configured():
+            col = mw.col
+            deck_id = col.decks.id(self._config.rtk_deck)
+
+            for kanji, _ in entries:
+                kanji = (kanji or "").strip()
+                if not kanji:
+                    continue
+                kanji = kanji[0]
+
+                # Re-use existing note-creation helper
+                note = self._create_rtk_note(
+                    kanji=kanji,
+                    tags=["Imported-Known"],
+                    heisig_kanjis=heisig_rows,
+                )
+                if note is None:
+                    # already exists – find it and update scheduling if needed
+                    note_ids = col.find_notes(
+                        f'note:"{self._config.rtk_note_type}" '
+                        f'{self._config.rtk_kanji_field}:{kanji}'
+                    )
+                    if not note_ids:
+                        continue
+                    note = col.get_note(note_ids[0])
+                else:
+                    col.add_note(note, deck_id)
+
+                for card in note.cards():
+                    if suspend:
+                        card.queue = -1          # suspended
+                    else:
+                        # Turn into a review card with a far-future due date
+                        days = random.randint(schedule_min_days, schedule_max_days)
+                        card.type = 2            # review
+                        card.queue = 2
+                        card.ivl = days
+                        card.factor = 2500        # 250 %
+                        card.due = col.sched.today + days
+                    col.update_card(card)
+                    cards_touched += 1
+
+        return len({e[0][0] for e in entries if e[0]}), cards_touched
+
+    def _parse_kanji_file(self, path: Path) -> list[tuple[str, str]]:
+        """
+        Accepts:
+        - one kanji per line
+        - kanji,keyword  (comma or tab)
+        Returns list of (kanji, keyword).
+        """
+        text = path.read_text(encoding="utf-8")
+        entries = []
+        for raw in text.splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "," in line or "\t" in line:
+                parts = line.replace("\t", ",").split(",", 1)
+                kanji = parts[0].strip()
+                keyword = parts[1].strip() if len(parts) > 1 else ""
+            else:
+                kanji, keyword = line, ""
+            if kanji:
+                entries.append((kanji, keyword))
+        return entries
+
+    def _ensure_rtk_fonts(self) -> None:
+        import shutil
+        media_dir = Path(mw.col.media.dir())
+        vendor_fonts = Path(__file__).resolve().parent.parent / "vendor" / "fonts"
+        for name in ("_YUMIN.ttf", "_YUGOTHB.ttc", "_HGRKK.ttc", "_StrokeOrder.ttf"):
+            src = vendor_fonts / name
+            dst = media_dir / name
+            if src.exists() and not dst.exists():
+                shutil.copy(src, dst)
 
 
 FRONT_HTML = r"""
