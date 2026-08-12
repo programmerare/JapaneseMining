@@ -1,11 +1,11 @@
+from aqt import mw
 from copy import deepcopy
 from dataclasses import dataclass, asdict, field, fields
 from pathlib import Path
 from typing import Any
 import json
+import uuid
 
-
-CONFIG_PATH = Path(__file__).parent / "config.json"
 
 JISHO_PROFILE_KEYS = (
     "search_field",
@@ -20,6 +20,20 @@ JISHO_PROFILE_KEYS = (
     "quick_fill_mode",
     "show_quick_fill_success",
 )
+
+_PROFILE_ID_KEY = "japanese_mining_profile_id"
+
+ALLOWED_FILL_MODES = {"replace", "append"}
+ALLOWED_MULTI_MEANING = {"pipe_merged", "numbered", "semicolon_merged"}
+ALLOWED_MULTI_WORD = {"basic", "inline", "tagged", "numbered", "tagged_numbered"}
+ALLOWED_QUICK_FILL = {"all", "first"}
+ALLOWED_BUTTON_POS = {"toolbar", "field_label", "both"}
+ALLOWED_LANG = {"en", "pt"}
+
+JISHO_MAPPING_OPTIONS = {
+    "", "Word", "Reading", "Meaning", "Part of speech", "Info", "Tags",
+    "See also", "Other forms", "JLPT Level", "Wanikani Level", "Is Common"
+}
 
 
 @dataclass
@@ -70,16 +84,18 @@ class Config:
     use_hypertts: bool = False
 
 
+# --- PUBLIC FUNCTIONS ---
 def load_config() -> Config:
-    """Load config from disk. Always returns a complete, normalized Config."""
+    """Load config for the current Anki profile. Always returns a complete Config."""
     defaults = Config()
+    path = _profile_config_path()
 
-    if not CONFIG_PATH.exists():
+    if not path.exists():
         save_config(defaults)
         return defaults
 
     try:
-        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+        with open(path, "r", encoding="utf-8") as f:
             raw = json.load(f)
     except (json.JSONDecodeError, OSError):
         save_config(defaults)
@@ -92,7 +108,6 @@ def load_config() -> Config:
     normalized = _normalize_config_dict(raw)
     config = Config(**normalized)
 
-    # Keep the file on disk clean (optional but recommended)
     if normalized != raw:
         save_config(config)
 
@@ -100,25 +115,56 @@ def load_config() -> Config:
 
 
 def save_config(config: Config) -> None:
-    """Persist a clean, normalized config."""
+    """Persist config for the current Anki profile under user_files/."""
     data = _normalize_config_dict(asdict(config))
-    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    path = _profile_config_path()
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+    except OSError as e:
+        print(f"Japanese Mining: failed to write profile config: {e}")
 
 
-ALLOWED_FILL_MODES = {"replace", "append"}
-ALLOWED_MULTI_MEANING = {"pipe_merged", "numbered", "semicolon_merged"}
-ALLOWED_MULTI_WORD = {"basic", "inline", "tagged", "numbered", "tagged_numbered"}
-ALLOWED_QUICK_FILL = {"all", "first"}
-ALLOWED_BUTTON_POS = {"toolbar", "field_label", "both"}
-ALLOWED_LANG = {"en", "pt"}
+# --- PRIVATE FUNCTIONS ---
+def _addon_root()-> Path:
+    return Path(__file__).resolve().parent
 
-JISHO_MAPPING_OPTIONS = {
-    "", "Word", "Reading", "Meaning", "Part of speech", "Info", "Tags",
-    "See also", "Other forms", "JLPT Level", "Wanikani Level", "Is Common"
-}
+def _user_files_root() -> Path:
+    return _addon_root() / "user_files"
 
+def _get_or_create_profile_id() -> str:
+    """Stable ID for the current Anki profile (survives renames)."""
+    try:
+        pm = mw.pm
+        profile = getattr(pm, "profile", None)
+        if isinstance(profile, dict):
+            existing = profile.get(_PROFILE_ID_KEY)
+            if isinstance(existing, str) and existing.strip():
+                return existing.strip()
+
+            new_id = str(uuid.uuid4())
+            profile[_PROFILE_ID_KEY] = new_id
+            try:
+                pm.save()
+            except Exception:
+                pass
+            return new_id
+    except Exception:
+        pass
+
+    # Fallback while profile is not fully loaded
+    try:
+        name = (mw.pm.name or "default").strip() or "default"
+    except Exception:
+        name = "default"
+    safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in name)
+    return f"name_{safe}"
+
+def _profile_config_path() -> Path:
+    profile_id = _get_or_create_profile_id()
+    path = _user_files_root() / "profiles" / profile_id / "config.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
 
 def _normalize_mappings(raw: Any) -> list[dict[str, str]]:
     """Accept both old dict style and new list style. Keep only valid entries."""
