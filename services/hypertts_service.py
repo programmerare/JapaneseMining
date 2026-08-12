@@ -37,6 +37,14 @@ class HyperTTSService:
             print(f"HyperTTS error: {e}")
         return None
 
+    def initialize(self):
+        """
+        Drop any cached HyperTTS handle.
+        Call this when the Anki profile changes so the next use
+        discovers the instance that belongs to the new profile.
+        """
+        self._instance = None
+
     # --- PRIVATE METHODS --- #
     def _get_instance(self):
         """Return the running HyperTTS instance, or None if not available."""
