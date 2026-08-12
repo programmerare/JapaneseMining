@@ -32,9 +32,17 @@ def make_show_settings(config_holder: ConfigHolder, save_config_fn, collection_s
         # Collect the apply functions and add the tabs to the QTabWidget
         apply_fns = []
 
-        for make_tab in [make_general_tab, make_rtk_tab, make_translate_tab, make_jisho_tab, make_hypertts_tab]:
+        for make_tab in [
+            make_general_tab,
+            make_rtk_tab,
+            make_translate_tab,
+            make_jisho_tab,
+            make_hypertts_tab,
+        ]:
             if make_tab == make_rtk_tab or make_tab == make_general_tab:
-                tab, title, apply_fn = make_tab(config_holder, collection_service, save_config_fn)
+                tab, title, apply_fn = make_tab(
+                    config_holder, collection_service, save_config_fn
+                )
             else:
                 tab, title, apply_fn = make_tab(config_holder, save_config_fn)
             tabs.addTab(tab, title)
@@ -42,21 +50,26 @@ def make_show_settings(config_holder: ConfigHolder, save_config_fn, collection_s
         main_layout.addWidget(tabs)
 
         buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Save |
-            QDialogButtonBox.StandardButton.Cancel
+            QDialogButtonBox.StandardButton.Save
+            | QDialogButtonBox.StandardButton.Cancel
         )
         main_layout.addWidget(buttons)
 
         # Define the save_and_close function to apply changes and close the dialog
         def save_and_close():
             for apply_fn in apply_fns:
-                apply_fn(config)    # Each tab writes its own settings to the config object
+                apply_fn(
+                    config
+                )  # Each tab writes its own settings to the config object
             save_config_fn(config)
-            config_holder.config = config   # Keep the config holder in sync with the saved config
+            config_holder.config = (
+                config  # Keep the config holder in sync with the saved config
+            )
 
             if config.use_jisho:
                 from ...jisho_adapter import to_ajc_runtime_config
                 from ...AJC.runtime.config_holder import set_runtime_config
+
                 set_runtime_config(to_ajc_runtime_config(config))
 
             dialog.accept()
@@ -65,4 +78,5 @@ def make_show_settings(config_holder: ConfigHolder, save_config_fn, collection_s
         buttons.rejected.connect(dialog.reject)
 
         dialog.exec()
+
     return show_settings

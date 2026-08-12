@@ -2,9 +2,22 @@
 
 from aqt import mw
 from aqt.qt import (
-    QWidget, QVBoxLayout, QHBoxLayout, QInputDialog, QFormLayout, QTabWidget,
-    QLabel, QCheckBox, QComboBox, QMessageBox, QPushButton, QKeySequenceEdit,
-    QKeySequence, QScrollArea, QFrame, Qt,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QInputDialog,
+    QFormLayout,
+    QTabWidget,
+    QLabel,
+    QCheckBox,
+    QComboBox,
+    QMessageBox,
+    QPushButton,
+    QKeySequenceEdit,
+    QKeySequence,
+    QScrollArea,
+    QFrame,
+    Qt,
 )
 from copy import deepcopy
 
@@ -18,16 +31,25 @@ from ...config import (
 # Compatibility matrix (copied from foreign code)
 MULTI_WORD_COMPATIBILITY = {
     "numbered": {
-        "basic": True, "inline": False, "tagged": True,
-        "numbered": True, "tagged_numbered": False,
+        "basic": True,
+        "inline": False,
+        "tagged": True,
+        "numbered": True,
+        "tagged_numbered": False,
     },
     "semicolon_merged": {
-        "basic": True, "inline": True, "tagged": True,
-        "numbered": True, "tagged_numbered": True,
+        "basic": True,
+        "inline": True,
+        "tagged": True,
+        "numbered": True,
+        "tagged_numbered": True,
     },
     "pipe_merged": {
-        "basic": True, "inline": True, "tagged": True,
-        "numbered": True, "tagged_numbered": True,
+        "basic": True,
+        "inline": True,
+        "tagged": True,
+        "numbered": True,
+        "tagged_numbered": True,
     },
 }
 
@@ -51,7 +73,8 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
     # ------------------------------------------------------------------
     state = {
         "profiles": deepcopy(config.jisho_profiles or {}),
-        "active": config.active_jisho_profile or next(iter(config.jisho_profiles or {}), ""),
+        "active": config.active_jisho_profile
+        or next(iter(config.jisho_profiles or {}), ""),
         "mapping_rows": [],
         "current_fields": [],
     }
@@ -137,26 +160,32 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
         if not note_type:
             return
         if note_type in state["profiles"]:
-            QMessageBox.warning(general, "Profile exists", f"A profile for '{note_type}' already exists.")
+            QMessageBox.warning(
+                general,
+                "Profile exists",
+                f"A profile for '{note_type}' already exists.",
+            )
             return
 
-        persist_current_profile()                     # save what we were editing
+        persist_current_profile()  # save what we were editing
         state["profiles"][note_type] = default_jisho_profile()
         state["active"] = note_type
         refresh_profile_combo()
         load_profile_into_ui(note_type)
-
 
     def delete_profile():
         note_type = profile_cb.currentText()
         if not note_type:
             return
         if len(state["profiles"]) <= 1:
-            QMessageBox.warning(general, "Cannot delete profile", "At least one profile must remain.")
+            QMessageBox.warning(
+                general, "Cannot delete profile", "At least one profile must remain."
+            )
             return
 
         answer = QMessageBox.question(
-            general, "Delete profile",
+            general,
+            "Delete profile",
             f"Are you sure you want to delete the profile for '{note_type}'?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
@@ -189,7 +218,9 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
         p["remove_furigana_search"] = remove_furigana_cb.isChecked()
         p["disable_multi_word_warning"] = disable_multi_word_cb.isChecked()
         p["show_quick_fill_success"] = show_quick_success_cb.isChecked()
-        p["mappings"] = [dict(r) for r in state["mapping_rows"] if r.get("jisho") or r.get("field")]
+        p["mappings"] = [
+            dict(r) for r in state["mapping_rows"] if r.get("jisho") or r.get("field")
+        ]
 
         state["profiles"][name] = p
 
@@ -204,7 +235,9 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
 
         # Multi-meaning
         mm_map = {"pipe_merged": 0, "numbered": 1, "semicolon_merged": 2}
-        multi_meaning_cb.setCurrentIndex(mm_map.get(profile.get("multi_meaning_format"), 2))
+        multi_meaning_cb.setCurrentIndex(
+            mm_map.get(profile.get("multi_meaning_format"), 2)
+        )
         refresh_multi_word_options()
         for i in range(multi_word_cb.count()):
             if multi_word_cb.itemData(i) == profile.get("multi_word_format"):
@@ -212,13 +245,19 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
                 break
 
         # Quick-fill mode
-        quick_fill_mode_cb.setCurrentIndex(0 if profile.get("quick_fill_mode") == "all" else 1)
+        quick_fill_mode_cb.setCurrentIndex(
+            0 if profile.get("quick_fill_mode") == "all" else 1
+        )
 
         # Checkboxes (Advanced tab)
         remove_pos_cb.setChecked(bool(profile.get("remove_pos_ending", True)))
         remove_furigana_cb.setChecked(bool(profile.get("remove_furigana_search", True)))
-        disable_multi_word_cb.setChecked(bool(profile.get("disable_multi_word_warning", False)))
-        show_quick_success_cb.setChecked(bool(profile.get("show_quick_fill_success", False)))
+        disable_multi_word_cb.setChecked(
+            bool(profile.get("disable_multi_word_warning", False))
+        )
+        show_quick_success_cb.setChecked(
+            bool(profile.get("show_quick_fill_success", False))
+        )
 
         state["mapping_rows"] = [dict(m) for m in profile.get("mappings", [])]
         refresh_fields_for_note_type(name)
@@ -247,15 +286,15 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
         new = profile_cb.currentText()
         if not new or new == old:
             return
-        persist_current_profile()          # save the one we are leaving
-        load_profile_into_ui(new)          # load the one we are entering
+        persist_current_profile()  # save the one we are leaving
+        load_profile_into_ui(new)  # load the one we are entering
 
     profile_cb.currentIndexChanged.connect(on_profile_changed)
 
     # Target deck (optional)
     target_deck_cb = QComboBox()
-    target_deck_cb.setEditable(True)          # allow empty / free text
-    target_deck_cb.addItem("")                # empty = no restriction
+    target_deck_cb.setEditable(True)  # allow empty / free text
+    target_deck_cb.addItem("")  # empty = no restriction
     try:
         decks = mw.col.decks.all_names() if mw.col else []
         target_deck_cb.addItems(sorted(decks))
@@ -476,7 +515,9 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
             cfg.jisho_shortcut = seq.toString(QKeySequence.SequenceFormat.NativeText)
         seq = quick_shortcut_edit.keySequence()
         if not seq.isEmpty():
-            cfg.jisho_fastfill_shortcut = seq.toString(QKeySequence.SequenceFormat.NativeText)
+            cfg.jisho_fastfill_shortcut = seq.toString(
+                QKeySequence.SequenceFormat.NativeText
+            )
         cfg.editor_button_position = button_pos_cb.currentData()
         cfg.language = lang_cb.currentData()
 
@@ -491,11 +532,15 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
         cfg.search_field = active_p.get("search_field", "")
         cfg.mappings = active_p.get("mappings", [])
         cfg.fill_mode = active_p.get("fill_mode", "replace")
-        cfg.multi_meaning_format = active_p.get("multi_meaning_format", "semicolon_merged")
+        cfg.multi_meaning_format = active_p.get(
+            "multi_meaning_format", "semicolon_merged"
+        )
         cfg.multi_word_format = active_p.get("multi_word_format", "inline")
         cfg.remove_pos_ending = active_p.get("remove_pos_ending", True)
         cfg.remove_furigana_search = active_p.get("remove_furigana_search", True)
-        cfg.disable_multi_word_warning = active_p.get("disable_multi_word_warning", False)
+        cfg.disable_multi_word_warning = active_p.get(
+            "disable_multi_word_warning", False
+        )
         cfg.quick_fill_mode = active_p.get("quick_fill_mode", "all")
         cfg.show_quick_fill_success = active_p.get("show_quick_fill_success", False)
 

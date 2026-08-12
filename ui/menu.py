@@ -5,7 +5,13 @@ from .kanji_heatmap import show_kanji_heatmap
 from ..config import ConfigHolder
 
 
-def setup_menu(config_holder: ConfigHolder, collection_service, kanji_data_service, show_todays_words, show_settings):
+def setup_menu(
+    config_holder: ConfigHolder,
+    collection_service,
+    kanji_data_service,
+    show_todays_words,
+    show_settings,
+):
     """Set up the JapaneseMining menu in Anki's Tools menu."""
     my_menu = QMenu("JapaneseMining", mw)
 

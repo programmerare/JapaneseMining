@@ -51,4 +51,5 @@ def make_show_todays_words(kanji_data_service):
 
         dialog.setLayout(layout)
         dialog.exec()
+
     return show_todays_words

@@ -93,7 +93,9 @@ def make_rtk_tab(config_holder: ConfigHolder, collection_service, save_config_fn
     mapping_layout = QFormLayout(mapping_tab)
     mapping_layout.setContentsMargins(16, 12, 16, 12)
     mapping_layout.setSpacing(10)
-    mapping_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+    mapping_layout.setFieldGrowthPolicy(
+        QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow
+    )
     mapping_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
     mapping_header = QLabel("Remembering the Kanji (Heisig)")
@@ -136,14 +138,27 @@ def make_rtk_tab(config_holder: ConfigHolder, collection_service, save_config_fn
 
     field_combos = [
         (rtk_kanji_field_cb, getattr(config, "rtk_kanji_field", "") or ""),
-        (rtk_alternative_kanji_field_cb, getattr(config, "rtk_alternative_kanji_field", "") or ""),
+        (
+            rtk_alternative_kanji_field_cb,
+            getattr(config, "rtk_alternative_kanji_field", "") or "",
+        ),
         (rtk_keyword_field_cb, getattr(config, "rtk_keyword_field", "") or ""),
-        (rtk_heisig_number_field_cb, getattr(config, "rtk_heisig_number_field", "") or ""),
-        (rtk_stroke_count_field_cb, getattr(config, "rtk_stroke_count_field", "") or ""),
+        (
+            rtk_heisig_number_field_cb,
+            getattr(config, "rtk_heisig_number_field", "") or "",
+        ),
+        (
+            rtk_stroke_count_field_cb,
+            getattr(config, "rtk_stroke_count_field", "") or "",
+        ),
     ]
 
-    def refresh_rtk_fields(note_type: str | None = None, *, preserve_missing: bool = False) -> None:
-        note_type = note_type if note_type is not None else rtk_note_type_cb.currentText()
+    def refresh_rtk_fields(
+        note_type: str | None = None, *, preserve_missing: bool = False
+    ) -> None:
+        note_type = (
+            note_type if note_type is not None else rtk_note_type_cb.currentText()
+        )
         fields = _field_names(note_type)
         for combo, saved in field_combos:
             if preserve_missing:
@@ -163,7 +178,9 @@ def make_rtk_tab(config_holder: ConfigHolder, collection_service, save_config_fn
     # Small helper so the Setup tab can refresh the combos after creating a deck
     def refresh_mapping_combos() -> None:
         _set_combo_value(rtk_deck_cb, rtk_deck_cb.currentText(), _deck_names())
-        _set_combo_value(rtk_note_type_cb, rtk_note_type_cb.currentText(), _note_type_names())
+        _set_combo_value(
+            rtk_note_type_cb, rtk_note_type_cb.currentText(), _note_type_names()
+        )
         refresh_rtk_fields(preserve_missing=True)
 
     tabs.addTab(mapping_tab, "Deck Mapping")
@@ -186,12 +203,16 @@ def make_rtk_tab(config_holder: ConfigHolder, collection_service, save_config_fn
     create_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
     # create a random RTK name to avoid collisions with existing decks/note types
-    random_suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
-    create_deck_edit = QLineEdit(getattr(config, "rtk_deck", "") or f"RTK_{random_suffix}")
+    random_suffix = "".join(random.choices(string.ascii_letters + string.digits, k=8))
+    create_deck_edit = QLineEdit(
+        getattr(config, "rtk_deck", "") or f"RTK_{random_suffix}"
+    )
     create_deck_edit.setMinimumWidth(320)
     create_form.addRow("Deck name", create_deck_edit)
 
-    create_note_type_edit = QLineEdit(getattr(config, "rtk_note_type", "") or f"Remembering the Kanji_{random_suffix}")
+    create_note_type_edit = QLineEdit(
+        getattr(config, "rtk_note_type", "") or f"Remembering the Kanji_{random_suffix}"
+    )
     create_note_type_edit.setMinimumWidth(320)
     create_form.addRow("Note type name", create_note_type_edit)
 
@@ -328,6 +349,7 @@ def make_rtk_tab(config_holder: ConfigHolder, collection_service, save_config_fn
 
     def on_file_import() -> None:
         from aqt.qt import QFileDialog
+
         path, _ = QFileDialog.getOpenFileName(
             outer,
             "Select kanji list",
@@ -336,7 +358,9 @@ def make_rtk_tab(config_holder: ConfigHolder, collection_service, save_config_fn
         )
         if not path:
             return
-        success, message = collection_service.import_known_kanji_from_file(path, **_schedule_opts())
+        success, message = collection_service.import_known_kanji_from_file(
+            path, **_schedule_opts()
+        )
         tooltip(message)
 
     def on_heisig_import() -> None:
@@ -359,7 +383,9 @@ def make_rtk_tab(config_holder: ConfigHolder, collection_service, save_config_fn
         cfg.rtk_deck = rtk_deck_cb.currentText().strip()
         cfg.rtk_note_type = rtk_note_type_cb.currentText().strip()
         cfg.rtk_kanji_field = rtk_kanji_field_cb.currentText().strip()
-        cfg.rtk_alternative_kanji_field = rtk_alternative_kanji_field_cb.currentText().strip()
+        cfg.rtk_alternative_kanji_field = (
+            rtk_alternative_kanji_field_cb.currentText().strip()
+        )
         cfg.rtk_keyword_field = rtk_keyword_field_cb.currentText().strip()
         cfg.rtk_heisig_number_field = rtk_heisig_number_field_cb.currentText().strip()
         cfg.rtk_stroke_count_field = rtk_stroke_count_field_cb.currentText().strip()

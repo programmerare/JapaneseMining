@@ -37,7 +37,9 @@ class CollectionService:
         self.update_japanese_mining_cards(force_update_meanings=True)
 
     def force_update_everything(self) -> None:
-        self.update_japanese_mining_cards(force_update_meanings=True, force_update_keywords=True)
+        self.update_japanese_mining_cards(
+            force_update_meanings=True, force_update_keywords=True
+        )
 
     def fetch_kanji_keyword(self, kanji: str) -> str:
         """Returns one learned keyword associated with kanji from RTK deck"""
@@ -217,12 +219,14 @@ class CollectionService:
                     if r > knowledge:
                         knowledge = r
 
-            learned_kanji_rows.append({
-                "Kanji": kanji,
-                "Keyword": keyword,
-                "Learned": "1" if learned else "",
-                "Knowledge": f"{knowledge:.4f}" if learned else "",
-            })
+            learned_kanji_rows.append(
+                {
+                    "Kanji": kanji,
+                    "Keyword": keyword,
+                    "Learned": "1" if learned else "",
+                    "Knowledge": f"{knowledge:.4f}" if learned else "",
+                }
+            )
             learned_kanji_cache[kanji] = {
                 "Keyword": keyword,
                 "Learned": learned,
@@ -233,18 +237,30 @@ class CollectionService:
             self._kanji_data.save_learned_kanji(learned_kanji_rows, learned_kanji_cache)
 
         if self._config.show_tooltip:
-            tooltip(f"Exported {count_learned_kanji + count_learned_alternative_kanji} learned kanji and {count_unknown_kanji} unknown kanji.")
+            tooltip(
+                f"Exported {count_learned_kanji + count_learned_alternative_kanji} learned kanji and {count_unknown_kanji} unknown kanji."
+            )
 
-        return count_learned_kanji + count_learned_alternative_kanji, count_unknown_kanji
+        return (
+            count_learned_kanji + count_learned_alternative_kanji,
+            count_unknown_kanji,
+        )
 
-    def update_single_note_kanji_knowledge(self, note: Note, force_update_meanings: bool = False, force_update_keywords: bool = False) -> tuple[int, int]:
+    def update_single_note_kanji_knowledge(
+        self,
+        note: Note,
+        force_update_meanings: bool = False,
+        force_update_keywords: bool = False,
+    ) -> tuple[int, int]:
         """Update kanji fields for a single note added from the editor."""
         if note is None:
             return 0, 0
 
         if note.note_type()["name"] != self._config.mining_note_type:
             if self._config.show_tooltip:
-                tooltip(f"The note is not a {self._config.mining_note_type} note. Please check your settings.")
+                tooltip(
+                    f"The note is not a {self._config.mining_note_type} note. Please check your settings."
+                )
             return 0, 0
 
         newly_known_count, updated_count = self._update_kanji_knowledge(
@@ -254,7 +270,9 @@ class CollectionService:
         )
         return newly_known_count, updated_count
 
-    def update_japanese_mining_cards(self, force_update_meanings: bool = False, force_update_keywords: bool = False) -> None:
+    def update_japanese_mining_cards(
+        self, force_update_meanings: bool = False, force_update_keywords: bool = False
+    ) -> None:
         """Update all JapaneseMining cards in a single pass over each word."""
         number_learned_kanji, count_unknown_kanji = self.export_learned_kanji()
         newly_known_count, number_updated_cards = self._update_kanji_knowledge(
@@ -348,7 +366,7 @@ class CollectionService:
             missing = [f for f in REQUIRED_FIELDS if f not in existing]
             if missing:
                 return False, (
-                    f'Note type “{note_type_name}” already exists but is missing '
+                    f"Note type “{note_type_name}” already exists but is missing "
                     f'required fields: {", ".join(missing)}. '
                     "Choose a different name or add the missing fields manually."
                 )
@@ -360,8 +378,8 @@ class CollectionService:
         col.save()
 
         if created:
-            return True, f'Created note type “{note_type_name}”.'
-        return True, f'Re-used existing note type “{note_type_name}”.'
+            return True, f"Created note type “{note_type_name}”."
+        return True, f"Re-used existing note type “{note_type_name}”."
 
     def create_rtk_deck_and_note_type(
         self,
@@ -453,7 +471,10 @@ class CollectionService:
                 kanji_rows = {row["kanji"]: row for row in reader if row.get("kanji")}
 
             # sort by Heisig number (id_6th_ed) so that the cards are added in order (id_5th_ed is fallback)
-            sorted_rows = sorted(kanji_rows.values(), key=lambda row: self._heisig_number_and_edition(row)[0])
+            sorted_rows = sorted(
+                kanji_rows.values(),
+                key=lambda row: self._heisig_number_and_edition(row)[0],
+            )
 
             for row in sorted_rows:
                 kanji = row["kanji"]
@@ -521,7 +542,7 @@ class CollectionService:
         marked, touched = self._apply_known_kanji(
             entries,
             fill_keywords=fill_keywords,
-            suspend = suspend,
+            suspend=suspend,
             schedule_min_days=schedule_min_days,
             schedule_max_days=schedule_max_days,
         )
@@ -582,7 +603,9 @@ class CollectionService:
         alt_kanji_field = self._config.rtk_alternative_kanji_field
 
         rtk_note_ids = mw.col.find_notes(f'note:"{self._config.rtk_note_type}"')
-        mining_note_ids = mw.col.find_notes(f'note:{self._config.mining_note_type} -is:suspended')
+        mining_note_ids = mw.col.find_notes(
+            f"note:{self._config.mining_note_type} -is:suspended"
+        )
 
         known = set()
         for note_id in rtk_note_ids:
@@ -596,10 +619,12 @@ class CollectionService:
             for ch in self._get_field(note, "Word"):
                 if is_kanji(ch) and ch not in known and ch not in unknown:
                     unknown.append(ch)
-        
+
         return unknown
 
-    def _create_rtk_note(self, kanji: str, alt_kanji: str = "", tags=None, heisig_kanjis=None) -> Note | None:
+    def _create_rtk_note(
+        self, kanji: str, alt_kanji: str = "", tags=None, heisig_kanjis=None
+    ) -> Note | None:
         """Create a new Remembering the Kanji note"""
         col = mw.col
         kanji_field = self._config.rtk_kanji_field
@@ -620,19 +645,31 @@ class CollectionService:
             if row:
                 note[self._config.rtk_keyword_field] = row["keyword_6th_ed"]
             if row and self._has_field(note, self._config.rtk_heisig_number_field):
-                note[self._config.rtk_heisig_number_field] = row["id_6th_ed"]    # Optional
+                note[self._config.rtk_heisig_number_field] = row[
+                    "id_6th_ed"
+                ]  # Optional
             if row and self._has_field(note, self._config.rtk_stroke_count_field):
-                note[self._config.rtk_stroke_count_field] = row["stroke_count"]  # Optional
+                note[self._config.rtk_stroke_count_field] = row[
+                    "stroke_count"
+                ]  # Optional
 
         if note.dupeOrEmpty():
             return None
         return note
 
-    def _update_note_kanji_knowledge(self, note: Note, learned_kanji: dict, force_update_meanings: bool = False, force_update_keywords: bool = False) -> tuple[int, int]:
+    def _update_note_kanji_knowledge(
+        self,
+        note: Note,
+        learned_kanji: dict,
+        force_update_meanings: bool = False,
+        force_update_keywords: bool = False,
+    ) -> tuple[int, int]:
         """Update kanji knowledge fields for one note."""
         if not self._mining_fields_ok(note):
             if self._config.show_tooltip:
-                tooltip(f"Note {note.id} is missing required fields. Please check your note and you notetype {self._config.mining_note_type}.")
+                tooltip(
+                    f"Note {note.id} is missing required fields. Please check your note and you notetype {self._config.mining_note_type}."
+                )
             return 0, 0
 
         col = mw.col
@@ -690,7 +727,10 @@ class CollectionService:
             should_update = True
 
         tags = self._get_field(note, "Tags")
-        if self._get_field(note, "Usually Kana") != "1" and "Usually written using kana alone" in tags:
+        if (
+            self._get_field(note, "Usually Kana") != "1"
+            and "Usually written using kana alone" in tags
+        ):
             note["Usually Kana"] = "1"
             should_update = True
 
@@ -699,8 +739,12 @@ class CollectionService:
 
         return newly_known, int(should_update)
 
-
-    def _update_kanji_knowledge(self, note: Note = None, force_update_meanings: bool = False, force_update_keywords: bool = False) -> tuple[int, int]:
+    def _update_kanji_knowledge(
+        self,
+        note: Note = None,
+        force_update_meanings: bool = False,
+        force_update_keywords: bool = False,
+    ) -> tuple[int, int]:
         """Update JapaneseMining cards in a single pass over each word."""
         col = mw.col
 
@@ -708,7 +752,10 @@ class CollectionService:
         if note is not None:
             notes = [note]
         else:
-            notes = (col.get_note(note_id) for note_id in col.find_notes(f"note:{self._config.mining_note_type}"))
+            notes = (
+                col.get_note(note_id)
+                for note_id in col.find_notes(f"note:{self._config.mining_note_type}")
+            )
 
         newly_known_count = 0
         updated_count = 0
@@ -763,7 +810,7 @@ class CollectionService:
         - Main signal: log-scaled Stability (long-term strength)
         - Small contribution from current Retrievability
         """
-        if card.type == 0:          # new
+        if card.type == 0:  # new
             return 0.0
 
         stability = None
@@ -814,7 +861,7 @@ class CollectionService:
         stab_norm = min(1.0, math.log1p(stability) / math.log1p(S_MAX))
 
         if retrievability is None:
-            retrievability = 0.9          # neutral default when missing
+            retrievability = 0.9  # neutral default when missing
 
         retrievability = max(0.0, min(1.0, retrievability))
 
@@ -828,10 +875,13 @@ class CollectionService:
         if media.exists():
             return media
 
-        vendor = Path(__file__).resolve().parent.parent / "vendor" / self._HEISIG_KANJI_FILE
+        vendor = (
+            Path(__file__).resolve().parent.parent / "vendor" / self._HEISIG_KANJI_FILE
+        )
         if vendor.exists():
             # Copy once into media so later runs (and the user) can find it easily
             import shutil
+
             shutil.copy(vendor, media)
             return media
 
@@ -888,7 +938,7 @@ class CollectionService:
 
         for kanji, keyword in entries:
             kanji = (kanji or "").strip()
-            if not kanji or not is_kanji(kanji[0]):   # simple guard
+            if not kanji or not is_kanji(kanji[0]):  # simple guard
                 continue
             kanji = kanji[0]  # take first character if someone pasted a compound
 
@@ -903,12 +953,16 @@ class CollectionService:
 
         # Rebuild full CSV rows (keep previously known + newly imported)
         for k, v in sorted(cache.items(), key=lambda kv: (not kv[1]["Learned"], kv[0])):
-            rows_for_csv.append({
-                "Kanji": k,
-                "Keyword": v.get("Keyword", ""),
-                "Learned": "1" if v.get("Learned") else "",
-                "Knowledge": f"{v.get('Knowledge', 0.0):.4f}" if v.get("Learned") else "",
-            })
+            rows_for_csv.append(
+                {
+                    "Kanji": k,
+                    "Keyword": v.get("Keyword", ""),
+                    "Learned": "1" if v.get("Learned") else "",
+                    "Knowledge": (
+                        f"{v.get('Knowledge', 0.0):.4f}" if v.get("Learned") else ""
+                    ),
+                }
+            )
 
         self._kanji_data.save_learned_kanji(rows_for_csv, cache)
 
@@ -934,7 +988,7 @@ class CollectionService:
                     # already exists – find it and update scheduling if needed
                     note_ids = col.find_notes(
                         f'note:"{self._config.rtk_note_type}" '
-                        f'{self._config.rtk_kanji_field}:{kanji}'
+                        f"{self._config.rtk_kanji_field}:{kanji}"
                     )
                     if not note_ids:
                         continue
@@ -944,14 +998,14 @@ class CollectionService:
 
                 for card in note.cards():
                     if suspend:
-                        card.queue = -1          # suspended
+                        card.queue = -1  # suspended
                     else:
                         # Turn into a review card with a far-future due date
                         days = random.randint(schedule_min_days, schedule_max_days)
-                        card.type = 2            # review
+                        card.type = 2  # review
                         card.queue = 2
                         card.ivl = days
-                        card.factor = 2500        # 250 %
+                        card.factor = 2500  # 250 %
                         card.due = col.sched.today + days
                     col.update_card(card)
                     cards_touched += 1
@@ -983,6 +1037,7 @@ class CollectionService:
 
     def _ensure_rtk_fonts(self) -> None:
         import shutil
+
         media_dir = Path(mw.col.media.dir())
         vendor_fonts = Path(__file__).resolve().parent.parent / "vendor" / "fonts"
         for name in ("_YUMIN.ttf", "_YUGOTHB.ttc", "_HGRKK.ttc", "_StrokeOrder.ttf"):
@@ -993,6 +1048,7 @@ class CollectionService:
 
     def _ensure_heisig_kanjis_csv(self) -> None:
         import shutil
+
         media_dir = Path(mw.col.media.dir())
         src = Path(__file__).resolve().parent.parent / "vendor" / "heisig_kanji.csv"
         dst = media_dir / "heisig_kanji.csv"

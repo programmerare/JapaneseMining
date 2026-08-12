@@ -16,7 +16,9 @@ def make_hypertts_tab(config_holder: ConfigHolder, save_config_fn=None):
     hypertts_layout = QFormLayout(hypertts_tab)
     hypertts_layout.setContentsMargins(16, 12, 16, 12)
     hypertts_layout.setSpacing(10)
-    hypertts_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+    hypertts_layout.setFieldGrowthPolicy(
+        QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow
+    )
     hypertts_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
     header = QLabel("HyperTTS")

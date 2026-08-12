@@ -3,6 +3,7 @@ from ..AJC.runtime.config_holder import set_runtime_config
 from ..config import ConfigHolder
 from ..jisho_adapter import to_ajc_runtime_config
 
+
 class JishoService:
     def __init__(self, config_holder: ConfigHolder):
         self._config_holder = config_holder

@@ -6,7 +6,6 @@ from typing import Any
 import json
 import uuid
 
-
 JISHO_PROFILE_KEYS = (
     "search_field",
     "target_deck",
@@ -31,8 +30,18 @@ ALLOWED_BUTTON_POS = {"toolbar", "field_label", "both"}
 ALLOWED_LANG = {"en", "pt"}
 
 JISHO_MAPPING_OPTIONS = {
-    "", "Word", "Reading", "Meaning", "Part of speech", "Info", "Tags",
-    "See also", "Other forms", "JLPT Level", "Wanikani Level", "Is Common"
+    "",
+    "Word",
+    "Reading",
+    "Meaning",
+    "Part of speech",
+    "Info",
+    "Tags",
+    "See also",
+    "Other forms",
+    "JLPT Level",
+    "Wanikani Level",
+    "Is Common",
 }
 
 
@@ -60,17 +69,17 @@ class Config:
     use_jisho: bool = True
     jisho_shortcut: str = "Ctrl+J"
     jisho_fastfill_shortcut: str = "Ctrl+Shift+J"
-    editor_button_position: str = "toolbar" # toolbarl | field_label | both
+    editor_button_position: str = "toolbar"  # toolbarl | field_label | both
     language: str = "en"
     show_welcome_dialog: bool = False
 
     jisho_profiles: dict = field(default_factory=dict)  # {note_type: {profile_fields}}
     active_jisho_profile: str = ""  # last selected / fallback name
 
-    card_type: str = "JapaneseMining"   # note type
+    card_type: str = "JapaneseMining"  # note type
     target_deck: str = ""
     search_field: str = "Word"
-    mappings: list = field(default_factory=list)    # list[{"jisho": str "field": str}]
+    mappings: list = field(default_factory=list)  # list[{"jisho": str "field": str}]
     fill_mode: str = "replace"  # replace | append
     multi_meaning_format: str = "semicolon_merged"
     multi_word_format: str = "inline"
@@ -78,7 +87,7 @@ class Config:
     remove_furigana_search: bool = True
     disable_multi_word_warning: bool = False
     show_quick_fill_success: bool = True
-    quick_fill_mode: str = "all"    # all | first
+    quick_fill_mode: str = "all"  # all | first
 
     # --- HYPERTTS ---
     use_hypertts: bool = False
@@ -138,11 +147,13 @@ def save_config(config: Config) -> None:
 
 
 # --- PRIVATE FUNCTIONS ---
-def _addon_root()-> Path:
+def _addon_root() -> Path:
     return Path(__file__).resolve().parent
+
 
 def _user_files_root() -> Path:
     return _addon_root() / "user_files"
+
 
 def _get_or_create_profile_id() -> str:
     """Stable ID for the current Anki profile (survives renames)."""
@@ -172,11 +183,13 @@ def _get_or_create_profile_id() -> str:
     safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in name)
     return f"name_{safe}"
 
+
 def _profile_config_path() -> Path:
     profile_id = _get_or_create_profile_id()
     path = _user_files_root() / "profiles" / profile_id / "config.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
+
 
 def _normalize_mappings(raw: Any) -> list[dict[str, str]]:
     """Accept both old dict style and new list style. Keep only valid entries."""
@@ -236,9 +249,15 @@ def _normalize_config_dict(data: dict) -> dict:
 
     # Booleans
     for bool_key in (
-        "use_jisho", "remove_pos_ending", "remove_furigana_search",
-        "disable_multi_word_warning", "show_quick_fill_success",
-        "show_welcome_dialog", "use_deepl", "use_hypertts", "show_tooltip"
+        "use_jisho",
+        "remove_pos_ending",
+        "remove_furigana_search",
+        "disable_multi_word_warning",
+        "show_quick_fill_success",
+        "show_welcome_dialog",
+        "use_deepl",
+        "use_hypertts",
+        "show_tooltip",
     ):
         result[bool_key] = bool(result.get(bool_key, defaults[bool_key]))
 
@@ -277,9 +296,7 @@ def _migrate_to_jisho_profiles(data: dict) -> dict:
     # If we still have old flat fields, turn them into the first profile
     if not profiles:
         old_note_type = (
-            data.get("card_type")
-            or data.get("mining_note_type")
-            or "JapaneseMining"
+            data.get("card_type") or data.get("mining_note_type") or "JapaneseMining"
         )
         profile = default_jisho_profile()
         for key in JISHO_PROFILE_KEYS:

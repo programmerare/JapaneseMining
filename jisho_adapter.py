@@ -2,6 +2,7 @@ from dataclasses import asdict
 from copy import deepcopy
 from .config import Config
 
+
 def to_ajc_runtime_config(cfg: Config) -> dict:
     """Turn our Config into the exact shape the foreign runtime expects."""
     d = asdict(cfg)

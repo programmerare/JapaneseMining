@@ -12,29 +12,38 @@ from .services.hypertts_service import HyperTTSService
 from .services.kanji_data_service import KanjiDataService
 from .ui.settings.dialog import make_show_settings
 from .ui.todays_words import make_show_todays_words
-from .ui.editor import make_translate_btn_setup, inject_editor_css, make_segment_sentence
+from .ui.editor import (
+    make_translate_btn_setup,
+    inject_editor_css,
+    make_segment_sentence,
+)
 from .ui.menu import setup_menu
-
 
 _executor = ThreadPoolExecutor(max_workers=2)
 
 _current_editor: Editor | None = None
 
+
 def _set_current_editor(editor: Editor) -> None:
     global _current_editor
     _current_editor = editor
 
+
 def _get_current_editor():
     return _current_editor
 
+
 _focused_field_index: str | None = None
+
 
 def _set_focused_field(note, index):
     global _focused_field_index
     _focused_field_index = str(index) if index is not None else None
 
+
 def _get_focused_field_index():
     return _focused_field_index
+
 
 def setup_addon():
     """Set up the JapaneseMining add-on, including services, hooks, and menu actions."""
@@ -57,6 +66,7 @@ def setup_addon():
             kanji_data_service.load_learned_kanji()
             kanji_data_service.load_kanji_meanings()
             kanji_data_service.load_todays_words()
+
         _executor.submit(load)
 
     # --- HOOKS ---
@@ -94,8 +104,8 @@ def setup_addon():
         if old_state == "review" and new_state in ("overview", "deckBrowser"):
             return
         _executor.submit(collection_service.update_japanese_mining_cards)
-    
-    #gui_hooks.state_did_change.append(on_state_did_change)
+
+    # gui_hooks.state_did_change.append(on_state_did_change)
 
     # --- Setup menu actions ---
     show_todays_words = make_show_todays_words(kanji_data_service)
@@ -119,6 +129,7 @@ def setup_addon():
             kanji_data_service.load_learned_kanji()
             kanji_data_service.load_kanji_meanings()
             kanji_data_service.load_todays_words()
+
         _executor.submit(load)
 
     gui_hooks.profile_did_open.append(_on_profile_loaded)

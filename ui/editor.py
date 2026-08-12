@@ -5,8 +5,8 @@ from sudachipy import tokenizer, dictionary
 
 from ..config import ConfigHolder
 
-
 tokenizer_obj = dictionary.Dictionary(dict="small").create()
+
 
 def make_translate_btn_setup(deepl_service, config_holder: ConfigHolder):
     def set_translate_btn(buttons: list[str], editor: Editor) -> None:
@@ -23,7 +23,9 @@ def make_translate_btn_setup(deepl_service, config_holder: ConfigHolder):
             keys=config_holder.config.deepl_shortcut,
         )
         buttons.append(button)
+
     return set_translate_btn
+
 
 def inject_editor_css(editor):
     # Inject CSS for the DeepL translate button
@@ -95,6 +97,7 @@ def inject_editor_css(editor):
     }
     """)
 
+
 def make_segment_sentence(config_holder: ConfigHolder, get_focused_field_index):
     def segment_sentence(note):
         """Segment the Example Sentence field of a note and display the tokens in a preview area."""
@@ -118,7 +121,7 @@ def make_segment_sentence(config_holder: ConfigHolder, get_focused_field_index):
             return
 
         editor = mw.app.activeWindow().editor
-        
+
         index = fmap_entry[0]
         text = note.fields[index]
 
@@ -129,7 +132,7 @@ def make_segment_sentence(config_holder: ConfigHolder, get_focused_field_index):
 
         tokens = tokenizer_obj.tokenize(text, tokenizer.Tokenizer.SplitMode.C)
         tokens = [t for t in tokens if t.surface().strip()]
-        
+
         html = "".join(
             f'<span class="token" data-token="{str(token)}">{str(token)}</span>'
             for token in tokens
@@ -168,4 +171,5 @@ def make_segment_sentence(config_holder: ConfigHolder, get_focused_field_index):
             });
         });
         """)
+
     return segment_sentence

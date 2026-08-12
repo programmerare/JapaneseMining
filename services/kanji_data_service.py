@@ -45,7 +45,9 @@ class KanjiDataService:
         learned = [k for k, v in data.items() if v.get("Learned")]
         remaining = [k for k, v in data.items() if not v.get("Learned")]
 
-        learned.sort(key=lambda k: (-data[k].get("Knowledge", 0.0), k))  # Sort by knowledge descending, then kanji
+        learned.sort(
+            key=lambda k: (-data[k].get("Knowledge", 0.0), k)
+        )  # Sort by knowledge descending, then kanji
         remaining.sort()
 
         keywords = {k: v.get("Keyword", "") for k, v in data.items()}
@@ -60,8 +62,8 @@ class KanjiDataService:
             remaining,
             len(learned),
             len(learned) + len(remaining),
-            keywords, 
-            knowledge
+            keywords,
+            knowledge,
         )
 
     def load_learned_kanji(self) -> None:
@@ -77,13 +79,18 @@ class KanjiDataService:
                         continue
                     knowledge_raw = row.get("Knowledge", "")
                     try:
-                        knowledge = float(knowledge_raw) if knowledge_raw not in (None, "") else 0.0
+                        knowledge = (
+                            float(knowledge_raw)
+                            if knowledge_raw not in (None, "")
+                            else 0.0
+                        )
                     except ValueError:
                         knowledge = 0.0
 
                     self._learned_kanji[kanji] = {
                         "Keyword": row.get("Keyword", ""),
-                        "Learned": str(row.get("Learned", "1")).lower() in {"1", "true", "yes"},
+                        "Learned": str(row.get("Learned", "1")).lower()
+                        in {"1", "true", "yes"},
                         "Knowledge": knowledge,
                     }
         except FileNotFoundError:
@@ -113,7 +120,9 @@ class KanjiDataService:
 
             for kanji in root.findall("kanji"):
                 character = kanji.get("char")
-                meanings = [meaning.text for meaning in kanji.findall("meaning") if meaning.text]
+                meanings = [
+                    meaning.text for meaning in kanji.findall("meaning") if meaning.text
+                ]
                 dictionary[character] = meanings
         except FileNotFoundError:
             pass
@@ -188,12 +197,14 @@ class KanjiDataService:
         file_path = self._media_path(self._TODAYS_WORDS_FILE)
         with file_path.open("a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
-            writer.writerow([
-                date.today(),
-                word,
-                reading,
-                meaning,
-            ])
+            writer.writerow(
+                [
+                    date.today(),
+                    word,
+                    reading,
+                    meaning,
+                ]
+            )
 
     def _media_path(self, filename: str) -> Path:
         """Return the full path to a file in the Anki media directory."""

@@ -1,7 +1,12 @@
-# ui/kanji_heatmap.py
 from aqt import mw
 from aqt.qt import (
-    QDialog, QVBoxLayout, QLabel, QTextBrowser, QPushButton, QHBoxLayout, Qt
+    QDialog,
+    QVBoxLayout,
+    QLabel,
+    QTextBrowser,
+    QPushButton,
+    QHBoxLayout,
+    Qt,
 )
 
 KANJI_PER_ROW = 48
@@ -20,6 +25,7 @@ RAINBOW = [
     "#ff5722",  # deep orange
     "#8bc34a",  # light green
 ]
+
 
 def show_kanji_heatmap(kanji_data_service=None):
     """
@@ -52,9 +58,7 @@ def show_kanji_heatmap(kanji_data_service=None):
     header.setStyleSheet("font-size: 16px; margin-bottom: 4px;")
 
     info_icon = QLabel("ⓘ")
-    info_icon.setStyleSheet(
-        "font-size: 14px; color: #888; padding: 0 2px;"
-    )
+    info_icon.setStyleSheet("font-size: 14px; color: #888; padding: 0 2px;")
     info_icon.setCursor(Qt.CursorShape.WhatsThisCursor)
     info_icon.setToolTip(
         "<b>How the colours are calculated</b><br><br>"
@@ -76,25 +80,27 @@ def show_kanji_heatmap(kanji_data_service=None):
     # Heatmap
     browser = QTextBrowser()
     browser.setOpenLinks(False)
-    browser.setStyleSheet("QTextBrowser { background: #fafafa; border: 1px solid #ddd; }")
+    browser.setStyleSheet(
+        "QTextBrowser { background: #fafafa; border: 1px solid #ddd; }"
+    )
 
     all_kanji = learned + remaining
     learned_set = set(learned)
 
     html = [
-            "<style>",
-            "body { font-family: 'Hiragino Sans', 'Noto Sans CJK JP', 'Yu Gothic', sans-serif; }",
-            ".row { margin: 0 0 3px 0; line-height: 1.35; }",
-            ".k { display: inline-block; width: 1.35em; text-align: center; "
-            "     font-size: 15px; margin: 0 1px; cursor: default; }",
-            ".learned { font-weight: 600; }",
-            ".remaining { color: #b0b0b0; }",
-            "</style>",
-            "<div>",
-        ]
+        "<style>",
+        "body { font-family: 'Hiragino Sans', 'Noto Sans CJK JP', 'Yu Gothic', sans-serif; }",
+        ".row { margin: 0 0 3px 0; line-height: 1.35; }",
+        ".k { display: inline-block; width: 1.35em; text-align: center; "
+        "     font-size: 15px; margin: 0 1px; cursor: default; }",
+        ".learned { font-weight: 600; }",
+        ".remaining { color: #b0b0b0; }",
+        "</style>",
+        "<div>",
+    ]
 
     for i in range(0, len(all_kanji), KANJI_PER_ROW):
-        chunk = all_kanji[i:i + KANJI_PER_ROW]
+        chunk = all_kanji[i : i + KANJI_PER_ROW]
         html.append('<div class="row">')
         for j, k in enumerate(chunk):
             keyword = keywords.get(k, "").replace('"', "&quot;")
@@ -106,9 +112,7 @@ def show_kanji_heatmap(kanji_data_service=None):
                     f'<span class="k learned" style="color:{color}" title="{keyword}">{k}</span>'
                 )
             else:
-                html.append(
-                    f'<span class="k remaining" title="{keyword}">{k}</span>'
-                )
+                html.append(f'<span class="k remaining" title="{keyword}">{k}</span>')
         html.append("</div>")
 
     html.append("</div>")
@@ -132,10 +136,10 @@ def knowledge_to_color(r: float) -> str:
     # Piecewise hue so the important perceptual points land nicely
     if r < 0.5:
         # red (0°) → yellow (60°)
-        hue = r * 120          # 0 → 60
+        hue = r * 120  # 0 → 60
     elif r < 0.8:
         # yellow (60°) → green (120°)
-        hue = 60 + (r - 0.5) * 200   # 60 → 120
+        hue = 60 + (r - 0.5) * 200  # 60 → 120
     else:
         # green (120°) → blue (210°)
         hue = 120 + (r - 0.8) * 450  # 120 → 210

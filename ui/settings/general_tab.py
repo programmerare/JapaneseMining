@@ -37,14 +37,18 @@ def _set_combo_value(combo: QComboBox, value: str, items: list[str]) -> None:
     combo.blockSignals(False)
 
 
-def make_general_tab(config_holder: ConfigHolder, collection_service=None, save_config_fn=None):
+def make_general_tab(
+    config_holder: ConfigHolder, collection_service=None, save_config_fn=None
+):
     config = config_holder.config
 
     general_tab = QWidget()
     general_layout = QFormLayout(general_tab)
     general_layout.setContentsMargins(16, 12, 16, 12)
     general_layout.setSpacing(10)
-    general_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+    general_layout.setFieldGrowthPolicy(
+        QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow
+    )
     general_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
     # --- Section: UI ---
@@ -134,6 +138,8 @@ def make_general_tab(config_holder: ConfigHolder, collection_service=None, save_
 
     def apply_to_config(cfg):
         cfg.show_tooltip = show_tooltips_checkbox.isChecked()
-        cfg.mining_note_type = mining_note_type_cb.currentText().strip() or cfg.mining_note_type
+        cfg.mining_note_type = (
+            mining_note_type_cb.currentText().strip() or cfg.mining_note_type
+        )
 
     return general_tab, "General", apply_to_config

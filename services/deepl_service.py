@@ -3,6 +3,7 @@ import requests
 
 from ..config import ConfigHolder
 
+
 class DeeplService:
     def __init__(self, config_holder: ConfigHolder):
         self._config_holder = config_holder
@@ -22,7 +23,9 @@ class DeeplService:
         if not note:
             return None
         if note.note_type()["name"] != self._config.mining_note_type:
-            print(f"Note type '{note.note_type()['name']}' does not match the configured note type '{self._config.mining_note_type}'.")
+            print(
+                f"Note type '{note.note_type()['name']}' does not match the configured note type '{self._config.mining_note_type}'."
+            )
             return None
 
         text = note["Example Sentence"]
