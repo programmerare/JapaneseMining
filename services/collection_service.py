@@ -11,7 +11,7 @@ from ..domain.kanji import is_kanji
 
 
 class CollectionService:
-    _HEISIG_KANJIS_FILE = "heisig-kanjis.csv"
+    _HEISIG_KANJIS_FILE = "heisig_kanjis.csv"
     _REQUIRED_MINING_FIELDS = [
         "Word",
         "Kanji is known",
@@ -217,7 +217,7 @@ class CollectionService:
     ) -> tuple[bool, str]:
         """
         Create (or reuse) the RTK note type + deck.
-        Optionally bulk-create notes from heisig-kanjis.csv.
+        Optionally bulk-create notes from heisig_kanjis.csv.
         Updates self._config with the standard field mapping.
         Returns (success, human-readable message).
         """
