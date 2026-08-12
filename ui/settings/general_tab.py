@@ -64,9 +64,13 @@ def make_general_tab(config_holder: ConfigHolder, collection_service=None, save_
     # Short, always-visible guidance
     mining_help = QLabel(
         "This is the note type the add-on uses for mined vocabulary cards.\n"
-        "• Select an existing note type from the list, or type a new name.\n"
-        "• Click the button below to create it with all required fields.\n"
-        "• You may add extra fields later; do not delete the ones the add-on expects."
+        "• Select an existing note type from the list, or provide a name for a new one. "
+        "The recommended choice is to use the default name, or provide another unique name "
+        "you prefer if the default name is already taken.\n"
+        "• Click the button below to create the note type with all required fields. "
+        "If you base it on an existing note type, no backward template will be added automatically, "
+        "so it will be missing if the existing note type does not already have one.\n"
+        "• You may add extra fields later, but do not delete or rename the fields the add-on expects."
     )
     mining_help.setWordWrap(True)
     mining_help.setStyleSheet("color: #666; font-size: 12px; margin-bottom: 4px;")
