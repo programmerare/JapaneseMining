@@ -212,21 +212,7 @@ def make_rtk_tab(config, collection_service):
             tooltip("Please enter both a deck name and a note type name.")
             return
 
-        # TODO
-        # --- obtain the service ---
-        # Option A (preferred once DI is in place):
-        #   svc = collection_service   # passed into make_rtk_tab
-        #
-        # Option B (works right now while the codebase is still migrating):
-        from ...config import load_config
-        from ...services.collection_service import CollectionService
-        from ...services.kanji_data_service import KanjiDataService
-
-        cfg = load_config()
-        kanji_data = KanjiDataService(cfg)
-        svc = CollectionService(cfg, kanji_data)
-
-        success, message = svc.create_rtk_deck_and_note_type(
+        success, message = collection_service.create_rtk_deck_and_note_type(
             deck_name=deck_name,
             note_type_name=note_type_name,
             create_all_notes=create_all,
@@ -237,7 +223,7 @@ def make_rtk_tab(config, collection_service):
             return
 
         # Config object was mutated inside the service – persist it
-        save_config(svc._config)
+        save_config(collection_service._config)
 
         # Update the mapping tab UI immediately
         _set_combo_value(rtk_deck_cb, deck_name, _deck_names())
