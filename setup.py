@@ -70,6 +70,7 @@ def setup_addon():
 
     def on_note_added(note: Note):
         collection_service.update_single_note_kanji_knowledge(note)
+        collection_service.ensure_rtk_kanji_for_note(note)
 
     def on_will_add_note(problem: str | None, note: Note):
         editor = _get_current_editor()

@@ -63,33 +63,94 @@ class CollectionService:
         note = card.note()
         return self._get_field(note, keyword_field)
 
+    def add_kanji_to_rtk_deck(
+        self,
+        kanji: str,
+        *,
+        tags: list[str] | None = None,
+        heisig_kanjis: dict[str, dict] | None = None,
+    ) -> bool:
+        """
+        Ensure a single kanji exists as an RTK note.
+        Returns True if a new note was added, False if skipped (missing config,
+        not a kanji, already present, or no Heisig row and you choose to skip).
+        """
+        if not self._rtk_configured():
+            return False
+
+        kanji = (kanji or "").strip()
+        if not kanji or not is_kanji(kanji[0]):
+            return False
+        kanji = kanji[0]
+
+        # Load Heisig data only if the caller did not pass it in
+        if heisig_kanjis is None:
+            path = self._resolve_heisig_csv()
+            if path is None:
+                return False
+            with path.open("r", newline="", encoding="utf-8") as f:
+                heisig_kanjis = {
+                    row["kanji"]: row for row in csv.DictReader(f) if row.get("kanji")
+                }
+
+        col = mw.col
+        deck_id = col.decks.id(self._config.rtk_deck)
+
+        note = self._create_rtk_note(
+            kanji=kanji,
+            tags=tags or ["Self-Added"],
+            heisig_kanjis=heisig_kanjis,
+        )
+        if note is None:
+            return False  # duplicate / empty
+
+        col.add_note(note, deck_id)
+        return True
+
     def add_unknown_kanji(self) -> int:
-        """Add missing Kanji to the RTK deck"""
+        """Find every unknown kanji in mining notes and add them to the RTK deck."""
         if not self._rtk_configured():
             if self._config.show_tooltip:
                 tooltip("RTK deck is not configured. Please check your settings.")
             return 0
 
-        col = mw.col
-        deck = self._config.rtk_deck
+        path = self._resolve_heisig_csv()
+        if path is None:
+            if self._config.show_tooltip:
+                tooltip(f"Could not find {self._HEISIG_KANJI_FILE}.")
+            return 0
 
-        unknown_kanji = self._find_unknown_kanji()
-        deck_id = col.decks.id(deck)
+        with path.open("r", newline="", encoding="utf-8") as f:
+            heisig_kanjis = {
+                row["kanji"]: row for row in csv.DictReader(f) if row.get("kanji")
+            }
 
-        path = self._media_path(self._HEISIG_KANJI_FILE)
-        with path.open("r", newline="", encoding="utf-8") as file:
-            reader = csv.DictReader(file)
-            kanji_rows = {row["kanji"]: row for row in reader}
-
-        for kanji in unknown_kanji:
-            note = self._create_rtk_note(kanji=kanji, tags=["Self-Added"], heisig_kanjis=kanji_rows)
-            if note:
-                col.add_note(note, deck_id)
+        added = 0
+        for kanji in self._find_unknown_kanji():
+            if self.add_kanji_to_rtk_deck(kanji, heisig_kanjis=heisig_kanjis):
+                added += 1
 
         if self._config.show_tooltip:
-            tooltip(f"Added {len(unknown_kanji)} unknown kanji to the RTK deck.")
+            tooltip(f"Added {added} unknown kanji to the RTK deck.")
 
-        return len(unknown_kanji)
+        return added
+
+    def ensure_rtk_kanji_for_note(self, note: Note) -> int:
+        if note is None:
+            return 0
+        if note.note_type()["name"] != self._config.mining_note_type:
+            return 0
+
+        word = note["Word"] if "Word" in note else ""
+        added = 0
+        seen: set[str] = set()
+        for ch in word:
+            if ch in seen or not is_kanji(ch):
+                continue
+            seen.add(ch)
+            if self.add_kanji_to_rtk_deck(ch):
+                added += 1
+        return added
 
     def export_learned_kanji(self) -> tuple[int, int]:
         """Save all Kanji, keywords, and learned status in a csv file."""
