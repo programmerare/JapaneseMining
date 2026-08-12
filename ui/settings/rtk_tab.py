@@ -19,6 +19,8 @@ from aqt.qt import (
 import random
 import string
 
+from ...config import ConfigHolder
+
 
 def _note_type_names() -> list[str]:
     try:
@@ -72,8 +74,10 @@ def _set_combo_value(
     combo.blockSignals(False)
 
 
-def make_rtk_tab(config, collection_service):
+def make_rtk_tab(config_holder: ConfigHolder, collection_service, save_config_fn=None):
     """Return (widget, title, apply_to_config)."""
+    config = config_holder.config
+
     outer = QWidget()
     outer_layout = QVBoxLayout(outer)
     outer_layout.setContentsMargins(8, 8, 8, 8)

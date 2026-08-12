@@ -6,8 +6,12 @@ from aqt import (
     Qt,
 )
 
+from ...config import ConfigHolder
 
-def make_hypertts_tab(config):
+
+def make_hypertts_tab(config_holder: ConfigHolder, save_config_fn=None):
+    config = config_holder.config
+
     hypertts_tab = QWidget()
     hypertts_layout = QFormLayout(hypertts_tab)
     hypertts_layout.setContentsMargins(16, 12, 16, 12)

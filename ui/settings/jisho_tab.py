@@ -12,6 +12,7 @@ from copy import deepcopy
 from ...config import (
     JISHO_MAPPING_OPTIONS,
     default_jisho_profile,
+    ConfigHolder,
 )
 
 # Compatibility matrix (copied from foreign code)
@@ -31,11 +32,13 @@ MULTI_WORD_COMPATIBILITY = {
 }
 
 
-def make_jisho_tab(config):
+def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
     """
     Returns (tab_widget, title, apply_to_config_fn)
     The tab itself contains three sub-tabs: General / Mapping / Advanced
     """
+    config = config_holder.config
+
     outer = QWidget()
     outer_layout = QVBoxLayout(outer)
     outer_layout.setContentsMargins(0, 0, 0, 0)

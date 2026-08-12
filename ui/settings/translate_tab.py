@@ -11,8 +11,12 @@ from aqt import (
     Qt,
 )
 
+from ...config import ConfigHolder
 
-def make_translate_tab(config):
+
+def make_translate_tab(config_holder: ConfigHolder, save_config_fn=None):
+    config = config_holder.config
+
     translate_tab = QWidget()
     translate_layout = QFormLayout(translate_tab)
     translate_layout.setContentsMargins(16, 12, 16, 12)
