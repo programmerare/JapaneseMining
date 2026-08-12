@@ -84,6 +84,18 @@ class Config:
     use_hypertts: bool = False
 
 
+class ConfigHolder:
+    """Single source of truth for the current profile's Config."""
+
+    def __init__(self, config: Config):
+        self.config = config
+
+    def reload(self) -> Config:
+        """Load the config for the current Anki profile and replace self.config."""
+        self.config = load_config()
+        return self.config
+
+
 # --- PUBLIC FUNCTIONS ---
 def load_config() -> Config:
     """Load config for the current Anki profile. Always returns a complete Config."""
