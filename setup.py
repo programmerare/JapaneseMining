@@ -105,7 +105,6 @@ def setup_addon():
         print("Profile loaded, reloading config and re-initializing services...")
         config_holder.reload()
         jisho_service.initialize()
-        hypertts_service.initialize()
 
         def load():
             kanji_data_service.load_learned_kanji()

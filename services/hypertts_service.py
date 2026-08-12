@@ -37,20 +37,20 @@ class HyperTTSService:
             print(f"HyperTTS error: {e}")
         return None
 
-    def initialize(self):
-        """
-        Drop any cached HyperTTS handle.
-        Call this when the Anki profile changes so the next use
-        discovers the instance that belongs to the new profile.
-        """
-        self._instance = None
-
     # --- PRIVATE METHODS --- #
     def _get_instance(self):
         """Return the running HyperTTS instance, or None if not available."""
-        if self._instance is None:
+        if self._instance is not None:
+            return self._instance
+
+        try:
             for player in aqt.sound.av_player.players:
-                if isinstance(player, aqt.tts.TTSProcessPlayer) and hasattr(player, "hypertts"):
-                    self._instance = player.hypertts
-                    break
-        return self._instance
+                # HyperTTS registers AnkiHyperTTSPlayer with a .hypertts attribute
+                hypertts = getattr(player, "hypertts", None)
+                if hypertts is not None:
+                    self._instance = hypertts
+                    return self._instance
+        except Exception as e:
+            print(f"HyperTTS lookup failed: {e}")
+
+        return None
