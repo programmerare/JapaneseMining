@@ -33,10 +33,10 @@ def make_show_settings(config_holder: ConfigHolder, save_config_fn, collection_s
         apply_fns = []
 
         for make_tab in [make_general_tab, make_rtk_tab, make_translate_tab, make_jisho_tab, make_hypertts_tab]:
-            if make_tab == make_rtk_tab:
-                tab, title, apply_fn = make_tab(config, collection_service)
+            if make_tab == make_rtk_tab or make_tab == make_general_tab:
+                tab, title, apply_fn = make_tab(config_holder, collection_service, save_config_fn)
             else:
-                tab, title, apply_fn = make_tab(config)
+                tab, title, apply_fn = make_tab(config_holder, save_config_fn)
             tabs.addTab(tab, title)
             apply_fns.append(apply_fn)
         main_layout.addWidget(tabs)
