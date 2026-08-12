@@ -86,19 +86,7 @@ def setup_addon():
     segment_sentence = make_segment_sentence(config_holder, _get_focused_field_index)
     gui_hooks.editor_did_fire_typing_timer.append(segment_sentence)
 
-    def on_card_answered(reviewer, card, ease):
-        if card.reps != 1:
-            return
-        note = card.note()
-        if note.note_type()["name"] != config_holder.config.mining_note_type:
-            return
-        word = note["Word"] if "Word" in note else ""
-        reading = note["Reading"] if "Reading" in note else ""
-        meaning = note["Meaning"] if "Meaning" in note else ""
-        if word:
-            kanji_data_service.save_todays_word(word, reading, meaning)
-
-    gui_hooks.reviewer_did_answer_card.append(on_card_answered)
+    gui_hooks.reviewer_did_answer_card.append(kanji_data_service.handle_card_answered)
 
     # --- Setup menu actions ---
     show_todays_words = make_show_todays_words(kanji_data_service)

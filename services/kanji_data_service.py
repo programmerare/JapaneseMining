@@ -150,6 +150,23 @@ class KanjiDataService:
 
         self._append_word(word, reading, meaning)
 
+    def handle_card_answered(self, reviewer, card, ease) -> None:
+        """Record the word the first time a mining card is answered."""
+        if card.reps != 1:
+            return
+
+        note = card.note()
+        if note.note_type()["name"] != self._config.mining_note_type:
+            return
+
+        word = note["Word"] if "Word" in note else ""
+        if not word:
+            return
+
+        reading = note["Reading"] if "Reading" in note else ""
+        meaning = note["Meaning"] if "Meaning" in note else ""
+        self.save_todays_word(word, reading, meaning)
+
     # --- PRIVATE METHODS --- #
     def _overwrite_file(self) -> None:
         """Overwrite the todays_words.csv file with a new header."""
