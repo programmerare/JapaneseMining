@@ -11,11 +11,13 @@ from .rtk_tab import make_rtk_tab
 from .translate_tab import make_translate_tab
 from .jisho_tab import make_jisho_tab
 from .hypertts_tab import make_hypertts_tab
+from ...config import ConfigHolder
 
 
-def make_show_settings(config, save_config_fn, collection_service):
+def make_show_settings(config_holder: ConfigHolder, save_config_fn, collection_service):
     def show_settings():
         """Show a dialog for configuring the JapaneseMining add-on."""
+        config = config_holder.config
         dialog = QDialog(mw)
         dialog.setWindowTitle("JapaneseMining Settings")
         dialog.resize(760, 620)
@@ -50,6 +52,7 @@ def make_show_settings(config, save_config_fn, collection_service):
             for apply_fn in apply_fns:
                 apply_fn(config)    # Each tab writes its own settings to the config object
             save_config_fn(config)
+            config_holder.config = config   # Keep the config holder in sync with the saved config
 
             if config.use_jisho:
                 from ...jisho_adapter import to_ajc_runtime_config

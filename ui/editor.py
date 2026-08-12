@@ -3,10 +3,12 @@ from aqt.editor import Editor
 from aqt.qt import QTextDocument
 from sudachipy import tokenizer, dictionary
 
+from ..config import ConfigHolder
+
 
 tokenizer_obj = dictionary.Dictionary(dict="small").create()
 
-def make_translate_btn_setup(deepl_service, config):
+def make_translate_btn_setup(deepl_service, config_holder: ConfigHolder):
     def set_translate_btn(buttons: list[str], editor: Editor) -> None:
         def on_translate(editor):
             deepl_service.translate(editor)
@@ -18,7 +20,7 @@ def make_translate_btn_setup(deepl_service, config):
             tip="Translate Example Sentence",
             label="T",
             id="deepl-translate",
-            keys=config.deepl_shortcut,
+            keys=config_holder.config.deepl_shortcut,
         )
         buttons.append(button)
     return set_translate_btn
@@ -93,9 +95,10 @@ def inject_editor_css(editor):
     }
     """)
 
-def make_segment_sentence(config, get_focused_field_index):
+def make_segment_sentence(config_holder: ConfigHolder, get_focused_field_index):
     def segment_sentence(note):
         """Segment the Example Sentence field of a note and display the tokens in a preview area."""
+        config = config_holder.config
         if not note or note.note_type()["name"] != config.mining_note_type:
             return
 
