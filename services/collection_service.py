@@ -260,7 +260,10 @@ class CollectionService:
             model = mm.new(note_type_name)
 
             for name in REQUIRED_FIELDS:
-                mm.add_field(model, mm.new_field(name))
+                field = mm.new_field(name)
+                field["size"] = 12
+                field["font"] = "Arial"
+                mm.add_field(model, field)
 
             # Sort by Word
             model["sortf"] = 0
@@ -336,7 +339,10 @@ class CollectionService:
                 "Heisig Number",
                 "Stroke Count",
             ):
-                mm.add_field(model, mm.new_field(field_name))
+                field = mm.new_field(field_name)
+                field["size"] = 12
+                field["font"] = "Arial"
+                mm.add_field(model, field)
 
             model["sortf"] = 4  # Heisig Number becomes the sort field
 
