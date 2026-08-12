@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
-from ..config import Config
+from ..config import ConfigHolder
 
 
 class KanjiDataService:
@@ -13,13 +13,17 @@ class KanjiDataService:
     _KANJI_MEANINGS_FILE = "kanji_meanings.xml"
     _TODAYS_WORDS_FILE = "todays_words.csv"
 
-    def __init__(self, config: Config):
-        self._config = config
+    def __init__(self, config_holder: ConfigHolder):
+        self._config_holder = config_holder
         self._learned_kanji: dict[str, dict] = {}
         self._kanji_meanings: dict[str, list[str]] = {}
         self._todays_words: list[tuple[str, str, str]] = []
         self._seen_words: set[tuple[str, str]] = set()
         self._current_day: str | None = None
+
+    @property
+    def _config(self):
+        return self._config_holder.config
 
     # --- PUBLIC METHODS --- #
     def get_learned_kanji(self) -> dict[str, dict]:

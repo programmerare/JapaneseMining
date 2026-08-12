@@ -5,7 +5,7 @@ import csv
 import math
 from pathlib import Path
 
-from ..config import Config
+from ..config import ConfigHolder
 from .kanji_data_service import KanjiDataService
 from ..domain.kanji import is_kanji
 
@@ -21,9 +21,13 @@ class CollectionService:
         "Kanji Meanings",
     ]
 
-    def __init__(self, config: Config, kanji_data: KanjiDataService):
-        self._config = config
+    def __init__(self, config_holder: ConfigHolder, kanji_data: KanjiDataService):
+        self._config_holder = config_holder
         self._kanji_data = kanji_data
+
+    @property
+    def _config(self):
+        return self._config_holder.config
 
     # --- PUBLIC METHODS --- #
     def force_update_keywords(self) -> None:

@@ -1,11 +1,15 @@
 from aqt.editor import Editor
 import requests
 
-from ..config import Config
+from ..config import ConfigHolder
 
 class DeeplService:
-    def __init__(self, config: Config):
-        self._config = config
+    def __init__(self, config_holder: ConfigHolder):
+        self._config_holder = config_holder
+
+    @property
+    def _config(self):
+        return self._config_holder.config
 
     def translate(self, editor: Editor) -> None:
         """Translate the Example Sentence field of a note using DeepL API."""

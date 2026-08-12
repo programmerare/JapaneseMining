@@ -2,13 +2,17 @@ from anki.notes import Note
 import aqt
 from aqt.editor import Editor
 
-from ..config import Config
+from ..config import ConfigHolder
 
 
 class HyperTTSService:
-    def __init__(self, config: Config):
-        self._config = config
-        self._instane = None
+    def __init__(self, config_holder: ConfigHolder):
+        self._config_holder = config_holder
+        self._instance = None
+
+    @property
+    def _config(self):
+        return self._config_holder.config
 
     # --- PUBLIC METHODS --- #
     def add_audio(self, problem: str | None, note: Note, editor: Editor = None) -> None:
@@ -36,9 +40,9 @@ class HyperTTSService:
     # --- PRIVATE METHODS --- #
     def _get_instance(self):
         """Return the running HyperTTS instance, or None if not available."""
-        if self._instane is None:
+        if self._instance is None:
             for player in aqt.sound.av_player.players:
                 if isinstance(player, aqt.tts.TTSProcessPlayer) and hasattr(player, "hypertts"):
-                    self._instane = player.hypertts
+                    self._instance = player.hypertts
                     break
-        return self._instane
+        return self._instance
