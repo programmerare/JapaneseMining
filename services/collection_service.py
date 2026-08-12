@@ -425,6 +425,7 @@ class CollectionService:
             parts.append(f"Added {notes_created} new notes")
 
         self._ensure_rtk_fonts()
+        self.export_learned_kanji()
 
         return True, ". ".join(parts) + "."
 
