@@ -61,7 +61,7 @@ class CollectionService:
 
         card = col.get_card(card_ids[0])
         note = card.note()
-        return f"{kanji} {self._get_field(note, keyword_field)}"
+        return self._get_field(note, keyword_field)
 
     def add_unknown_kanji(self) -> int:
         """Add missing Kanji to the RTK deck"""
@@ -596,7 +596,7 @@ class CollectionService:
             if not keywords_present or force_update_keywords:
                 kanji_keyword = kanji_entry.get("Keyword", "") if kanji_entry else ""
                 if kanji_keyword and kanji_keyword not in keywords:
-                    keywords.append(kanji_keyword)
+                    keywords.append(f"{ch}: {kanji_keyword}")
 
             if not meanings_present or force_update_meanings:
                 tmp = self._kanji_data.get_kanji_meanings(ch)
