@@ -88,6 +88,14 @@ def setup_addon():
 
     gui_hooks.reviewer_did_answer_card.append(kanji_data_service.handle_card_answered)
 
+    def on_state_did_change(new_state: str, old_state: str) -> None:
+        print(f"State changed from {old_state} to {new_state}")
+        if old_state == "review" and new_state in ("overview", "deckBrowser"):
+            return
+        _executor.submit(collection_service.update_japanese_mining_cards)
+    
+    #gui_hooks.state_did_change.append(on_state_did_change)
+
     # --- Setup menu actions ---
     show_todays_words = make_show_todays_words(kanji_data_service)
     show_settings = make_show_settings(config_holder, save_config, collection_service)
