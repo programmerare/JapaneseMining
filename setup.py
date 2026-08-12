@@ -4,7 +4,7 @@ from aqt.editor import Editor
 from aqt.qt import QAction, QMenu
 from concurrent.futures import ThreadPoolExecutor
 
-from .config import load_config, save_config
+from .config import ConfigHolder, load_config, save_config
 from .services.collection_service import CollectionService
 from .services.deepl_service import DeeplService
 from .services.jisho_service import JishoService
@@ -39,14 +39,14 @@ def _get_focused_field_index():
 def setup_addon():
     """Set up the JapaneseMining add-on, including services, hooks, and menu actions."""
     print("Setting up new JapaneseMining add-on...")
-    config = load_config()
+    config_holder = ConfigHolder(load_config())
 
     # Create services
-    kanji_data_service = KanjiDataService(config)
-    collection_service = CollectionService(config, kanji_data_service)
-    deepl_service = DeeplService(config)
-    jisho_service = JishoService(config)
-    hypertts_service = HyperTTSService(config)
+    kanji_data_service = KanjiDataService(config_holder)
+    collection_service = CollectionService(config_holder, kanji_data_service)
+    deepl_service = DeeplService(config_holder)
+    jisho_service = JishoService(config_holder)
+    hypertts_service = HyperTTSService(config_holder)
 
     # --- Initialize services that require it ---
     jisho_service.initialize()
@@ -80,17 +80,17 @@ def setup_addon():
 
     gui_hooks.editor_did_init.append(inject_editor_css)
 
-    set_translate_btn = make_translate_btn_setup(deepl_service, config)
+    set_translate_btn = make_translate_btn_setup(deepl_service, config_holder)
     gui_hooks.editor_did_init_buttons.append(set_translate_btn)
 
-    segment_sentence = make_segment_sentence(config, _get_focused_field_index)
+    segment_sentence = make_segment_sentence(config_holder, _get_focused_field_index)
     gui_hooks.editor_did_fire_typing_timer.append(segment_sentence)
 
     def on_card_answered(reviewer, card, ease):
         if card.reps != 1:
             return
         note = card.note()
-        if note.note_type()["name"] != config.mining_note_type:
+        if note.note_type()["name"] != config_holder.config.mining_note_type:
             return
         word = note["Word"] if "Word" in note else ""
         reading = note["Reading"] if "Reading" in note else ""
@@ -102,12 +102,26 @@ def setup_addon():
 
     # --- Setup menu actions ---
     show_todays_words = make_show_todays_words(kanji_data_service)
-    show_settings = make_show_settings(config, save_config, collection_service)
+    show_settings = make_show_settings(config_holder, save_config, collection_service)
 
     setup_menu(
-        config,
+        config_holder,
         collection_service,
         kanji_data_service,
         show_todays_words,
         show_settings,
     )
+
+    def _on_profile_loaded():
+        """Reload the config and re-initialize services when a new Anki profile is loaded."""
+        print("Profile loaded, reloading config and re-initializing services...")
+        config_holder.reload()
+        jisho_service.initialize()
+
+        def load():
+            kanji_data_service.load_learned_kanji()
+            kanji_data_service.load_kanji_meanings()
+            kanji_data_service.load_todays_words()
+        _executor.submit(load)
+
+    gui_hooks.profile_did_open.append(_on_profile_loaded)
