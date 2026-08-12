@@ -11,7 +11,7 @@ from ..domain.kanji import is_kanji
 
 
 class CollectionService:
-    _HEISIG_KANJIS_FILE = "heisig_kanjis.csv"
+    _HEISIG_KANJI_FILE = "heisig_kanji.csv"
     _REQUIRED_MINING_FIELDS = [
         "Word",
         "Kanji is known",
@@ -76,7 +76,7 @@ class CollectionService:
         unknown_kanji = self._find_unknown_kanji()
         deck_id = col.decks.id(deck)
 
-        path = self._media_path(self._HEISIG_KANJIS_FILE)
+        path = self._media_path(self._HEISIG_KANJI_FILE)
         with path.open("r", newline="", encoding="utf-8") as file:
             reader = csv.DictReader(file)
             kanji_rows = {row["kanji"]: row for row in reader}
@@ -217,7 +217,7 @@ class CollectionService:
     ) -> tuple[bool, str]:
         """
         Create (or reuse) the RTK note type + deck.
-        Optionally bulk-create notes from heisig_kanjis.csv.
+        Optionally bulk-create notes from heisig_kanji.csv.
         Updates self._config with the standard field mapping.
         Returns (success, human-readable message).
         """
@@ -287,7 +287,7 @@ class CollectionService:
             path = self._resolve_heisig_csv()
             if path is None:
                 return False, (
-                    f"Could not find {self._HEISIG_KANJIS_FILE}. "
+                    f"Could not find {self._HEISIG_KANJI_FILE}. "
                     "Put it in the Anki media folder or in the add-on’s vendor/ directory."
                 )
 
@@ -666,11 +666,11 @@ class CollectionService:
 
     def _resolve_heisig_csv(self) -> Path | None:
         """Prefer media folder, fall back to vendor/ inside the add-on package."""
-        media = self._media_path(self._HEISIG_KANJIS_FILE)
+        media = self._media_path(self._HEISIG_KANJI_FILE)
         if media.exists():
             return media
 
-        vendor = Path(__file__).resolve().parent.parent / "vendor" / self._HEISIG_KANJIS_FILE
+        vendor = Path(__file__).resolve().parent.parent / "vendor" / self._HEISIG_KANJI_FILE
         if vendor.exists():
             # Copy once into media so later runs (and the user) can find it easily
             import shutil
@@ -832,6 +832,14 @@ class CollectionService:
             dst = media_dir / name
             if src.exists() and not dst.exists():
                 shutil.copy(src, dst)
+
+    def _ensure_heisig_kanjis_csv(self) -> None:
+        import shutil
+        media_dir = Path(mw.col.media.dir())
+        src = Path(__file__).resolve().parent.parent / "vendor" / "heisig_kanji.csv"
+        dst = media_dir / "heisig_kanji.csv"
+        if src.exists() and not dst.exists():
+            shutil.copy(src, dst)
 
 
 FRONT_HTML = r"""
