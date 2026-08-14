@@ -88,7 +88,7 @@ class Config:
     remove_pos_ending: bool = True
     remove_furigana_search: bool = True
     disable_multi_word_warning: bool = False
-    show_quick_fill_success: bool = True
+    show_quick_fill_success: bool = False
     quick_fill_mode: str = "all"  # all | first
 
     # --- HYPERTTS ---
