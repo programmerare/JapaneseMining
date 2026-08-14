@@ -6,6 +6,8 @@ from typing import Any
 import json
 import uuid
 
+from .domain.errors import JapaneseMiningError
+
 JISHO_PROFILE_KEYS = (
     "search_field",
     "target_deck",
@@ -143,7 +145,10 @@ def save_config(config: Config) -> None:
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
     except OSError as e:
-        print(f"Japanese Mining: failed to write profile config: {e}")
+        raise JapaneseMiningError(
+            "Failed to write profile config.",
+            details=f"Could not write to {path}:\n{e}",
+        ) from e
 
 
 # --- PRIVATE FUNCTIONS ---
