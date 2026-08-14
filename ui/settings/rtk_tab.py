@@ -1,3 +1,5 @@
+from aqt.utils import tooltip, showInfo
+
 from aqt import mw
 from aqt.utils import tooltip
 from aqt.qt import (
@@ -244,7 +246,7 @@ def make_rtk_tab(config_holder: ConfigHolder, collection_service, save_config_fn
         )
 
         if not success:
-            tooltip(message)
+            showInfo(message)
             return
 
         # Config object was mutated inside the service – persist it
@@ -361,12 +363,16 @@ def make_rtk_tab(config_holder: ConfigHolder, collection_service, save_config_fn
         success, message = collection_service.import_known_kanji_from_file(
             path, **_schedule_opts()
         )
+        if not success:
+            showInfo(message)
         tooltip(message)
 
     def on_heisig_import() -> None:
         success, message = collection_service.import_known_kanji_up_to_heisig(
             heisig_spin.value(), **_schedule_opts()
         )
+        if not success:
+            showInfo(message)
         tooltip(message)
 
     file_btn.clicked.connect(on_file_import)
