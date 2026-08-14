@@ -734,6 +734,11 @@ class CollectionService:
         if previous_value != new_value:
             if previous_value != "1" and new_value == "1":
                 newly_known = 1
+                self._kanji_data.save_todays_known_card(
+                    self._get_field(note, "Word"),
+                    self._get_field(note, "Reading"),
+                    self._get_field(note, "Meaning"),
+                )
             note["Kanji is known"] = new_value
             should_update = True
 
