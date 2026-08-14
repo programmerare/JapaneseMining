@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from .config import ConfigHolder, load_config, save_config
 from .domain.errors import JapaneseMiningError
+from .domain.media_sync import ensure_reference_files
 from .services.collection_service import CollectionService
 from .services.deepl_service import DeeplService
 from .services.jisho_service import JishoService
@@ -67,6 +68,18 @@ def setup_addon():
     # --- data loading in background (must run after collection is ready) ---
     def on_collection_loaded(col):
         def load():
+            try:
+                updated = ensure_reference_files(mw.col.media.dir())
+            except FileNotFoundError as e:
+                mw.taskman.run_on_main(
+                    lambda e=e: showWarning(
+                        str(e),
+                        parent=mw,
+                        title="JapaneseMining",
+                    )
+                )
+                return
+
             kanji_data_service.load_learned_kanji()
             try:
                 kanji_data_service.load_kanji_meanings()
@@ -75,7 +88,7 @@ def setup_addon():
                 if not _warned_missing_meanings:
                     _warned_missing_meanings = True
                     mw.taskman.run_on_main(
-                        lambda: showWarning(
+                        lambda e=e: showWarning(
                             e.full_message(),
                             parent=mw,
                             title="JapaneseMining",
@@ -163,6 +176,19 @@ def setup_addon():
 
         def load():
             global _warned_missing_meanings
+
+            try:
+                updated = ensure_reference_files(mw.col.media.dir())
+            except FileNotFoundError as e:
+                mw.taskman.run_on_main(
+                    lambda e=e: showWarning(
+                        str(e),
+                        parent=mw,
+                        title="JapaneseMining",
+                    )
+                )
+                return
+
             kanji_data_service.load_learned_kanji()
             try:
                 kanji_data_service.load_kanji_meanings()
@@ -170,7 +196,7 @@ def setup_addon():
                 if not _warned_missing_meanings:
                     _warned_missing_meanings = True
                     mw.taskman.run_on_main(
-                        lambda: showWarning(
+                        lambda e=e: showWarning(
                             e.full_message(),
                             parent=mw,
                             title="JapaneseMining",
