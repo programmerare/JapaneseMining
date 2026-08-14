@@ -257,7 +257,7 @@ class CollectionService:
     ) -> tuple[int, int]:
         """
         Update kanji fields for a single note added from the editor.
-        
+
         Does not raise an exception on note type missmatch, in order to not interrupt the user with errors from JapaneseMining while adding a note of a different type.
 
         Returns (newly_known_count, updated_count).
@@ -277,7 +277,7 @@ class CollectionService:
 
     def update_japanese_mining_cards(
         self, force_update_meanings: bool = False, force_update_keywords: bool = False
-    ) -> None:
+    ) -> UpdateResult:
         """
         Update all JapaneseMining cards in a single pass over each word.
         Intended to be called from a CollectionOp.
@@ -292,16 +292,13 @@ class CollectionService:
             (res := self.add_unknown_kanji()).kanji_added_to_rtk if res else 0
         )
 
-        result = UpdateResult(
+        return UpdateResult(
             learned_kanji=learned_kanji,
             not_learned_kanji=not_learned_kanji,
             cards_newly_known=cards_newly_known,
             cards_updated=cards_updated,
             kanji_added_to_rtk=kanji_added_to_rtk,
         )
-
-        print(result)
-        return result
 
     def create_mining_note_type(
         self,
@@ -476,9 +473,9 @@ class CollectionService:
         if create_all_notes:
             path = self._resolve_heisig_csv()
             if path is None:
-                return False, (
-                    f"Could not find {self._HEISIG_KANJI_FILE}. "
-                    "Put it in the Anki media folder or in the add-on’s vendor/ directory."
+                raise JapaneseMiningError(
+                    f"Could not find {self._HEISIG_KANJI_FILE}.",
+                    details=f"Put {self._HEISIG_KANJI_FILE} in the Anki media folder or in the add-on’s vendor/ directory.",
                 )
 
             with path.open("r", newline="", encoding="utf-8") as f:
@@ -534,22 +531,28 @@ class CollectionService:
         suspend: bool = True,
         schedule_min_days: int = 30,
         schedule_max_days: int = 700,
-    ) -> tuple[bool, str]:
+    ) -> tuple[int, int]:
         """
         Parse a file of known kanji (one per line, or kanji,keyword).
         Updates learned_kanji.csv. Optionally creates/updates RTK cards.
         """
         path = Path(file_path)
         if not path.exists():
-            return False, f"File not found: {path}"
+            raise JapaneseMiningError(
+                "Kanji file not found.",
+                details=f"Could not find the file at {path}.",
+            )
 
         try:
             entries = self._parse_kanji_file(path)
         except Exception as e:
-            return False, f"Coudl not read file: {e}"
+            raise JapaneseMiningError(
+                "Failed to read kanji file.",
+                details=f"Could not read file {path}:\n{e}",
+            ) from e
 
         if not entries:
-            return False, "No kanji found in the file."
+            return 0, 0
 
         # Make sure we start from whatever is already on disk
         self._kanji_data.load_learned_kanji()
@@ -561,7 +564,7 @@ class CollectionService:
             schedule_min_days=schedule_min_days,
             schedule_max_days=schedule_max_days,
         )
-        return True, f"Marked {marked} kanji as known. Touched {touched} card(s)."
+        return marked, touched
 
     def import_known_kanji_up_to_heisig(
         self,
@@ -571,16 +574,19 @@ class CollectionService:
         suspend: bool = True,
         schedule_min_days: int = 30,
         schedule_max_days: int = 700,
-    ):
+    ) -> tuple[int, int]:
         """
         Mark every Heisig kanji with id_6th_ed ≤ heisig_number as learned.
         """
         if heisig_number < 1:
-            return False, "Heisig number must be ≥ 1."
+            raise JapaneseMiningError(
+                "Heisig number must be ≥ 1.",
+                details=f"Invalid Heisig number: {heisig_number}.",
+            )
 
         path = self._resolve_heisig_csv()
         if path is None:
-            return False, "Heisig CSV not found."
+            return 0, 0
 
         with path.open("r", newline="", encoding="utf-8") as f:
             rows = list(csv.DictReader(f))
@@ -596,7 +602,7 @@ class CollectionService:
             entries.append((row["kanji"], keyword))
 
         if not entries:
-            return False, f"No kanji found with Heisig number ≤ {heisig_number}."
+            return 0, 0
 
         # Make sure we start from whatever is already on disk
         self._kanji_data.load_learned_kanji()
@@ -608,7 +614,7 @@ class CollectionService:
             schedule_min_days=schedule_min_days,
             schedule_max_days=schedule_max_days,
         )
-        return True, f"Marked {marked} kanji as known. Touched {touched} card(s)."
+        return marked, touched
 
     # --- PRIVATE METHODS --- #
     def _find_unknown_kanji(self) -> list[str]:
