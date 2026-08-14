@@ -52,7 +52,6 @@ def _get_focused_field_index():
 
 def setup_addon():
     """Set up the JapaneseMining add-on, including services, hooks, and menu actions."""
-    print("Setting up new JapaneseMining add-on...")
     config_holder = ConfigHolder(load_config())
 
     # Create services
@@ -67,6 +66,7 @@ def setup_addon():
 
     # --- data loading in background (must run after collection is ready) ---
     def on_collection_loaded(col):
+        print("Collection loaded, loading JapaneseMining data in background...")
         def load():
             try:
                 updated = ensure_reference_files(mw.col.media.dir())
@@ -150,14 +150,6 @@ def setup_addon():
     gui_hooks.editor_did_fire_typing_timer.append(segment_sentence)
 
     gui_hooks.reviewer_did_answer_card.append(kanji_data_service.handle_card_answered)
-
-    def on_state_did_change(new_state: str, old_state: str) -> None:
-        print(f"State changed from {old_state} to {new_state}")
-        if old_state == "review" and new_state in ("overview", "deckBrowser"):
-            return
-        _executor.submit(collection_service.update_japanese_mining_cards)
-
-    # gui_hooks.state_did_change.append(on_state_did_change)
 
     # --- Setup menu actions ---
     show_todays_words = make_show_todays_words(kanji_data_service)
