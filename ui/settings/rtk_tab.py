@@ -1,7 +1,7 @@
 from aqt.utils import tooltip, showInfo
 
 from aqt import mw
-from aqt.utils import tooltip
+from aqt.utils import tooltip, showWarning
 from aqt.qt import (
     QCheckBox,
     QComboBox,
@@ -22,6 +22,7 @@ import random
 import string
 
 from ...config import ConfigHolder
+from ...domain.errors import JapaneseMiningError
 
 
 def _note_type_names() -> list[str]:
@@ -229,8 +230,6 @@ def make_rtk_tab(config_holder: ConfigHolder, collection_service, save_config_fn
     setup_layout.addWidget(create_btn, alignment=Qt.AlignmentFlag.AlignLeft)
 
     def on_create_clicked() -> None:
-        from ...config import save_config
-
         deck_name = create_deck_edit.text().strip()
         note_type_name = create_note_type_edit.text().strip()
         create_all = create_all_notes_cb.isChecked()
@@ -239,36 +238,40 @@ def make_rtk_tab(config_holder: ConfigHolder, collection_service, save_config_fn
             tooltip("Please enter both a deck name and a note type name.")
             return
 
-        success, message = collection_service.create_rtk_deck_and_note_type(
-            deck_name=deck_name,
-            note_type_name=note_type_name,
-            create_all_notes=create_all,
-        )
+        try:
+            success, message = collection_service.create_rtk_deck_and_note_type(
+                deck_name=deck_name,
+                note_type_name=note_type_name,
+                create_all_notes=create_all,
+            )
 
-        if not success:
-            showInfo(message)
-            return
+            if not success:
+                showInfo(message)
+                return
 
-        # Config object was mutated inside the service – persist it
-        save_config(collection_service._config)
+            # Config object was mutated inside the service – persist it
+            if save_config_fn:
+                save_config_fn(collection_service._config)
 
-        # Update the mapping tab UI immediately
-        _set_combo_value(rtk_deck_cb, deck_name, _deck_names())
-        _set_combo_value(rtk_note_type_cb, note_type_name, _note_type_names())
-        refresh_rtk_fields(note_type_name, preserve_missing=False)
-        # force the five field combos to the standard names we just wrote
-        for combo, name in (
-            (rtk_kanji_field_cb, "Kanji"),
-            (rtk_alternative_kanji_field_cb, "Alternative Kanji"),
-            (rtk_keyword_field_cb, "Keyword"),
-            (rtk_heisig_number_field_cb, "Heisig Number"),
-            (rtk_stroke_count_field_cb, "Stroke Count"),
-        ):
-            _set_combo_value(combo, name, _field_names(note_type_name))
+            # Update the mapping tab UI immediately
+            _set_combo_value(rtk_deck_cb, deck_name, _deck_names())
+            _set_combo_value(rtk_note_type_cb, note_type_name, _note_type_names())
+            refresh_rtk_fields(note_type_name, preserve_missing=False)
+            # force the five field combos to the standard names we just wrote
+            for combo, name in (
+                (rtk_kanji_field_cb, "Kanji"),
+                (rtk_alternative_kanji_field_cb, "Alternative Kanji"),
+                (rtk_keyword_field_cb, "Keyword"),
+                (rtk_heisig_number_field_cb, "Heisig Number"),
+                (rtk_stroke_count_field_cb, "Stroke Count"),
+            ):
+                _set_combo_value(combo, name, _field_names(note_type_name))
 
-        tooltip(message)
-        # jump to the mapping tab so the user sees the result
-        tabs.setCurrentIndex(0)
+            tooltip(message)
+            # jump to the mapping tab so the user sees the result
+            tabs.setCurrentIndex(0)
+        except JapaneseMiningError as e:
+            showWarning(e.full_message(), parent=outer, title="JapaneseMining")
 
     create_btn.clicked.connect(on_create_clicked)
 
@@ -360,20 +363,24 @@ def make_rtk_tab(config_holder: ConfigHolder, collection_service, save_config_fn
         )
         if not path:
             return
-        success, message = collection_service.import_known_kanji_from_file(
-            path, **_schedule_opts()
-        )
-        if not success:
-            showInfo(message)
-        tooltip(message)
+        try:
+            marked, touched = collection_service.import_known_kanji_from_file(
+                path, **_schedule_opts()
+            )
+        except JapaneseMiningError as e:
+            showWarning(e.full_message(), parent=outer, title="JapaneseMining")
+            return
+        tooltip(f"Marked {marked} kanji as known. Touched {touched} card(s).")
 
     def on_heisig_import() -> None:
-        success, message = collection_service.import_known_kanji_up_to_heisig(
-            heisig_spin.value(), **_schedule_opts()
-        )
-        if not success:
-            showInfo(message)
-        tooltip(message)
+        try:
+            marked, touched = collection_service.import_known_kanji_up_to_heisig(
+                heisig_spin.value(), **_schedule_opts()
+            )
+        except JapaneseMiningError as e:
+            showWarning(e.full_message(), parent=outer, title="JapaneseMining")
+            return
+        tooltip(f"Marked {marked} kanji as known. Touched {touched} card(s).")
 
     file_btn.clicked.connect(on_file_import)
     heisig_apply_btn.clicked.connect(on_heisig_import)
