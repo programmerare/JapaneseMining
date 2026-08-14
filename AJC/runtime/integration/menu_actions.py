@@ -35,7 +35,7 @@ def ensure_about_ajc_action(menu) -> None:
     action = QAction("About AJC", mw)
     action.setObjectName("ajc.menu.about")
     action.triggered.connect(show_about_ajc_dialog)
-    menu.addAction(action)
+    #menu.addAction(action)
 
 
 def show_welcome_if_needed() -> None:

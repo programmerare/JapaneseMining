@@ -108,7 +108,7 @@ def show_about_ajc_dialog() -> None:
     kofi_button.setCursor(Qt.CursorShape.PointingHandCursor)
     kofi_button.setObjectName("ToolkitPrimaryButton")
     apply_kofi_icon(kofi_button)
-    kofi_button.clicked.connect(lambda: openLink("https://ko-fi.com/grakinn"))
+    kofi_button.clicked.connect(lambda: openLink("https://ko-fi.com/"))
 
     close_button = QPushButton(copy["btn_close"])
     close_button.setObjectName("ToolkitPrimaryButton")
@@ -176,7 +176,7 @@ def show_welcome_dialog() -> None:
     kofi_button.setCursor(Qt.CursorShape.PointingHandCursor)
     kofi_button.setObjectName("ToolkitPrimaryButton")
     apply_kofi_icon(kofi_button)
-    kofi_button.clicked.connect(lambda: openLink("https://ko-fi.com/grakinn"))
+    kofi_button.clicked.connect(lambda: openLink("https://ko-fi.com/"))
 
     github_button = QPushButton(copy["btn_github"])
     github_button.setCursor(Qt.CursorShape.PointingHandCursor)
