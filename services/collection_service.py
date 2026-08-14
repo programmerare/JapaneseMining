@@ -1,5 +1,4 @@
 from aqt import mw
-from aqt.utils import tooltip
 from anki.notes import Note
 import csv
 import math
@@ -8,6 +7,8 @@ from pathlib import Path
 from ..config import ConfigHolder
 from .kanji_data_service import KanjiDataService
 from ..domain.kanji import is_kanji
+from ..domain.errors import JapaneseMiningError
+from ..domain.results import UpdateResult
 
 
 class CollectionService:
@@ -30,23 +31,27 @@ class CollectionService:
         return self._config_holder.config
 
     # --- PUBLIC METHODS --- #
-    def force_update_keywords(self) -> None:
-        self.update_japanese_mining_cards(force_update_keywords=True)
+    def soft_update_everything(self) -> UpdateResult:
+        return self.update_japanese_mining_cards()
 
-    def force_update_meanings(self) -> None:
-        self.update_japanese_mining_cards(force_update_meanings=True)
+    def force_update_keywords(self) -> UpdateResult:
+        return self.update_japanese_mining_cards(force_update_keywords=True)
 
-    def force_update_everything(self) -> None:
-        self.update_japanese_mining_cards(
+    def force_update_meanings(self) -> UpdateResult:
+        return self.update_japanese_mining_cards(force_update_meanings=True)
+
+    def force_update_everything(self) -> UpdateResult:
+        return self.update_japanese_mining_cards(
             force_update_meanings=True, force_update_keywords=True
         )
 
     def fetch_kanji_keyword(self, kanji: str) -> str:
         """Returns one learned keyword associated with kanji from RTK deck"""
         if not self._rtk_configured():
-            if self._config.show_tooltip:
-                tooltip("RTK deck is not configured. Please check your settings.")
-            return ""
+            raise JapaneseMiningError(
+                "RTK deck is not configured. Please check your settings.",
+                details="Open Settings -> RTK and set the deck + fields",
+            )
 
         col = mw.col
         deck = self._config.rtk_deck
@@ -109,18 +114,20 @@ class CollectionService:
         col.add_note(note, deck_id)
         return True
 
-    def add_unknown_kanji(self) -> int:
+    def add_unknown_kanji(self) -> UpdateResult:
         """Find every unknown kanji in mining notes and add them to the RTK deck."""
         if not self._rtk_configured():
-            if self._config.show_tooltip:
-                tooltip("RTK deck is not configured. Please check your settings.")
-            return 0
+            raise JapaneseMiningError(
+                "RTK deck is not configured. Please check your settings.",
+                details="Open Settings -> RTK and set the deck + fields",
+            )
 
         path = self._resolve_heisig_csv()
         if path is None:
-            if self._config.show_tooltip:
-                tooltip(f"Could not find {self._HEISIG_KANJI_FILE}.")
-            return 0
+            raise JapaneseMiningError(
+                f"Could not find {self._HEISIG_KANJI_FILE}.",
+                details=f"Put {self._HEISIG_KANJI_FILE} in the Anki media folder or in the add-on’s vendor/ directory.",
+            )
 
         with path.open("r", newline="", encoding="utf-8") as f:
             heisig_kanjis = {
@@ -132,10 +139,7 @@ class CollectionService:
             if self.add_kanji_to_rtk_deck(kanji, heisig_kanjis=heisig_kanjis):
                 added += 1
 
-        if self._config.show_tooltip:
-            tooltip(f"Added {added} unknown kanji to the RTK deck.")
-
-        return added
+        return UpdateResult(kanji_added_to_rtk=added)
 
     def ensure_rtk_kanji_for_note(self, note: Note) -> int:
         if note is None:
@@ -154,12 +158,13 @@ class CollectionService:
                 added += 1
         return added
 
-    def export_learned_kanji(self) -> tuple[int, int]:
+    def export_learned_kanji(self) -> UpdateResult:
         """Save all Kanji, keywords, and learned status in a csv file."""
         if not self._rtk_configured():
-            if self._config.show_tooltip:
-                tooltip("RTK deck is not configured. Please check your settings.")
-            return 0, 0
+            raise JapaneseMiningError(
+                "RTK deck is not configured. Please check your settings.",
+                details="Open Settings -> RTK and set the deck + fields",
+            )
 
         col = mw.col
         deck = self._config.rtk_deck
@@ -236,14 +241,9 @@ class CollectionService:
         if self._kanji_data:
             self._kanji_data.save_learned_kanji(learned_kanji_rows, learned_kanji_cache)
 
-        if self._config.show_tooltip:
-            tooltip(
-                f"Exported {count_learned_kanji + count_learned_alternative_kanji} learned kanji and {count_unknown_kanji} unknown kanji."
-            )
-
-        return (
-            count_learned_kanji + count_learned_alternative_kanji,
-            count_unknown_kanji,
+        return UpdateResult(
+            learned_kanji=count_learned_kanji + count_learned_alternative_kanji,
+            not_learned_kanji=count_unknown_kanji,
         )
 
     def update_single_note_kanji_knowledge(
@@ -257,11 +257,10 @@ class CollectionService:
             return 0, 0
 
         if note.note_type()["name"] != self._config.mining_note_type:
-            if self._config.show_tooltip:
-                tooltip(
-                    f"The note is not a {self._config.mining_note_type} note. Please check your settings."
-                )
-            return 0, 0
+            raise JapaneseMiningError(
+                f"The note is not a {self._config.mining_note_type} note. Please check your settings.",
+                details="Open Settings -> JapaneseMining and set the correct note type.",
+            )
 
         newly_known_count, updated_count = self._update_kanji_knowledge(
             note=note,
@@ -273,20 +272,30 @@ class CollectionService:
     def update_japanese_mining_cards(
         self, force_update_meanings: bool = False, force_update_keywords: bool = False
     ) -> None:
-        """Update all JapaneseMining cards in a single pass over each word."""
-        number_learned_kanji, count_unknown_kanji = self.export_learned_kanji()
-        newly_known_count, number_updated_cards = self._update_kanji_knowledge(
+        """
+        Update all JapaneseMining cards in a single pass over each word.
+        Intended to be called from a CollectionOp.
+        """
+        res = self.export_learned_kanji()
+        learned_kanji, not_learned_kanji = res.learned_kanji, res.not_learned_kanji
+        cards_newly_known, cards_updated = self._update_kanji_knowledge(
             force_update_meanings=force_update_meanings,
             force_update_keywords=force_update_keywords,
         )
-        number_unknown_kanji = self.add_unknown_kanji()
+        kanji_added_to_rtk = (
+            (res := self.add_unknown_kanji()).kanji_added_to_rtk if res else 0
+        )
 
-        if self._config.show_tooltip:
-            tooltip(
-                f"Exported {number_learned_kanji} learned and {count_unknown_kanji} not learned kanji. "
-                f"{newly_known_count} card(s) became known. "
-                f"{number_updated_cards} card(s) were updated. {number_unknown_kanji} unknown kanji were added."
-            )
+        result = UpdateResult(
+            learned_kanji=learned_kanji,
+            not_learned_kanji=not_learned_kanji,
+            cards_newly_known=cards_newly_known,
+            cards_updated=cards_updated,
+            kanji_added_to_rtk=kanji_added_to_rtk,
+        )
+
+        print(result)
+        return result
 
     def create_mining_note_type(
         self,
@@ -666,11 +675,10 @@ class CollectionService:
     ) -> tuple[int, int]:
         """Update kanji knowledge fields for one note."""
         if not self._mining_fields_ok(note):
-            if self._config.show_tooltip:
-                tooltip(
-                    f"Note {note.id} is missing required fields. Please check your note and you notetype {self._config.mining_note_type}."
-                )
-            return 0, 0
+            raise JapaneseMiningError(
+                f"Note {note.id} is missing required fields. Please check your note and your notetype {self._config.mining_note_type}.",
+                details=f"Missing fields: {', '.join(f for f in self._REQUIRED_MINING_FIELDS if f not in note)}",
+            )
 
         col = mw.col
         should_update = False
@@ -769,12 +777,6 @@ class CollectionService:
             )
             newly_known_count += note_newly_known
             updated_count += note_updated
-
-        if note is None and self._config.show_tooltip:
-            tooltip(
-                f"Rechecked kanji knowledge. {newly_known_count} card(s) became known. "
-                f"Updated kanji details for {updated_count} card(s)."
-            )
 
         return newly_known_count, updated_count
 
