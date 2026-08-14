@@ -1,8 +1,10 @@
 from aqt import mw
 from aqt.editor import Editor
 from aqt.qt import QTextDocument
+from aqt.utils import showWarning
 from sudachipy import tokenizer, dictionary
 
+from ..domain.errors import JapaneseMiningError
 from ..config import ConfigHolder
 
 tokenizer_obj = dictionary.Dictionary(dict="small").create()
@@ -11,7 +13,17 @@ tokenizer_obj = dictionary.Dictionary(dict="small").create()
 def make_translate_btn_setup(deepl_service, config_holder: ConfigHolder):
     def set_translate_btn(buttons: list[str], editor: Editor) -> None:
         def on_translate(editor):
-            deepl_service.translate(editor)
+            try:
+                deepl_service.translate(editor)
+            except JapaneseMiningError as e:
+                parent = (
+                    editor.widget if editor and getattr(editor, "widget", None) else mw
+                )
+                showWarning(
+                    e.full_message(),
+                    parent=parent,
+                    title="JapaneseMining",
+                )
 
         button = editor.addButton(
             icon=None,
