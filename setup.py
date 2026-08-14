@@ -158,7 +158,6 @@ def setup_addon():
 
     def _on_profile_loaded():
         """Reload the config and re-initialize services when a new Anki profile is loaded."""
-        print("Profile loaded, reloading config and re-initializing services...")
         config_holder.reload()
         jisho_service.initialize()
 
