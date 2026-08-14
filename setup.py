@@ -52,6 +52,7 @@ def _get_focused_field_index():
 
 def setup_addon():
     """Set up the JapaneseMining add-on, including services, hooks, and menu actions."""
+    print("Setting up new JapaneseMining add-on...")
     config_holder = ConfigHolder(load_config())
 
     # Create services
@@ -61,12 +62,11 @@ def setup_addon():
     jisho_service = JishoService(config_holder)
     hypertts_service = HyperTTSService(config_holder)
 
-    # --- Initialize services that require it ---
-    jisho_service.initialize()
-
     # --- data loading in background (must run after collection is ready) ---
     def on_collection_loaded(col):
-        print("Collection loaded, loading JapaneseMining data in background...")
+        config_holder.reload()
+        jisho_service.initialize()
+
         def load():
             try:
                 updated = ensure_reference_files(mw.col.media.dir())
@@ -162,44 +162,3 @@ def setup_addon():
         show_todays_words,
         show_settings,
     )
-
-    def _on_profile_loaded():
-        """Reload the config and re-initialize services when a new Anki profile is loaded."""
-        config_holder.reload()
-        jisho_service.initialize()
-
-        def load():
-            global _warned_missing_meanings
-
-            try:
-                updated = ensure_reference_files(mw.col.media.dir())
-            except FileNotFoundError as e:
-                mw.taskman.run_on_main(
-                    lambda e=e: showWarning(
-                        str(e),
-                        parent=mw,
-                        title="JapaneseMining",
-                    )
-                )
-                return
-
-            kanji_data_service.load_learned_kanji()
-            try:
-                kanji_data_service.load_kanji_meanings()
-            except JapaneseMiningError as e:
-                if not _warned_missing_meanings:
-                    _warned_missing_meanings = True
-                    mw.taskman.run_on_main(
-                        lambda e=e: showWarning(
-                            e.full_message(),
-                            parent=mw,
-                            title="JapaneseMining",
-                        )
-                    )
-            kanji_data_service.load_todays_words()
-            kanji_data_service.load_todays_kanji()
-            kanji_data_service.load_todays_known_cards()
-
-        _executor.submit(load)
-
-    gui_hooks.profile_did_open.append(_on_profile_loaded)
