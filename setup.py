@@ -95,6 +95,8 @@ def setup_addon():
                         )
                     )
             kanji_data_service.load_todays_words()
+            kanji_data_service.load_todays_kanji()
+            kanji_data_service.load_todays_known_cards()
 
         _executor.submit(load)
 
@@ -203,6 +205,8 @@ def setup_addon():
                         )
                     )
             kanji_data_service.load_todays_words()
+            kanji_data_service.load_todays_kanji()
+            kanji_data_service.load_todays_known_cards()
 
         _executor.submit(load)
 
