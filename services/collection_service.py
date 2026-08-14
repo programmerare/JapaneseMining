@@ -518,7 +518,6 @@ class CollectionService:
         if create_all_notes:
             parts.append(f"Added {notes_created} new notes")
 
-        self._ensure_rtk_fonts()
         self.export_learned_kanji()
 
         return True, ". ".join(parts) + "."
@@ -1048,17 +1047,6 @@ class CollectionService:
             if kanji:
                 entries.append((kanji, keyword))
         return entries
-
-    def _ensure_rtk_fonts(self) -> None:
-        import shutil
-
-        media_dir = Path(mw.col.media.dir())
-        vendor_fonts = Path(__file__).resolve().parent.parent / "vendor" / "fonts"
-        for name in ("_YUMIN.ttf", "_YUGOTHB.ttc", "_HGRKK.ttc", "_StrokeOrder.ttf"):
-            src = vendor_fonts / name
-            dst = media_dir / name
-            if src.exists() and not dst.exists():
-                shutil.copy(src, dst)
 
     def _ensure_heisig_kanjis_csv(self) -> None:
         import shutil
