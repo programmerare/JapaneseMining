@@ -6,7 +6,7 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 
 from ..domain.errors import JapaneseMiningError
-from ..config import ConfigHolder
+from ..config import ConfigHolder, profile_user_dir
 
 
 class KanjiDataService:
@@ -69,7 +69,7 @@ class KanjiDataService:
 
     def load_learned_kanji(self) -> None:
         """Load learned kanji and their keywords from a csv file."""
-        file_path = self._media_path(self._LEARNED_KANJI_FILE)
+        file_path = self._user_data_path(self._LEARNED_KANJI_FILE)
         try:
             with file_path.open("r", newline="", encoding="utf-8") as f:
                 reader = csv.DictReader(f)
@@ -102,7 +102,7 @@ class KanjiDataService:
         """Save all Kanji, keywords, and learned status in a csv file."""
         self._learned_kanji = cache
 
-        file_path = self._media_path(self._LEARNED_KANJI_FILE)
+        file_path = self._user_data_path(self._LEARNED_KANJI_FILE)
         with file_path.open("w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(
                 f, fieldnames=["Kanji", "Keyword", "Learned", "Knowledge"]
@@ -149,7 +149,7 @@ class KanjiDataService:
         today = str(date.today())
         words = []
 
-        file_path = self._media_path(self._TODAYS_WORDS_FILE)
+        file_path = self._user_data_path(self._TODAYS_WORDS_FILE)
         try:
             with file_path.open(encoding="utf-8") as f:
                 reader = csv.reader(f)
@@ -198,7 +198,7 @@ class KanjiDataService:
     # --- PRIVATE METHODS --- #
     def _overwrite_file(self) -> None:
         """Overwrite the todays_words.csv file with a new header."""
-        file_path = self._media_path(self._TODAYS_WORDS_FILE)
+        file_path = self._user_data_path(self._TODAYS_WORDS_FILE)
         with file_path.open("w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow(["Date", "Word", "Reading", "Meaning"])
@@ -213,7 +213,7 @@ class KanjiDataService:
 
         self._todays_words.append((word, reading, meaning))
 
-        file_path = self._media_path(self._TODAYS_WORDS_FILE)
+        file_path = self._user_data_path(self._TODAYS_WORDS_FILE)
         with file_path.open("a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow(
@@ -224,6 +224,10 @@ class KanjiDataService:
                     meaning,
                 ]
             )
+
+    def _user_data_path(self, filename: str) -> Path:
+        """Return the full path to a file in the user data directory."""
+        return profile_user_dir() / filename
 
     def _media_path(self, filename: str) -> Path:
         """Return the full path to a file in the Anki media directory."""
