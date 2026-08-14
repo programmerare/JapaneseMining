@@ -151,6 +151,34 @@ def save_config(config: Config) -> None:
         ) from e
 
 
+def default_jisho_profile() -> dict:
+    return {
+        "search_field": "Word",
+        "target_deck": "",
+        "mappings": [],
+        "fill_mode": "replace",
+        "multi_meaning_format": "semicolon_merged",
+        "multi_word_format": "inline",
+        "remove_pos_ending": True,
+        "remove_furigana_search": True,
+        "disable_multi_word_warning": False,
+        "quick_fill_mode": "all",
+        "show_quick_fill_success": False,
+    }
+
+
+def profile_user_dir() -> Path:
+    """Per-profile durable storage under user_files/."""
+    root = (
+        Path(__file__).resolve().parent
+        / "user_files"
+        / "profiles"
+        / _get_or_create_profile_id()
+    )
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
 # --- PRIVATE FUNCTIONS ---
 def _addon_root() -> Path:
     return Path(__file__).resolve().parent
@@ -275,22 +303,6 @@ def _normalize_config_dict(data: dict) -> dict:
     _migrate_to_jisho_profiles(result)
 
     return result
-
-
-def default_jisho_profile() -> dict:
-    return {
-        "search_field": "Word",
-        "target_deck": "",
-        "mappings": [],
-        "fill_mode": "replace",
-        "multi_meaning_format": "semicolon_merged",
-        "multi_word_format": "inline",
-        "remove_pos_ending": True,
-        "remove_furigana_search": True,
-        "disable_multi_word_warning": False,
-        "quick_fill_mode": "all",
-        "show_quick_fill_success": False,
-    }
 
 
 def _migrate_to_jisho_profiles(data: dict) -> dict:
