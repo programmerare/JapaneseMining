@@ -2,9 +2,11 @@ from anki.notes import Note
 from aqt import gui_hooks, mw
 from aqt.editor import Editor
 from aqt.qt import QAction, QMenu
+from aqt.utils import showWarning
 from concurrent.futures import ThreadPoolExecutor
 
 from .config import ConfigHolder, load_config, save_config
+from .domain.errors import JapaneseMiningError
 from .services.collection_service import CollectionService
 from .services.deepl_service import DeeplService
 from .services.jisho_service import JishoService
@@ -22,6 +24,8 @@ from .ui.menu import setup_menu
 _executor = ThreadPoolExecutor(max_workers=2)
 
 _current_editor: Editor | None = None
+
+_warned_missing_meanings = False
 
 
 def _set_current_editor(editor: Editor) -> None:
@@ -64,7 +68,19 @@ def setup_addon():
     def on_collection_loaded(col):
         def load():
             kanji_data_service.load_learned_kanji()
-            kanji_data_service.load_kanji_meanings()
+            try:
+                kanji_data_service.load_kanji_meanings()
+            except JapaneseMiningError as e:
+                global _warned_missing_meanings
+                if not _warned_missing_meanings:
+                    _warned_missing_meanings = True
+                    mw.taskman.run_on_main(
+                        lambda: showWarning(
+                            e.full_message(),
+                            parent=mw,
+                            title="JapaneseMining",
+                        )
+                    )
             kanji_data_service.load_todays_words()
 
         _executor.submit(load)
@@ -79,12 +95,33 @@ def setup_addon():
     gui_hooks.editor_did_focus_field.append(_set_focused_field)
 
     def on_note_added(note: Note):
-        collection_service.update_single_note_kanji_knowledge(note)
-        collection_service.ensure_rtk_kanji_for_note(note)
+        try:
+            collection_service.update_single_note_kanji_knowledge(note)
+            collection_service.ensure_rtk_kanji_for_note(note)
+        except JapaneseMiningError as e:
+            parent = (
+                _get_current_editor().widget
+                if _get_current_editor()
+                and getattr(_get_current_editor(), "widget", None)
+                else mw
+            )
+            showWarning(
+                e.full_message(),
+                parent=parent,
+                title="JapaneseMining",
+            )
 
     def on_will_add_note(problem: str | None, note: Note):
         editor = _get_current_editor()
-        hypertts_service.add_audio(problem, note, editor)
+        try:
+            hypertts_service.add_audio(problem, note, editor)
+        except JapaneseMiningError as e:
+            parent = editor.widget if editor and getattr(editor, "widget", None) else mw
+            showWarning(
+                e.full_message(),
+                parent=parent,
+                title="JapaneseMining",
+            )
 
     gui_hooks.add_cards_did_add_note.append(on_note_added)
     gui_hooks.add_cards_will_add_note.append(on_will_add_note)
@@ -126,8 +163,20 @@ def setup_addon():
         jisho_service.initialize()
 
         def load():
+            global _warned_missing_meanings
             kanji_data_service.load_learned_kanji()
-            kanji_data_service.load_kanji_meanings()
+            try:
+                kanji_data_service.load_kanji_meanings()
+            except JapaneseMiningError as e:
+                if not _warned_missing_meanings:
+                    _warned_missing_meanings = True
+                    mw.taskman.run_on_main(
+                        lambda: showWarning(
+                            e.full_message(),
+                            parent=mw,
+                            title="JapaneseMining",
+                        )
+                    )
             kanji_data_service.load_todays_words()
 
         _executor.submit(load)

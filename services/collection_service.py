@@ -145,7 +145,10 @@ class CollectionService:
         if note is None:
             return 0
         if note.note_type()["name"] != self._config.mining_note_type:
-            return 0
+            raise JapaneseMiningError(
+                f"The note is not a {self._config.mining_note_type} note. Please check your settings.",
+                details="Open Settings -> JapaneseMining and set the correct note type.",
+            )
 
         word = note["Word"] if "Word" in note else ""
         added = 0
@@ -252,15 +255,18 @@ class CollectionService:
         force_update_meanings: bool = False,
         force_update_keywords: bool = False,
     ) -> tuple[int, int]:
-        """Update kanji fields for a single note added from the editor."""
+        """
+        Update kanji fields for a single note added from the editor.
+        
+        Does not raise an exception on note type missmatch, in order to not interrupt the user with errors from JapaneseMining while adding a note of a different type.
+
+        Returns (newly_known_count, updated_count).
+        """
         if note is None:
             return 0, 0
 
         if note.note_type()["name"] != self._config.mining_note_type:
-            raise JapaneseMiningError(
-                f"The note is not a {self._config.mining_note_type} note. Please check your settings.",
-                details="Open Settings -> JapaneseMining and set the correct note type.",
-            )
+            return 0, 0
 
         newly_known_count, updated_count = self._update_kanji_knowledge(
             note=note,

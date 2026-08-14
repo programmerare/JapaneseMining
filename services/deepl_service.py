@@ -36,7 +36,8 @@ class DeeplService:
         if note.note_type()["name"] != self._config.mining_note_type:
             raise JapaneseMiningError(
                 f"This note is not a “{self._config.mining_note_type}” note.",
-                details="DeepL translation only runs on the configured JapaneseMining note type.",
+                details="DeepL translation only runs on the configured JapaneseMining note type.\n"
+                "Change the note type or disable DeepL in the add-on settings.",
             )
 
         text = (note["Example Sentence"] or "").strip()

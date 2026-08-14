@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
+from ..domain.errors import JapaneseMiningError
 from ..config import ConfigHolder
 
 
@@ -95,6 +96,7 @@ class KanjiDataService:
                     }
         except FileNotFoundError:
             self._learned_kanji = {}
+        return None
 
     def save_learned_kanji(self, rows: list[dict], cache: dict) -> None:
         """Save all Kanji, keywords, and learned status in a csv file."""
@@ -124,10 +126,23 @@ class KanjiDataService:
                     meaning.text for meaning in kanji.findall("meaning") if meaning.text
                 ]
                 dictionary[character] = meanings
+            self._kanji_meanings = dictionary
         except FileNotFoundError:
-            pass
-
-        self._kanji_meanings = dictionary
+            self._kanji_meanings = {}
+            raise JapaneseMiningError(
+                "Kanji meanings data is missing.",
+                details=(
+                    f"Expected file:\n{file_path}\n\n"
+                    "Hover tooltips for kanji meanings will not work until this is fixed.\n"
+                    "Reinstall the JapaneseMining add-on (or restore the vendor folder)."
+                ),
+            )
+        except ET.ParseError as e:
+            self._kanji_meanings = {}
+            raise JapaneseMiningError(
+                "Kanji meanings data is corrupt.",
+                details=f"{file_path}\n\n{e}",
+            )
 
     def load_todays_words(self) -> None:
         """Load words learned today from the CSV file."""
@@ -160,7 +175,11 @@ class KanjiDataService:
         self._append_word(word, reading, meaning)
 
     def handle_card_answered(self, reviewer, card, ease) -> None:
-        """Record the word the first time a mining card is answered."""
+        """
+        Record the word the first time a mining card is answered.
+
+        Does not raise an exception on note type missmatch, in order to not interrupt the user with errors from JapaneseMining while adding a note of a different type.
+        """
         if card.reps != 1:
             return
 
