@@ -490,13 +490,6 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
     show_quick_success_cb.setChecked(config.show_quick_fill_success)
     a_layout.addRow(show_quick_success_cb)
 
-    # Language (kept for future / foreign compatibility)
-    lang_cb = QComboBox()
-    lang_cb.addItem("English", "en")
-    lang_cb.addItem("Português", "pt")
-    lang_cb.setCurrentIndex(0 if config.language == "en" else 1)
-    a_layout.addRow("UI Language:", lang_cb)
-
     tabs.addTab(advanced, "Advanced")
 
     # Initial load
