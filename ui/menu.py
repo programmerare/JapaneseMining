@@ -21,8 +21,8 @@ def setup_menu(
 
     my_menu = QMenu("JapaneseMining", mw)
 
-    # Show Today's Words
-    action = QAction("Show Today's Words", mw)
+    # Show Today's Progress
+    action = QAction("Show Today's Progress", mw)
     action.triggered.connect(show_todays_words)
     my_menu.addAction(action)
 
