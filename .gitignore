@@ -224,3 +224,4 @@ vendor/
 *.jsonl
 *.pyc
 *.json
+*.csv
