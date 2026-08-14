@@ -5,6 +5,7 @@ from aqt.qt import (
     QTabWidget,
     QVBoxLayout,
 )
+from aqt.utils import showWarning
 
 from .general_tab import make_general_tab
 from .rtk_tab import make_rtk_tab
@@ -12,6 +13,7 @@ from .translate_tab import make_translate_tab
 from .jisho_tab import make_jisho_tab
 from .hypertts_tab import make_hypertts_tab
 from ...config import ConfigHolder
+from ...domain.errors import JapaneseMiningError
 
 
 def make_show_settings(config_holder: ConfigHolder, save_config_fn, collection_service):
@@ -57,14 +59,18 @@ def make_show_settings(config_holder: ConfigHolder, save_config_fn, collection_s
 
         # Define the save_and_close function to apply changes and close the dialog
         def save_and_close():
-            for apply_fn in apply_fns:
-                apply_fn(
-                    config
-                )  # Each tab writes its own settings to the config object
-            save_config_fn(config)
-            config_holder.config = (
-                config  # Keep the config holder in sync with the saved config
-            )
+            try:
+                for apply_fn in apply_fns:
+                    apply_fn(
+                        config
+                    )  # Each tab writes its own settings to the config object
+                save_config_fn(config)
+                config_holder.config = (
+                    config  # Keep the config holder in sync with the saved config
+                )
+            except JapaneseMiningError as e:
+                showWarning(e.full_message(), parent=dialog, title="JapaneseMining")
+                return
 
             if config.use_jisho:
                 from ...jisho_adapter import to_ajc_runtime_config
