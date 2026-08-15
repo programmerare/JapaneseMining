@@ -15,6 +15,7 @@ class KanjiDataService:
     _TODAYS_WORDS_FILE = "todays_words.csv"
     _TODAYS_KANJI_FILE = "todays_kanji.csv"
     _TODAYS_KNOWN_CARDS_FILE = "todays_known_cards.csv"
+    _FLAGGED_KANJI_FILE = "flagged_kanji.csv"
 
     def __init__(self, config_holder: ConfigHolder):
         self._config_holder = config_holder
@@ -23,9 +24,11 @@ class KanjiDataService:
         self._todays_words: list[tuple[str, str, str]] = []
         self._todays_kanji: list[tuple[str, str]] = []
         self._todays_known_cards: list[tuple[str, str, str]] = []
+        self._flagged_kanji: list[tuple[str, str, str]] = []
         self._seen_words: set[tuple[str, str]] = set()
         self._seen_kanji: set[str] = set()
         self._seen_known_cards: set[tuple[str, str]] = set()
+        self._seen_flagged_kanji: set[str] = set()
         self._current_day: str | None = None
         self.needs_soft_update: bool = False
 
@@ -54,6 +57,10 @@ class KanjiDataService:
     def get_todays_known_cards(self) -> list[tuple[str, str, str]]:
         """Return the known cards learned today from the cache."""
         return self._todays_known_cards
+
+    def get_flagged_kanji(self) -> list[tuple[str, str, str]]:
+        """Return the flagged kanji from the cache."""
+        return self._flagged_kanji
 
     def get_todays_summary(self) -> dict[str, int]:
         """Return a summary of the words, kanji, and known cards learned today."""
@@ -161,7 +168,6 @@ class KanjiDataService:
 
     def load_todays_words(self) -> None:
         """Load words learned today from the CSV file."""
-        self._current_day = None
         today = str(date.today())
         items: list[tuple[str, str, str]] = []
         file_path = self._user_data_path(self._TODAYS_WORDS_FILE)
@@ -184,7 +190,6 @@ class KanjiDataService:
 
     def load_todays_kanji(self) -> None:
         """Load kanji learned today from CSV."""
-        self._current_day = None
         today = str(date.today())
         items: list[tuple[str, str]] = []
         file_path = self._user_data_path(self._TODAYS_KANJI_FILE)
@@ -206,7 +211,6 @@ class KanjiDataService:
 
     def load_todays_known_cards(self) -> None:
         """Load cards that became known today from CSV."""
-        self._current_day = None
         today = str(date.today())
         items: list[tuple[str, str, str]] = []
         file_path = self._user_data_path(self._TODAYS_KNOWN_CARDS_FILE)
@@ -225,6 +229,30 @@ class KanjiDataService:
             pass
         self._todays_known_cards = items
         self._seen_known_cards = {(w, r) for w, r, _ in items}
+
+    def load_flagged_kanji(self) -> None:
+        """Load flagged kanji from CSV. Columns: Heisig Number, Kanji, Keyword."""
+        items: list[tuple[str, str, str]] = []
+        file_path = self._user_data_path(self._FLAGGED_KANJI_FILE)
+        try:
+            with file_path.open(encoding="utf-8") as f:
+                reader = csv.reader(f)
+                header = next(reader, None)  # skip header if present
+                for row in reader:
+                    if len(row) < 2:
+                        continue
+                    heisig, kanji, keyword = (
+                        row[0],
+                        row[1],
+                        row[2] if len(row) > 2 else "",
+                    )
+                    if kanji:
+                        items.append((kanji, keyword, heisig))
+        except FileNotFoundError:
+            pass
+        print(f"Items loaded from flagged kanji: {items}")
+        self._flagged_kanji = items
+        self._seen_flagged_kanji = {k for k, _, _ in items}
 
     def save_learned_kanji(self, rows: list[dict], cache: dict) -> None:
         """Save all Kanji, keywords, and learned status in a csv file."""
@@ -309,6 +337,29 @@ class KanjiDataService:
             writer = csv.writer(f)
             writer.writerow([today, word, reading, meaning])
 
+    def save_flagged_kanji(
+        self, kanji: str, keyword: str = "", heisig_number: str = ""
+    ) -> None:
+        """Record a kanji that was flagged (red) in the RTK deck. Idempotent."""
+        kanji = (kanji or "").strip()
+        if not kanji or kanji in self._seen_flagged_kanji:
+            return
+
+        keyword = (keyword or "").strip()
+        heisig_number = (heisig_number or "").strip()
+
+        self._seen_flagged_kanji.add(kanji)
+        self._flagged_kanji.append((kanji, keyword, heisig_number))
+
+        file_path = self._user_data_path(self._FLAGGED_KANJI_FILE)
+        write_header = not file_path.exists() or file_path.stat().st_size == 0
+
+        with file_path.open("a", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            if write_header:
+                writer.writerow(["Heisig Number", "Kanji", "Keyword"])
+            writer.writerow([heisig_number, kanji, keyword])
+
     # --- EVENT HANDLERS --- #
     def handle_card_answered(self, reviewer, card, ease) -> None:
         """
@@ -341,6 +392,20 @@ class KanjiDataService:
             keyword = note[keyword_field].strip() if keyword_field in note else ""
             self.save_todays_kanji(kanji, keyword)
 
+        # RTK cards → flagged kanji
+        if note_type_name == self._config.rtk_note_type:
+            if card.user_flag() == 1:  # red
+                kanji_field = self._config.rtk_kanji_field or "Kanji"
+                keyword_field = self._config.rtk_keyword_field or "Keyword"
+                heisig_field = self._config.rtk_heisig_number_field or "Heisig Number"
+
+                kanji = note[kanji_field].strip() if kanji_field in note else ""
+                if not kanji:
+                    return
+                keyword = note[keyword_field].strip() if keyword_field in note else ""
+                heisig = note[heisig_field].strip() if heisig_field in note else ""
+                self.save_flagged_kanji(kanji, keyword, heisig)
+
         # Mark soft update needed if the card is in the RTK deck
         try:
             deck_name = mw.col.decks.name(card.did)
@@ -355,12 +420,14 @@ class KanjiDataService:
         if not self.needs_soft_update:
             self.needs_soft_update = True
             from ..ui.soft_update_indicator import refresh_deck_browser
+
             refresh_deck_browser()
 
     def clear_soft_update_needed(self) -> None:
         if self.needs_soft_update:
             self.needs_soft_update = False
             from ..ui.soft_update_indicator import refresh_deck_browser
+
             refresh_deck_browser()
 
     # --- PRIVATE METHODS --- #
