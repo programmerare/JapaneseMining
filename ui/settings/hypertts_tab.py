@@ -5,7 +5,7 @@ from aqt.qt import (
 )
 
 from ...config import ConfigHolder
-from .ui_styles import make_section_card, make_instruction_label, make_scrollable_page
+from ..ui_styles import make_section_card, make_instruction_label, make_scrollable_page
 
 
 def make_hypertts_tab(config_holder: ConfigHolder, save_config_fn=None):

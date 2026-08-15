@@ -16,7 +16,7 @@ from aqt.qt import (
     Qt,
 )
 
-from .ui_styles import (
+from ..ui_styles import (
     make_section_card,
     make_instruction_label,
     make_separator,

@@ -21,7 +21,7 @@ import string
 
 from ...config import ConfigHolder
 from ...domain.errors import JapaneseMiningError
-from .ui_styles import (
+from ..ui_styles import (
     make_scrollable_page,
     make_section_card,
     make_instruction_label,
