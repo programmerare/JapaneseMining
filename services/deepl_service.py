@@ -82,11 +82,11 @@ class DeeplService:
             ) from e
 
         data = response.json()
-        translations = data.get("translations", [])
+        translation = data.get("translations", [])
         if not translation:
             raise JapaneseMiningError("DeepL returned no translation.")
 
-        translation = translations[0]["text"]
+        translation = translation[0]["text"]
         note["Translation"] = translation
         editor.loadNote()
         return translation
