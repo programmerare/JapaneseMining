@@ -160,6 +160,7 @@ class KanjiDataService:
 
     def load_todays_words(self) -> None:
         """Load words learned today from the CSV file."""
+        self._current_day = None
         today = str(date.today())
         items: list[tuple[str, str, str]] = []
         file_path = self._user_data_path(self._TODAYS_WORDS_FILE)
@@ -182,6 +183,7 @@ class KanjiDataService:
 
     def load_todays_kanji(self) -> None:
         """Load kanji learned today from CSV."""
+        self._current_day = None
         today = str(date.today())
         items: list[tuple[str, str]] = []
         file_path = self._user_data_path(self._TODAYS_KANJI_FILE)
@@ -203,6 +205,7 @@ class KanjiDataService:
 
     def load_todays_known_cards(self) -> None:
         """Load cards that became known today from CSV."""
+        self._current_day = None
         today = str(date.today())
         items: list[tuple[str, str, str]] = []
         file_path = self._user_data_path(self._TODAYS_KNOWN_CARDS_FILE)
