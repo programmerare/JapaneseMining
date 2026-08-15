@@ -69,7 +69,7 @@ class DeeplService:
 
         try:
             response = requests.post(
-                f"{self._config.deepl_url}/translate",
+                f"{self._api_base()}/v2/translate",
                 headers=headers,
                 json=payload,
                 timeout=15,
@@ -109,7 +109,7 @@ class DeeplService:
 
         try:
             response = requests.get(
-                f"{self._config.deepl_url}/usage",
+                f"{self._api_base()}/v2/usage",
                 headers=headers,
                 timeout=15,
             )
@@ -125,3 +125,53 @@ class DeeplService:
             return None
 
         return character_count, character_limit
+
+    def get_target_languages(self) -> list[tuple[str, str]]:
+        """
+        Return [(code, display_name), ...] for languages usable as DeepL targets.
+
+        Uses v3 /languages. Returns [] on missing key, network, or parse failure
+        so the settings UI can keep its fallback list.
+        """
+        if not (self._config.deepl_api_key or "").strip():
+            return []
+
+        headers = {
+            "Authorization": f"DeepL-Auth-Key {self._config.deepl_api_key}",
+        }
+        try:
+            response = requests.get(
+                f"{self._api_base()}/v3/languages?resource=translate_text",
+                headers=headers,
+                timeout=10,
+            )
+            response.raise_for_status()
+            data = response.json()
+        except (requests.RequestException, ValueError):
+            return []
+
+        if not isinstance(data, list):
+            return []
+
+        result: list[tuple[str, str]] = []
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+            if not item.get("usable_as_target"):
+                continue
+            code = (item.get("lang") or "").strip()
+            name = (item.get("name") or code).strip()
+            if not code:
+                continue
+            result.append((code, name))
+
+        result.sort(key=lambda pair: pair[1].lower())
+        return result
+
+    def _api_base(self) -> str:
+        url = (self._config.deepl_url or "").rstrip("/")
+        for suffix in ("/v3", "/v2"):
+            if url.endswith(suffix):
+                url = url[: -len(suffix)]
+                break
+        return url or "https://api-free.deepl.com"
