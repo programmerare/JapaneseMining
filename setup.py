@@ -127,7 +127,7 @@ def setup_addon():
     gui_hooks.editor_did_focus_field.append(_set_focused_field)
 
     def on_note_added(note: Note):
-        editor = _get_current_editor()
+        editor = _get_live_add_cards_editor() or _get_current_editor()
         try:
             collection_service.update_single_note_kanji_knowledge(note)
             collection_service.ensure_rtk_kanji_for_note(note)
