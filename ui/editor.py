@@ -46,12 +46,45 @@ def inject_editor_css(editor):
         const style = document.createElement("style");
         style.id = "deepl-button-style";
         style.textContent = `
-            #deepl-translate {
-                margin-left: 4px;
+            #deepl-translate,
+            .anki-addon-button[data-command="deepl_translate"] {
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                width: 20px !important;
+                height: 20px !important;
+                min-width: 20px !important;
+                min-height: 20px !important;
+                margin-inline-start: 4px !important;
+                border: 1px solid #0f766e !important;
+                border-radius: 999px !important;
+                background: #0d9488 !important;
+                color: #ffffff !important;
+                font-size: 10px !important;
+                font-weight: 800 !important;
+                line-height: 1 !important;
+                cursor: pointer !important;
+                padding: 0 !important;
+                flex: 0 0 auto !important;
+                box-sizing: border-box !important;
+                appearance: none !important;
+                -webkit-appearance: none !important;
+                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18) !important;
+                background-image: none !important;
+                text-decoration: none !important;
             }
 
-            #deepl-translate:hover {
-                color: #0d47a1;
+            #deepl-translate:hover,
+            .anki-addon-button[data-command="deepl_translate"]:hover {
+                background: #0f766e !important;
+                color: #ffffff !important;
+                box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.16), 0 1px 2px rgba(0, 0, 0, 0.18) !important;
+            }
+
+            #deepl-translate:active,
+            .anki-addon-button[data-command="deepl_translate"]:active {
+                background: #115e59 !important;
+                box-shadow: none !important;
             }
         `;
         document.head.appendChild(style);
