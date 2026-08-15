@@ -54,9 +54,6 @@ def make_translate_tab(
 ):
     config = config_holder.config
 
-    res = deepl_service.get_character_usage() if deepl_service else None
-    characters_count, characters_limit = res or (0, 0)
-
     root, root_layout = make_scrollable_page()
 
     root_layout.addWidget(
@@ -66,11 +63,9 @@ def make_translate_tab(
         )
     )
 
-    # Usage card
+    # Usage card — placeholder first, fill async
     usage_card, usage_layout = make_section_card("Usage")
-    character_usage = QLabel(
-        f"Character count: {characters_count}\n" f"Characters limit: {characters_limit}"
-    )
+    character_usage = QLabel("Character count: —\nCharacters limit: —")
     character_usage.setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 13px;")
     usage_layout.addWidget(character_usage)
     root_layout.addWidget(usage_card)
@@ -150,5 +145,29 @@ def make_translate_tab(
             mw.taskman.run_on_main(apply)
 
         mw.taskman.run_in_background(work, on_done)
+
+    # --- async character usage load (does not block dialog open) ---
+    if deepl_service is not None:
+
+        def load_usage():
+            return deepl_service.get_character_usage()
+
+        def on_usage_done(fut):
+            try:
+                res = fut.result()
+            except Exception:
+                return
+            if not res:
+                return
+            count, limit = res
+
+            def apply():
+                character_usage.setText(
+                    f"Character count: {count}\n" f"Characters limit: {limit}"
+                )
+
+            mw.taskman.run_on_main(apply)
+
+        mw.taskman.run_in_background(load_usage, on_usage_done)
 
     return root, "Translate", apply_to_config
