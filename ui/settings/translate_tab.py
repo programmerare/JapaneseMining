@@ -14,8 +14,13 @@ from aqt import (
 from ...config import ConfigHolder
 
 
-def make_translate_tab(config_holder: ConfigHolder, save_config_fn=None):
+def make_translate_tab(
+    config_holder: ConfigHolder, deepl_service=None, save_config_fn=None
+):
     config = config_holder.config
+
+    res = deepl_service.get_character_usage() if deepl_service else None
+    characters_count, characters_limit = res or (0, 0)
 
     translate_tab = QWidget()
     translate_layout = QFormLayout(translate_tab)
@@ -30,6 +35,12 @@ def make_translate_tab(config_holder: ConfigHolder, save_config_fn=None):
     header = QLabel("DeepL")
     header.setStyleSheet("font-weight: 600; color: #555; margin-top: 4px;")
     translate_layout.addRow(header)
+
+    character_usage = QLabel(
+        f"Character count: {characters_count}\n"
+        f"Characters limit: {characters_limit}"
+    )
+    translate_layout.addRow(character_usage)
 
     deepl_use_checkbox = QCheckBox("Enable DeepL")
     deepl_use_checkbox.setChecked(config.use_deepl)
