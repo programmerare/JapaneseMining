@@ -153,7 +153,7 @@ def setup_addon():
 
     # --- Setup menu actions ---
     show_todays_words = make_show_todays_words(kanji_data_service)
-    show_settings = make_show_settings(config_holder, save_config, collection_service)
+    show_settings = make_show_settings(config_holder, save_config, collection_service, deepl_service)
 
     setup_menu(
         config_holder,
