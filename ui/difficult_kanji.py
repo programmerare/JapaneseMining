@@ -77,15 +77,18 @@ COMMON_CONFUSING = [
 
 
 def _kanji_tile(kanji: str, keyword: str, tooltip_text: str = "") -> QWidget:
-    """Kanji on top, keyword underneath. No border."""
+    """Kanji on top, keyword underneath. Fixed width → even spacing."""
+    TILE_WIDTH = 72   # tweak to taste (64–80 usually looks good)
+
     tile = QWidget()
+    tile.setFixedWidth(TILE_WIDTH)
     if tooltip_text:
         tile.setToolTip(tooltip_text)
 
     layout = QVBoxLayout(tile)
-    layout.setContentsMargins(6, 4, 6, 4)
+    layout.setContentsMargins(4, 4, 4, 4)
     layout.setSpacing(2)
-    layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    layout.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
 
     glyph = QLabel(kanji)
     glyph.setStyleSheet(
@@ -95,9 +98,11 @@ def _kanji_tile(kanji: str, keyword: str, tooltip_text: str = "") -> QWidget:
     layout.addWidget(glyph)
 
     kw = QLabel(keyword or "—")
-    kw.setStyleSheet(f"font-size: 12px; color: {TEXT_SECONDARY};")
+    kw.setStyleSheet(f"font-size: 11px; color: {TEXT_SECONDARY};")
     kw.setAlignment(Qt.AlignmentFlag.AlignCenter)
     kw.setWordWrap(True)
+    # Optional: hard-cap height so a very long keyword doesn’t stretch the row
+    kw.setMaximumHeight(32)
     layout.addWidget(kw)
 
     return tile
