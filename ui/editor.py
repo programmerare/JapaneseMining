@@ -12,7 +12,7 @@ tokenizer_obj = dictionary.Dictionary(dict="small").create()
 
 def make_translate_btn_setup(deepl_service, config_holder: ConfigHolder):
     def set_translate_btn(buttons: list[str], editor: Editor) -> None:
-        if not config_holder.config.deepl_enabled:
+        if not config_holder.config.use_deepl:
             return
 
         def on_translate(editor):
