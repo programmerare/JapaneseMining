@@ -139,7 +139,6 @@ def make_translate_tab(
         def on_done(fut):
             try:
                 langs = fut.result()
-                print("langs", langs)
             except Exception:
                 return
             if not langs:
