@@ -21,6 +21,7 @@ from .ui.editor import (
     make_segment_sentence,
 )
 from .ui.menu import setup_menu
+from .ui.soft_update_indicator import setup_soft_update_indicator
 
 _executor = ThreadPoolExecutor(max_workers=2)
 
@@ -100,6 +101,9 @@ def setup_addon():
 
         _executor.submit(load)
 
+    # --- soft update indicator ---
+    setup_soft_update_indicator(kanji_data_service)
+
     # --- HOOKS ---
     gui_hooks.collection_did_load.append(on_collection_loaded)
 
@@ -153,7 +157,9 @@ def setup_addon():
 
     # --- Setup menu actions ---
     show_todays_words = make_show_todays_words(kanji_data_service)
-    show_settings = make_show_settings(config_holder, save_config, collection_service, deepl_service)
+    show_settings = make_show_settings(
+        config_holder, save_config, collection_service, deepl_service
+    )
 
     setup_menu(
         config_holder,

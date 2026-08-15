@@ -32,6 +32,7 @@ class CollectionService:
 
     # --- PUBLIC METHODS --- #
     def soft_update_everything(self) -> UpdateResult:
+        self._kanji_data.clear_soft_update_needed()
         return self.update_japanese_mining_cards()
 
     def force_update_keywords(self) -> UpdateResult:

@@ -27,6 +27,7 @@ class KanjiDataService:
         self._seen_kanji: set[str] = set()
         self._seen_known_cards: set[tuple[str, str]] = set()
         self._current_day: str | None = None
+        self.needs_soft_update: bool = False
 
     @property
     def _config(self):
@@ -339,6 +340,28 @@ class KanjiDataService:
                 return
             keyword = note[keyword_field].strip() if keyword_field in note else ""
             self.save_todays_kanji(kanji, keyword)
+
+        # Mark soft update needed if the card is in the RTK deck
+        try:
+            deck_name = mw.col.decks.name(card.did)
+            rtk_deck = self._config_holder.config.rtk_deck
+            if deck_name == rtk_deck or deck_name.startswith(rtk_deck + "::"):
+                self.mark_soft_update_needed()
+        except Exception:
+            pass
+
+    # --- SOFT UPDATE INDICATOR --- #
+    def mark_soft_update_needed(self) -> None:
+        if not self.needs_soft_update:
+            self.needs_soft_update = True
+            from ..ui.soft_update_indicator import refresh_deck_browser
+            refresh_deck_browser()
+
+    def clear_soft_update_needed(self) -> None:
+        if self.needs_soft_update:
+            self.needs_soft_update = False
+            from ..ui.soft_update_indicator import refresh_deck_browser
+            refresh_deck_browser()
 
     # --- PRIVATE METHODS --- #
     def _overwrite_todays_files(self) -> None:
