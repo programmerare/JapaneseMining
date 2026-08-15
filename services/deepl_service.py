@@ -69,7 +69,7 @@ class DeeplService:
 
         try:
             response = requests.post(
-                self._config.deepl_url,
+                f"{self._config.deepl_url}/translate",
                 headers=headers,
                 json=payload,
                 timeout=15,
@@ -90,3 +90,38 @@ class DeeplService:
         note["Translation"] = translation
         editor.loadNote()
         return translation
+
+    def get_character_usage(self) -> tuple[int, int] | None:
+        """
+        Returns the character count and limit for the DeepL API key, or None
+        if the feature is disabled in config or any error occurs.
+        """
+        if not self._config.use_deepl:
+            return None
+
+        if not (self._config.deepl_api_key or "").strip():
+            return None
+
+        headers = {
+            "Authorization": f"DeepL-Auth-Key {self._config.deepl_api_key}",
+            "Content-Type": "application/json",
+        }
+
+        try:
+            response = requests.get(
+                f"{self._config.deepl_url}/usage",
+                headers=headers,
+                timeout=15,
+            )
+            response.raise_for_status()
+        except requests.RequestException as e:
+            return None
+
+        data = response.json()
+        character_count = data.get("character_count")
+        character_limit = data.get("character_limit")
+
+        if character_count is None or character_limit is None:
+            return None
+
+        return character_count, character_limit
