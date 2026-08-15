@@ -359,6 +359,73 @@ class KanjiDataService:
                 writer.writerow(["Heisig Number", "Kanji", "Keyword"])
             writer.writerow([heisig_number, kanji, keyword])
 
+    def sync_flagged_kanji_from_collection(self) -> int:
+        """
+        Scan the collection for red-flagged RTK cards and make the
+        flagged_kanji.csv + in-memory cache match exactly.
+
+        Returns the number of kanji now in the list.
+        """
+        if not mw.col:
+            return len(self._flagged_kanji)
+
+        config = self._config
+        deck = (config.rtk_deck or "").strip()
+        note_type = (config.rtk_note_type or "").strip()
+        kanji_field = config.rtk_kanji_field or "Kanji"
+        keyword_field = config.rtk_keyword_field or "Keyword"
+        heisig_field = config.rtk_heisig_number_field or "Heisig Number"
+
+        if not deck:
+            return len(self._flagged_kanji)
+
+        # flag:1 = red. Restrict to the RTK deck (and optional note type).
+        query = f'deck:"{deck}" flag:1'
+        if note_type:
+            query += f' note:"{note_type}"'
+
+        card_ids = mw.col.find_cards(query)
+
+        seen: set[str] = set()
+        items: list[tuple[str, str, str]] = []
+
+        for cid in card_ids:
+            card = mw.col.get_card(cid)
+            note = card.note()
+
+            kanji = note[kanji_field].strip() if kanji_field in note else ""
+            if not kanji or kanji in seen:
+                continue
+            seen.add(kanji)
+
+            keyword = note[keyword_field].strip() if keyword_field in note else ""
+            heisig = note[heisig_field].strip() if heisig_field in note else ""
+            items.append((kanji, keyword, heisig))
+
+        # Sort by Heisig number when possible
+        def sort_key(item):
+            kanji, keyword, heisig = item
+            try:
+                return (0, int(heisig))
+            except (TypeError, ValueError):
+                return (1, kanji)
+
+        items.sort(key=sort_key)
+
+        # Replace cache
+        self._flagged_kanji = items
+        self._seen_flagged_kanji = {k for k, _, _ in items}
+
+        # Rewrite file completely so removals stick
+        file_path = self._user_data_path(self._FLAGGED_KANJI_FILE)
+        with file_path.open("w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["Heisig Number", "Kanji", "Keyword"])
+            for kanji, keyword, heisig in items:
+                writer.writerow([heisig, kanji, keyword])
+
+        return len(items)
+
     # --- EVENT HANDLERS --- #
     def handle_card_answered(self, reviewer, card, ease) -> None:
         """
