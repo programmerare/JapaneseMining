@@ -16,7 +16,7 @@ from ...config import ConfigHolder
 from ...domain.errors import JapaneseMiningError
 
 
-def make_show_settings(config_holder: ConfigHolder, save_config_fn, collection_service):
+def make_show_settings(config_holder: ConfigHolder, save_config_fn, collection_service, deepl_service):
     def show_settings():
         """Show a dialog for configuring the JapaneseMining add-on."""
         config = config_holder.config
@@ -44,6 +44,10 @@ def make_show_settings(config_holder: ConfigHolder, save_config_fn, collection_s
             if make_tab == make_rtk_tab or make_tab == make_general_tab:
                 tab, title, apply_fn = make_tab(
                     config_holder, collection_service, save_config_fn
+                )
+            elif make_tab == make_translate_tab:
+                tab, title, apply_fn = make_tab(
+                    config_holder, deepl_service, save_config_fn
                 )
             else:
                 tab, title, apply_fn = make_tab(config_holder, save_config_fn)
