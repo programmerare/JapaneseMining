@@ -40,6 +40,17 @@ def _get_current_editor():
     return _current_editor
 
 
+def _get_live_add_cards_editor() -> Editor | None:
+    # AddCards window keeps a reference to its editor
+    from aqt.addcards import AddCards
+    for widget in mw.app.topLevelWidgets():
+        if isinstance(widget, AddCards) and widget.isVisible():
+            editor = getattr(widget, "editor", None)
+            if editor is not None and getattr(editor, "web", None) is not None:
+                return editor
+    return None
+
+
 _focused_field_index: str | None = None
 
 
@@ -116,16 +127,12 @@ def setup_addon():
     gui_hooks.editor_did_focus_field.append(_set_focused_field)
 
     def on_note_added(note: Note):
+        editor = _get_current_editor()
         try:
             collection_service.update_single_note_kanji_knowledge(note)
             collection_service.ensure_rtk_kanji_for_note(note)
         except JapaneseMiningError as e:
-            parent = (
-                _get_current_editor().widget
-                if _get_current_editor()
-                and getattr(_get_current_editor(), "widget", None)
-                else mw
-            )
+            parent = editor.widget if editor and getattr(editor, "widget", None) else mw
             showWarning(
                 e.full_message(),
                 parent=parent,
@@ -133,7 +140,9 @@ def setup_addon():
             )
 
     def on_will_add_note(problem: str | None, note: Note):
-        editor = _get_current_editor()
+        editor = _get_live_add_cards_editor() or _get_current_editor()
+        if editor is None or getattr(editor, "web", None) is None:
+            return
         try:
             hypertts_service.add_audio(problem, note, editor)
         except JapaneseMiningError as e:

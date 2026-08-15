@@ -36,7 +36,7 @@ class HyperTTSService:
                 details="HyperTTS only runs on the configured JapaneseMining note type.\n"
                 "Change the note type or disable HyperTTS in the add-on settings.",
             )
-        if editor is None:
+        if editor is None or getattr(editor, "web", None) is None:
             return None
 
         instance = self._get_instance()
@@ -47,8 +47,7 @@ class HyperTTSService:
             editor_context = instance.get_editor_context(editor)
             instance.apply_all_mapping_rules(editor_context)
         except Exception as e:
-            pass
-        return None
+            return None
 
     # --- PRIVATE METHODS --- #
     def _get_instance(self):
