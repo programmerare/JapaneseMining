@@ -5,7 +5,7 @@ This is the single source of truth for colors, spacing and component styles.
 Keep it in sync with todays_words.py.
 """
 
-from aqt.qt import QFrame, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, Qt, QWidget, QScrollArea
+from aqt.qt import QFrame, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, Qt, QWidget, QScrollArea, QSizePolicy
 
 # ── Palette ──────────────────────────────────────────────────────────────
 BG_CARD = "#fafafa"
@@ -200,6 +200,9 @@ def make_scrollable_page() -> tuple[QWidget, QVBoxLayout]:
     scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
 
     content = QWidget()
+    content.setMinimumWidth(0)
+    content.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+
     content_layout = QVBoxLayout(content)
     # left/top/right = normal padding, bottom + small right gap for the scrollbar
     content_layout.setContentsMargins(16, 12, 10, 16)

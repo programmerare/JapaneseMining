@@ -365,6 +365,7 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
     sc_form = QFormLayout()
     sc_form.setSpacing(10)
     sc_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+    sc_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
 
     open_shortcut_edit = QKeySequenceEdit()
     open_shortcut_edit.setKeySequence(QKeySequence(config.jisho_shortcut))
