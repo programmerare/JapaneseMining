@@ -1,35 +1,37 @@
-from aqt import (
+from aqt.qt import (
     QCheckBox,
-    QFormLayout,
-    QLabel,
+    QVBoxLayout,
     QWidget,
-    Qt,
 )
 
 from ...config import ConfigHolder
+from .ui_styles import make_section_card, make_instruction_label
 
 
 def make_hypertts_tab(config_holder: ConfigHolder, save_config_fn=None):
     config = config_holder.config
 
-    hypertts_tab = QWidget()
-    hypertts_layout = QFormLayout(hypertts_tab)
-    hypertts_layout.setContentsMargins(16, 12, 16, 12)
-    hypertts_layout.setSpacing(10)
-    hypertts_layout.setFieldGrowthPolicy(
-        QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow
+    root = QWidget()
+    root_layout = QVBoxLayout(root)
+    root_layout.setContentsMargins(16, 12, 16, 16)
+    root_layout.setSpacing(14)
+
+    root_layout.addWidget(
+        make_instruction_label(
+            "Enable integration with the HyperTTS add-on for automatic audio "
+            "generation. HyperTTS itself must be installed and configured separately."
+        )
     )
-    hypertts_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
-    header = QLabel("HyperTTS")
-    header.setStyleSheet("font-weight: 600; color: #555; margin-top: 4px;")
-    hypertts_layout.addRow(header)
-
+    card, layout = make_section_card("HyperTTS")
     hypertts_use_checkbox = QCheckBox("Enable HyperTTS")
     hypertts_use_checkbox.setChecked(config.use_hypertts)
-    hypertts_layout.addRow(hypertts_use_checkbox)
+    layout.addWidget(hypertts_use_checkbox)
+    root_layout.addWidget(card)
+
+    root_layout.addStretch()
 
     def apply_to_config(cfg):
         cfg.use_hypertts = hypertts_use_checkbox.isChecked()
 
-    return hypertts_tab, "HyperTTS", apply_to_config
+    return root, "HyperTTS", apply_to_config

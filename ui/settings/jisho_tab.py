@@ -21,14 +21,21 @@ from aqt.qt import (
 )
 from copy import deepcopy
 
-# Re-use the same constants we put in config.py
 from ...config import (
     JISHO_MAPPING_OPTIONS,
     default_jisho_profile,
     ConfigHolder,
 )
+from .ui_styles import (
+    make_section_card,
+    make_instruction_label,
+    make_primary_button,
+    make_secondary_button,
+    make_separator,
+    TEXT_SECONDARY,
+    PRIMARY_BUTTON_SS,
+)
 
-# Compatibility matrix (copied from foreign code)
 MULTI_WORD_COMPATIBILITY = {
     "numbered": {
         "basic": True,
@@ -68,9 +75,6 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
     tabs = QTabWidget()
     outer_layout.addWidget(tabs)
 
-    # ------------------------------------------------------------------
-    # State that the three sub-tabs share
-    # ------------------------------------------------------------------
     state = {
         "profiles": deepcopy(config.jisho_profiles or {}),
         "active": config.active_jisho_profile
@@ -83,37 +87,35 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
     # 1. GENERAL TAB
     # ==================================================================
     general = QWidget()
-    g_layout = QFormLayout(general)
-    g_layout.setContentsMargins(16, 12, 16, 12)
-    g_layout.setSpacing(10)
-    g_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
-    g_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+    g_root = QVBoxLayout(general)
+    g_root.setContentsMargins(16, 12, 16, 16)
+    g_root.setSpacing(14)
 
-    # Section header
-    header = QLabel("Jisho")
-    header.setStyleSheet("font-weight: 600; color: #555; margin-top: 4px;")
-    g_layout.addRow(header)
+    g_root.addWidget(
+        make_instruction_label(
+            "Enable Jisho, choose the active profile (note type), and configure "
+            "search field, fill behaviour, multi-meaning / multi-word formats and shortcuts."
+        )
+    )
 
-    # Enable
+    # Enable card
+    enable_card, enable_layout = make_section_card("Enable")
     use_jisho_cb = QCheckBox("Enable Jisho")
     use_jisho_cb.setChecked(config.use_jisho)
     note = QLabel("Restart Anki after changing this.")
-    note.setStyleSheet("color: gray; font-size: 11px;")
+    note.setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 11px;")
     enable_row = QHBoxLayout()
     enable_row.setContentsMargins(0, 0, 0, 0)
     enable_row.setSpacing(8)
     enable_row.addWidget(use_jisho_cb)
     enable_row.addWidget(note)
     enable_row.addStretch()
-    g_layout.addRow(enable_row)
+    enable_layout.addLayout(enable_row)
+    g_root.addWidget(enable_card)
 
-    # Thin separator
-    sep = QFrame()
-    sep.setFrameShape(QFrame.Shape.HLine)
-    sep.setStyleSheet("color: #ddd;")
-    g_layout.addRow(sep)
+    # Profile card
+    profile_card, profile_layout = make_section_card("Profile (Note type)")
 
-    # Profile
     profile_row = QHBoxLayout()
     profile_row.setSpacing(8)
     profile_cb = QComboBox()
@@ -131,16 +133,13 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
 
     refresh_profile_combo()
 
-    profile_row.addWidget(QLabel("Profile (Note type):"))
     profile_row.addWidget(profile_cb, 1)
-
-    add_profile_btn = QPushButton("Add")
-    delete_profile_btn = QPushButton("Delete")
-
+    add_profile_btn = make_secondary_button("Add")
+    delete_profile_btn = make_secondary_button("Delete")
     profile_row.addWidget(add_profile_btn)
     profile_row.addWidget(delete_profile_btn)
-
-    g_layout.addRow(profile_row)
+    profile_layout.addLayout(profile_row)
+    g_root.addWidget(profile_card)
 
     def add_profile():
         try:
@@ -167,7 +166,7 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
             )
             return
 
-        persist_current_profile()  # save what we were editing
+        persist_current_profile()
         state["profiles"][note_type] = default_jisho_profile()
         state["active"] = note_type
         refresh_profile_combo()
@@ -202,7 +201,6 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
     delete_profile_btn.clicked.connect(delete_profile)
 
     def persist_current_profile():
-        """Write current widget values into state['profiles'][active]."""
         name = state["active"]
         if not name:
             return
@@ -230,10 +228,8 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
 
         target_deck_cb.setCurrentText(profile.get("target_deck", ""))
 
-        # Fill mode
         fill_mode_cb.setCurrentIndex(0 if profile.get("fill_mode") == "replace" else 1)
 
-        # Multi-meaning
         mm_map = {"pipe_merged": 0, "numbered": 1, "semicolon_merged": 2}
         multi_meaning_cb.setCurrentIndex(
             mm_map.get(profile.get("multi_meaning_format"), 2)
@@ -244,12 +240,10 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
                 multi_word_cb.setCurrentIndex(i)
                 break
 
-        # Quick-fill mode
         quick_fill_mode_cb.setCurrentIndex(
             0 if profile.get("quick_fill_mode") == "all" else 1
         )
 
-        # Checkboxes (Advanced tab)
         remove_pos_cb.setChecked(bool(profile.get("remove_pos_ending", True)))
         remove_furigana_cb.setChecked(bool(profile.get("remove_furigana_search", True)))
         disable_multi_word_cb.setChecked(
@@ -286,46 +280,49 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
         new = profile_cb.currentText()
         if not new or new == old:
             return
-        persist_current_profile()  # save the one we are leaving
-        load_profile_into_ui(new)  # load the one we are entering
+        persist_current_profile()
+        load_profile_into_ui(new)
 
     profile_cb.currentIndexChanged.connect(on_profile_changed)
 
-    # Target deck (optional)
+    # Behaviour card
+    behaviour_card, behaviour_layout = make_section_card("Lookup behaviour")
+
+    form = QFormLayout()
+    form.setSpacing(10)
+    form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+    form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+
     target_deck_cb = QComboBox()
-    target_deck_cb.setEditable(True)  # allow empty / free text
-    target_deck_cb.addItem("")  # empty = no restriction
+    target_deck_cb.setEditable(True)
+    target_deck_cb.addItem("")
     try:
         decks = mw.col.decks.all_names() if mw.col else []
         target_deck_cb.addItems(sorted(decks))
     except Exception:
         pass
     target_deck_cb.setCurrentText(config.target_deck or "")
-    g_layout.addRow("Target deck:", target_deck_cb)
+    form.addRow("Target deck", target_deck_cb)
 
-    # Search field (will be refreshed when note type changes)
     search_field_cb = QComboBox()
-    g_layout.addRow("Search field:", search_field_cb)
+    form.addRow("Search field", search_field_cb)
 
-    # Fill mode
     fill_mode_cb = QComboBox()
     fill_mode_cb.addItem("Replace content", "replace")
     fill_mode_cb.addItem("Append to content", "append")
     fill_mode_cb.setCurrentIndex(0 if config.fill_mode == "replace" else 1)
-    g_layout.addRow("Fill mode:", fill_mode_cb)
+    form.addRow("Fill mode", fill_mode_cb)
 
-    # Multi-meaning format
     multi_meaning_cb = QComboBox()
     multi_meaning_cb.addItem("Pipe Merged", "pipe_merged")
     multi_meaning_cb.addItem("Numbered", "numbered")
     multi_meaning_cb.addItem("Semicolon Merged", "semicolon_merged")
     mm_map = {"pipe_merged": 0, "numbered": 1, "semicolon_merged": 2}
     multi_meaning_cb.setCurrentIndex(mm_map.get(config.multi_meaning_format, 2))
-    g_layout.addRow("Multi-meaning format:", multi_meaning_cb)
+    form.addRow("Multi-meaning format", multi_meaning_cb)
 
-    # Multi-word format (filtered by compatibility)
     multi_word_cb = QComboBox()
-    g_layout.addRow("Multi-word format:", multi_word_cb)
+    form.addRow("Multi-word format", multi_word_cb)
 
     def refresh_multi_word_options():
         meaning_key = multi_meaning_cb.currentData()
@@ -345,66 +342,95 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
                 multi_word_cb.addItem(label, key)
                 if key == current:
                     multi_word_cb.setCurrentIndex(multi_word_cb.count() - 1)
-        # fallback if nothing selected
         if multi_word_cb.currentIndex() < 0 and multi_word_cb.count():
             multi_word_cb.setCurrentIndex(0)
         multi_word_cb.blockSignals(False)
 
     multi_meaning_cb.currentIndexChanged.connect(refresh_multi_word_options)
     refresh_multi_word_options()
-    # restore saved value if still valid
     for i in range(multi_word_cb.count()):
         if multi_word_cb.itemData(i) == config.multi_word_format:
             multi_word_cb.setCurrentIndex(i)
             break
 
-    # Shortcuts
-    open_shortcut_edit = QKeySequenceEdit()
-    open_shortcut_edit.setKeySequence(QKeySequence(config.jisho_shortcut))
-    g_layout.addRow("Jisho shortcut:", open_shortcut_edit)
-
-    quick_shortcut_edit = QKeySequenceEdit()
-    quick_shortcut_edit.setKeySequence(QKeySequence(config.jisho_fastfill_shortcut))
-    g_layout.addRow("Quick-fill shortcut:", quick_shortcut_edit)
-
-    # Quick-fill mode
     quick_fill_mode_cb = QComboBox()
     quick_fill_mode_cb.addItem("All meanings", "all")
     quick_fill_mode_cb.addItem("First meaning", "first")
     quick_fill_mode_cb.setCurrentIndex(0 if config.quick_fill_mode == "all" else 1)
-    g_layout.addRow("Quick-fill mode:", quick_fill_mode_cb)
+    form.addRow("Quick-fill mode", quick_fill_mode_cb)
 
+    behaviour_layout.addLayout(form)
+    g_root.addWidget(behaviour_card)
+
+    # Shortcuts card
+    shortcuts_card, shortcuts_layout = make_section_card("Shortcuts")
+    sc_form = QFormLayout()
+    sc_form.setSpacing(10)
+    sc_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+
+    open_shortcut_edit = QKeySequenceEdit()
+    open_shortcut_edit.setKeySequence(QKeySequence(config.jisho_shortcut))
+    sc_form.addRow("Jisho shortcut", open_shortcut_edit)
+
+    quick_shortcut_edit = QKeySequenceEdit()
+    quick_shortcut_edit.setKeySequence(QKeySequence(config.jisho_fastfill_shortcut))
+    sc_form.addRow("Quick-fill shortcut", quick_shortcut_edit)
+
+    shortcuts_layout.addLayout(sc_form)
+    g_root.addWidget(shortcuts_card)
+
+    g_root.addStretch()
     tabs.addTab(general, "General")
 
     # ==================================================================
     # 2. MAPPING TAB
     # ==================================================================
     mapping_tab = QWidget()
-    m_layout = QVBoxLayout(mapping_tab)
+    m_root = QVBoxLayout(mapping_tab)
+    m_root.setContentsMargins(16, 12, 16, 16)
+    m_root.setSpacing(12)
+
+    m_root.addWidget(
+        make_instruction_label(
+            "Map Jisho data fields to the fields of the current note type. "
+            "Only rows that have both a Jisho source and a target field are saved."
+        )
+    )
 
     mapping_scroll = QScrollArea()
     mapping_scroll.setWidgetResizable(True)
     mapping_scroll.setFrameShape(QFrame.Shape.NoFrame)
+    mapping_scroll.setStyleSheet(
+        "QScrollArea { background: transparent; border: none; }"
+    )
     mapping_container = QWidget()
     mapping_rows_layout = QVBoxLayout(mapping_container)
     mapping_rows_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+    mapping_rows_layout.setSpacing(6)
     mapping_scroll.setWidget(mapping_container)
-    m_layout.addWidget(mapping_scroll)
+    m_root.addWidget(mapping_scroll)
 
-    add_mapping_btn = QPushButton("+ Add Mapping")
-    m_layout.addWidget(add_mapping_btn)
+    add_mapping_btn = make_secondary_button("+ Add Mapping")
+    m_root.addWidget(add_mapping_btn, alignment=Qt.AlignmentFlag.AlignLeft)
 
     def rebuild_mapping_rows():
-        # clear
         while mapping_rows_layout.count():
             item = mapping_rows_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
 
         for idx, row_data in enumerate(state["mapping_rows"]):
-            row_widget = QWidget()
+            row_widget = QFrame()
+            row_widget.setObjectName("sectionCard")
+            row_widget.setStyleSheet("""
+                QFrame#sectionCard {
+                    background: #fafafa;
+                    border: 1px solid #e8e8e8;
+                    border-radius: 8px;
+                }
+            """)
             row = QHBoxLayout(row_widget)
-            row.setContentsMargins(4, 4, 4, 4)
+            row.setContentsMargins(10, 8, 10, 8)
             row.setSpacing(8)
 
             left = QComboBox()
@@ -415,13 +441,12 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
             )
 
             arrow = QLabel("→")
-            arrow.setFixedWidth(24)
             arrow.setFixedWidth(20)
             arrow.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            arrow.setStyleSheet("color: #888;")
+            arrow.setStyleSheet("color: #888; font-weight: 600;")
 
             right = QComboBox()
-            right.addItem("")  # empty allowed
+            right.addItem("")
             right.addItems(state["current_fields"])
             right.setCurrentText(row_data.get("field", ""))
             right.currentTextChanged.connect(
@@ -430,7 +455,9 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
 
             remove_btn = QPushButton("✕")
             remove_btn.setFixedSize(28, 28)
-            remove_btn.setStyleSheet("QPushButton { color: #c44; border: none; }")
+            remove_btn.setStyleSheet(
+                "QPushButton { color: #c44; border: none; font-weight: 700; }"
+            )
             remove_btn.clicked.connect(lambda _, i=idx: remove_mapping_row(i))
 
             row.addWidget(left, 1)
@@ -452,56 +479,68 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
         rebuild_mapping_rows()
 
     add_mapping_btn.clicked.connect(add_mapping_row)
-
     tabs.addTab(mapping_tab, "Mapping")
 
     # ==================================================================
     # 3. ADVANCED TAB
     # ==================================================================
     advanced = QWidget()
-    a_layout = QFormLayout(advanced)
-    a_layout.setContentsMargins(16, 12, 16, 12)
-    a_layout.setSpacing(10)
-    a_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+    a_root = QVBoxLayout(advanced)
+    a_root.setContentsMargins(16, 12, 16, 16)
+    a_root.setSpacing(14)
 
-    # Button position
+    a_root.addWidget(
+        make_instruction_label(
+            "Less frequently changed options: button placement and small behaviour tweaks."
+        )
+    )
+
+    adv_card, adv_layout = make_section_card("Advanced options")
+
+    form = QFormLayout()
+    form.setSpacing(10)
+    form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+
     button_pos_cb = QComboBox()
     button_pos_cb.addItem("Toolbar", "toolbar")
     button_pos_cb.addItem("Field Label", "field_label")
     button_pos_cb.addItem("Toolbar + Field Label", "both")
     bp_map = {"toolbar": 0, "field_label": 1, "both": 2}
     button_pos_cb.setCurrentIndex(bp_map.get(config.editor_button_position, 0))
-    a_layout.addRow("Button position:", button_pos_cb)
+    form.addRow("Button position", button_pos_cb)
 
-    # Checkboxes
+    adv_layout.addLayout(form)
+    adv_layout.addWidget(make_separator())
+
     remove_pos_cb = QCheckBox("Remove 'with x ending' from Part of speech")
     remove_pos_cb.setChecked(config.remove_pos_ending)
-    a_layout.addRow(remove_pos_cb)
+    adv_layout.addWidget(remove_pos_cb)
 
     remove_furigana_cb = QCheckBox("Remove furigana from search term")
     remove_furigana_cb.setChecked(config.remove_furigana_search)
-    a_layout.addRow(remove_furigana_cb)
+    adv_layout.addWidget(remove_furigana_cb)
 
     disable_multi_word_cb = QCheckBox("Disable multi-word selection warning")
     disable_multi_word_cb.setChecked(config.disable_multi_word_warning)
-    a_layout.addRow(disable_multi_word_cb)
+    adv_layout.addWidget(disable_multi_word_cb)
 
     show_quick_success_cb = QCheckBox("Show quick-fill success message")
     show_quick_success_cb.setChecked(config.show_quick_fill_success)
-    a_layout.addRow(show_quick_success_cb)
+    adv_layout.addWidget(show_quick_success_cb)
 
+    a_root.addWidget(adv_card)
+    a_root.addStretch()
     tabs.addTab(advanced, "Advanced")
 
     # Initial load
     load_profile_into_ui(state["active"])
 
     # ==================================================================
-    # apply_to_config – called when user clicks Save
+    # apply_to_config
     # ==================================================================
     def apply_to_config(cfg):
         persist_current_profile()
 
-        # Globals
         cfg.use_jisho = use_jisho_cb.isChecked()
         seq = open_shortcut_edit.keySequence()
         if not seq.isEmpty():
@@ -513,11 +552,9 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
             )
         cfg.editor_button_position = button_pos_cb.currentData()
 
-        # Profiles (source of truth)
         cfg.jisho_profiles = deepcopy(state["profiles"])
         cfg.active_jisho_profile = state["active"]
 
-        # Mirror active profile onto the flat keys (for runtime adapter)
         active_p = state["profiles"].get(state["active"], default_jisho_profile())
         cfg.card_type = state["active"]
         cfg.target_deck = active_p.get("target_deck", "")

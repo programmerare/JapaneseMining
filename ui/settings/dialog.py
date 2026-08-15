@@ -12,47 +12,78 @@ from .rtk_tab import make_rtk_tab
 from .translate_tab import make_translate_tab
 from .jisho_tab import make_jisho_tab
 from .hypertts_tab import make_hypertts_tab
+from .help_tab import make_help_tab
 from ...config import ConfigHolder
 from ...domain.errors import JapaneseMiningError
 
 
-def make_show_settings(config_holder: ConfigHolder, save_config_fn, collection_service, deepl_service):
+def make_show_settings(
+    config_holder: ConfigHolder, save_config_fn, collection_service, deepl_service
+):
     def show_settings():
         """Show a dialog for configuring the JapaneseMining add-on."""
         config = config_holder.config
         dialog = QDialog(mw)
         dialog.setWindowTitle("JapaneseMining Settings")
-        dialog.resize(760, 620)
-        dialog.setMinimumSize(680, 420)
+        dialog.resize(780, 740)
+        dialog.setMinimumSize(700, 460)
 
         main_layout = QVBoxLayout(dialog)
         main_layout.setContentsMargins(12, 12, 12, 8)
         main_layout.setSpacing(10)
 
         tabs = QTabWidget()
-
-        # Collect the apply functions and add the tabs to the QTabWidget
         apply_fns = []
 
-        for make_tab in [
-            make_general_tab,
-            make_rtk_tab,
-            make_translate_tab,
-            make_jisho_tab,
-            make_hypertts_tab,
-        ]:
-            if make_tab == make_rtk_tab or make_tab == make_general_tab:
-                tab, title, apply_fn = make_tab(
-                    config_holder, collection_service, save_config_fn
-                )
-            elif make_tab == make_translate_tab:
-                tab, title, apply_fn = make_tab(
-                    config_holder, deepl_service, save_config_fn
-                )
-            else:
-                tab, title, apply_fn = make_tab(config_holder, save_config_fn)
-            tabs.addTab(tab, title)
-            apply_fns.append(apply_fn)
+        # We need a forward reference so RTK can jump to Help → RTK
+        help_tab_widget = None
+        help_tab_index = -1
+
+        def goto_rtk_help():
+            if help_tab_widget is not None and help_tab_index >= 0:
+                tabs.setCurrentIndex(help_tab_index)
+                help_tab_widget.goto_rtk()
+
+        # --- build tabs ---
+        # General
+        tab, title, apply_fn = make_general_tab(
+            config_holder, collection_service, save_config_fn
+        )
+        tabs.addTab(tab, title)
+        apply_fns.append(apply_fn)
+
+        # RTK (pass the jump callback)
+        tab, title, apply_fn = make_rtk_tab(
+            config_holder,
+            collection_service,
+            save_config_fn,
+            on_goto_rtk_help=goto_rtk_help,
+        )
+        tabs.addTab(tab, title)
+        apply_fns.append(apply_fn)
+
+        # Translate
+        tab, title, apply_fn = make_translate_tab(
+            config_holder, deepl_service, save_config_fn
+        )
+        tabs.addTab(tab, title)
+        apply_fns.append(apply_fn)
+
+        # Jisho
+        tab, title, apply_fn = make_jisho_tab(config_holder, save_config_fn)
+        tabs.addTab(tab, title)
+        apply_fns.append(apply_fn)
+
+        # HyperTTS
+        tab, title, apply_fn = make_hypertts_tab(config_holder, save_config_fn)
+        tabs.addTab(tab, title)
+        apply_fns.append(apply_fn)
+
+        # Help (last)
+        help_tab_widget, title, apply_fn = make_help_tab(config_holder, save_config_fn)
+        help_tab_index = tabs.addTab(help_tab_widget, title)
+        apply_fns.append(apply_fn)
+
         main_layout.addWidget(tabs)
 
         buttons = QDialogButtonBox(
@@ -61,17 +92,12 @@ def make_show_settings(config_holder: ConfigHolder, save_config_fn, collection_s
         )
         main_layout.addWidget(buttons)
 
-        # Define the save_and_close function to apply changes and close the dialog
         def save_and_close():
             try:
                 for apply_fn in apply_fns:
-                    apply_fn(
-                        config
-                    )  # Each tab writes its own settings to the config object
+                    apply_fn(config)
                 save_config_fn(config)
-                config_holder.config = (
-                    config  # Keep the config holder in sync with the saved config
-                )
+                config_holder.config = config
             except JapaneseMiningError as e:
                 showWarning(e.full_message(), parent=dialog, title="JapaneseMining")
                 return

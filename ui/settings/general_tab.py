@@ -3,15 +3,20 @@ from aqt.utils import tooltip, showInfo
 from aqt.qt import (
     QCheckBox,
     QComboBox,
-    QFormLayout,
     QHBoxLayout,
     QLabel,
-    QPushButton,
+    QVBoxLayout,
     QWidget,
     Qt,
 )
 
 from ...config import ConfigHolder
+from .ui_styles import (
+    make_section_card,
+    make_instruction_label,
+    make_primary_button,
+    TEXT_SECONDARY,
+)
 
 
 def _note_type_names() -> list[str]:
@@ -42,46 +47,42 @@ def make_general_tab(
 ):
     config = config_holder.config
 
-    general_tab = QWidget()
-    general_layout = QFormLayout(general_tab)
-    general_layout.setContentsMargins(16, 12, 16, 12)
-    general_layout.setSpacing(10)
-    general_layout.setFieldGrowthPolicy(
-        QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow
+    root = QWidget()
+    root_layout = QVBoxLayout(root)
+    root_layout.setContentsMargins(16, 12, 16, 16)
+    root_layout.setSpacing(14)
+
+    # Brief instructions
+    root_layout.addWidget(
+        make_instruction_label(
+            "Global preferences and the JapaneseMining note type. "
+            "Create the note type once; afterwards you can add extra fields but "
+            "should not rename or delete the ones the add-on expects."
+        )
     )
-    general_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
-    # --- Section: UI ---
-    ui_header = QLabel("Interface")
-    ui_header.setStyleSheet("font-weight: 600; color: #555; margin-top: 4px;")
-    general_layout.addRow(ui_header)
-
+    # ── Interface card ──────────────────────────────────────────────────
+    ui_card, ui_layout = make_section_card("Interface")
     show_tooltips_checkbox = QCheckBox("Show tooltips")
     show_tooltips_checkbox.setChecked(config.show_tooltip)
-    general_layout.addRow(show_tooltips_checkbox)
+    ui_layout.addWidget(show_tooltips_checkbox)
+    root_layout.addWidget(ui_card)
 
-    # --- Section: JapaneseMining note ---
-    mining_header = QLabel("JapaneseMining note type")
-    mining_header.setStyleSheet("font-weight: 600; color: #555; margin-top: 12px;")
-    general_layout.addRow(mining_header)
+    # ── Note type card ──────────────────────────────────────────────────
+    mining_card, mining_layout = make_section_card("JapaneseMining note type")
 
-    # Short, always-visible guidance
-    mining_help = QLabel(
-        "This is the note type the add-on uses for mined vocabulary cards.\n"
-        "• Select an existing note type from the list, or provide a name for a new one. "
-        "The recommended choice is to use the default name, or provide another unique name "
-        "you prefer if the default name is already taken.\n"
-        "• Click the button below to create the note type with all required fields. "
-        "If you base it on an existing note type, no backward template will be added automatically, "
-        "so it will be missing if the existing note type does not already have one.\n"
-        "• You may add extra fields later, but do not delete or rename the fields the add-on expects."
+    help_text = QLabel(
+        "This is the note type used for mined vocabulary cards.\n"
+        "• Select an existing note type or type a new name.\n"
+        "• Click the button below to create it with all required fields.\n"
+        "• Extra fields are fine; do not delete or rename the expected ones."
     )
-    mining_help.setWordWrap(True)
-    mining_help.setStyleSheet("color: #666; font-size: 12px; margin-bottom: 4px;")
-    general_layout.addRow(mining_help)
+    help_text.setWordWrap(True)
+    help_text.setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 12px;")
+    mining_layout.addWidget(help_text)
 
     mining_note_type_cb = QComboBox()
-    mining_note_type_cb.setMinimumWidth(380)
+    mining_note_type_cb.setMinimumWidth(360)
     mining_note_type_cb.setEditable(True)
     mining_note_type_cb.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
     _set_combo_value(
@@ -90,7 +91,6 @@ def make_general_tab(
         _note_type_names(),
     )
 
-    # Info icon with recommendation
     mining_info = QLabel("ⓘ")
     mining_info.setStyleSheet("color: #666; font-size: 13px;")
     mining_info.setToolTip(
@@ -102,15 +102,15 @@ def make_general_tab(
     )
     mining_info.setCursor(Qt.CursorShape.WhatsThisCursor)
 
-    mining_row = QHBoxLayout()
-    mining_row.setContentsMargins(0, 0, 0, 0)
-    mining_row.setSpacing(6)
-    mining_row.addWidget(mining_note_type_cb, 1)
-    mining_row.addWidget(mining_info)
-    general_layout.addRow("Note type", mining_row)
+    row = QHBoxLayout()
+    row.setContentsMargins(0, 0, 0, 0)
+    row.setSpacing(8)
+    row.addWidget(QLabel("Note type"))
+    row.addWidget(mining_note_type_cb, 1)
+    row.addWidget(mining_info)
+    mining_layout.addLayout(row)
 
-    # Create Note Type button
-    create_btn = QPushButton("Create JapaneseMining note type")
+    create_btn = make_primary_button("Create JapaneseMining note type")
 
     def on_create_mining_note_type():
         if collection_service is None:
@@ -124,7 +124,6 @@ def make_general_tab(
         )
 
         if ok:
-            # Refresh the combo so the new type appears and is selected
             _set_combo_value(mining_note_type_cb, name, _note_type_names())
             if save_config_fn is not None:
                 save_config_fn(config_holder.config)
@@ -133,8 +132,10 @@ def make_general_tab(
             showInfo(message)
 
     create_btn.clicked.connect(on_create_mining_note_type)
+    mining_layout.addWidget(create_btn, alignment=Qt.AlignmentFlag.AlignLeft)
 
-    general_layout.addRow("", create_btn)
+    root_layout.addWidget(mining_card)
+    root_layout.addStretch()
 
     def apply_to_config(cfg):
         cfg.show_tooltip = show_tooltips_checkbox.isChecked()
@@ -142,4 +143,4 @@ def make_general_tab(
             mining_note_type_cb.currentText().strip() or cfg.mining_note_type
         )
 
-    return general_tab, "General", apply_to_config
+    return root, "General", apply_to_config
