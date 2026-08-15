@@ -15,6 +15,7 @@ def setup_menu(
     kanji_data_service,
     show_todays_words,
     show_settings,
+    show_difficult_kanji,
 ):
     """Set up the JapaneseMining menu in Anki's Tools menu."""
     show_tt = config_holder.config.show_tooltip
@@ -29,6 +30,11 @@ def setup_menu(
     # Show Kanji Heat Map
     action = QAction("Show Kanji Heat Map", mw)
     action.triggered.connect(lambda: show_kanji_heatmap(kanji_data_service))
+    my_menu.addAction(action)
+
+    # Show Difficult Kanji
+    action = QAction("Show Difficult Kanji", mw)
+    action.triggered.connect(show_difficult_kanji)
     my_menu.addAction(action)
 
     my_menu.addSeparator()
