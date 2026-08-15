@@ -1,3 +1,4 @@
+from aqt import mw
 from aqt.qt import (
     QCheckBox,
     QComboBox,
@@ -18,6 +19,34 @@ from ..ui_styles import (
     make_separator,
     TEXT_SECONDARY,
 )
+
+_FALLBACK_TARGET_LANGS = [
+    ("en-US", "English (American)"),
+    ("en-GB", "English (British)"),
+    ("de", "German"),
+    ("fr", "French"),
+    ("es", "Spanish"),
+    ("ja", "Japanese"),
+    ("zh", "Chinese (simplified)"),
+]
+
+
+def _fill_lang_combo(
+    combo: QComboBox, items: list[tuple[str, str]], selected: str
+) -> None:
+    combo.blockSignals(True)
+    combo.clear()
+    for code, name in items:
+        combo.addItem(f"{name} ({code})", code)  # userData = API code
+    # Restore selection by code
+    idx = combo.findData(selected)
+    if idx < 0:
+        idx = combo.findData(selected.upper()) if selected else -1
+    if idx < 0 and combo.count():
+        idx = 0
+    if idx >= 0:
+        combo.setCurrentIndex(idx)
+    combo.blockSignals(False)
 
 
 def make_translate_tab(
@@ -40,8 +69,7 @@ def make_translate_tab(
     # Usage card
     usage_card, usage_layout = make_section_card("Usage")
     character_usage = QLabel(
-        f"Character count: {characters_count}\n"
-        f"Characters limit: {characters_limit}"
+        f"Character count: {characters_count}\n" f"Characters limit: {characters_limit}"
     )
     character_usage.setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 13px;")
     usage_layout.addWidget(character_usage)
@@ -68,24 +96,11 @@ def make_translate_tab(
     settings_layout.addWidget(deepl_url_edit)
 
     translate_target_lang_combo = QComboBox()
-    translate_target_lang_combo.addItems(
-        [
-            "Ace", "Af", "Sq", "Ar", "An", "Hy", "As", "Ay", "Az", "Ba", "Eu",
-            "Be", "Bn", "Bho", "Bs", "Br", "Bg", "My", "Yue", "Ca", "Ceb",
-            "Zh-Hans", "Zh-Hant", "Zh", "Hr", "Cs", "Da", "Prs", "Nl", "En",
-            "En-Us", "En-Gb", "Eo", "Et", "Fi", "Fr", "Fr-Ca", "Fr-Fr", "Gl",
-            "Ka", "De", "De-De", "De-Ch", "El", "Gn", "Gu", "Ht", "Ha", "He",
-            "Hi", "Hu", "Is", "Ig", "Id", "Ga", "It", "Ja", "Jv", "Pam", "Kk",
-            "Gom", "Ko", "Kmr", "Ckb", "Ky", "La", "Lv", "Ln", "Lt", "Lmo",
-            "Lb", "Mk", "Mai", "Mg", "Ms", "Ml", "Mt", "Mi", "Mr", "Mn", "Ne",
-            "Nb", "Oc", "Om", "Pag", "Ps", "Fa", "Pl", "Pt-Br", "Pt-Pt", "Pt",
-            "Pa", "Qu", "Ro", "Ru", "Sa", "Sr", "St", "Scn", "Sk", "Sl", "Es",
-            "Es-419", "Su", "Sw", "Sv", "Tl", "Tg", "Ta", "Tt", "Te", "Th",
-            "Ts", "Tn", "Tr", "Tk", "Uk", "Ur", "Uz", "Vi", "Cy", "Wo", "Xh",
-            "Yi", "Zu",
-        ]
+    translate_target_lang_combo.setMinimumWidth(360)
+    _fill_lang_combo(
+        translate_target_lang_combo, _FALLBACK_TARGET_LANGS, config.deepl_target_lang
     )
-    translate_target_lang_combo.setCurrentText(config.deepl_target_lang)
+
     settings_layout.addWidget(QLabel("Target language"))
     settings_layout.addWidget(translate_target_lang_combo)
 
@@ -102,11 +117,39 @@ def make_translate_tab(
         cfg.use_deepl = deepl_use_checkbox.isChecked()
         cfg.deepl_api_key = deepl_key_edit.text().strip()
         cfg.deepl_url = deepl_url_edit.text().strip() or cfg.deepl_url
-        cfg.deepl_target_lang = translate_target_lang_combo.currentText()
+        data = translate_target_lang_combo.currentData()
+        cfg.deepl_target_lang = (
+            data
+            if isinstance(data, str) and data
+            else translate_target_lang_combo.currentText()
+        )
         cfg.deepl_shortcut = (
             seq.toString(QKeySequence.SequenceFormat.NativeText)
             if not seq.isEmpty()
             else cfg.deepl_shortcut
         )
+
+    # --- async language load (does not block dialog open) ---
+    if deepl_service is not None:
+        selected = config.deepl_target_lang
+
+        def work():
+            return deepl_service.get_target_languages()
+
+        def on_done(fut):
+            try:
+                langs = fut.result()
+                print("langs", langs)
+            except Exception:
+                return
+            if not langs:
+                return
+
+            def apply():
+                _fill_lang_combo(translate_target_lang_combo, langs, selected)
+
+            mw.taskman.run_on_main(apply)
+
+        mw.taskman.run_in_background(work, on_done)
 
     return root, "Translate", apply_to_config
