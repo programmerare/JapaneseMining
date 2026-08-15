@@ -5,7 +5,7 @@ This is the single source of truth for colors, spacing and component styles.
 Keep it in sync with todays_words.py.
 """
 
-from aqt.qt import QFrame, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, Qt, QWidget
+from aqt.qt import QFrame, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, Qt, QWidget, QScrollArea
 
 # ── Palette ──────────────────────────────────────────────────────────────
 BG_CARD = "#fafafa"
@@ -184,3 +184,27 @@ def make_image_placeholder(caption: str, min_height: int = 140) -> QFrame:
     layout.addWidget(icon)
     layout.addWidget(text)
     return frame
+
+
+def make_scrollable_page() -> tuple[QWidget, QVBoxLayout]:
+    """Returns (outer_widget, content_layout). Put all your cards into content_layout."""
+    outer = QWidget()
+    outer_layout = QVBoxLayout(outer)
+    outer_layout.setContentsMargins(0, 0, 0, 0)
+    outer_layout.setSpacing(0)
+
+    scroll = QScrollArea()
+    scroll.setWidgetResizable(True)
+    scroll.setFrameShape(QFrame.Shape.NoFrame)
+    scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+    scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+
+    content = QWidget()
+    content_layout = QVBoxLayout(content)
+    # left/top/right = normal padding, bottom + small right gap for the scrollbar
+    content_layout.setContentsMargins(16, 12, 10, 16)
+    content_layout.setSpacing(14)
+
+    scroll.setWidget(content)
+    outer_layout.addWidget(scroll)
+    return outer, content_layout

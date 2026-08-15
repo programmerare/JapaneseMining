@@ -27,6 +27,7 @@ from ...config import (
     ConfigHolder,
 )
 from .ui_styles import (
+    make_scrollable_page,
     make_section_card,
     make_instruction_label,
     make_primary_button,
@@ -86,10 +87,7 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
     # ==================================================================
     # 1. GENERAL TAB
     # ==================================================================
-    general = QWidget()
-    g_root = QVBoxLayout(general)
-    g_root.setContentsMargins(16, 12, 16, 16)
-    g_root.setSpacing(14)
+    general, g_root = make_scrollable_page()
 
     g_root.addWidget(
         make_instruction_label(
@@ -484,10 +482,7 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
     # ==================================================================
     # 3. ADVANCED TAB
     # ==================================================================
-    advanced = QWidget()
-    a_root = QVBoxLayout(advanced)
-    a_root.setContentsMargins(16, 12, 16, 16)
-    a_root.setSpacing(14)
+    advanced, a_root = make_scrollable_page()
 
     a_root.addWidget(
         make_instruction_label(

@@ -25,8 +25,8 @@ def make_show_settings(
         config = config_holder.config
         dialog = QDialog(mw)
         dialog.setWindowTitle("JapaneseMining Settings")
-        dialog.resize(780, 740)
-        dialog.setMinimumSize(700, 460)
+        dialog.resize(780, 640)
+        dialog.setMinimumSize(700, 480)
 
         main_layout = QVBoxLayout(dialog)
         main_layout.setContentsMargins(12, 12, 12, 8)

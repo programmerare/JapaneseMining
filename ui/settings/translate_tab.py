@@ -12,6 +12,7 @@ from aqt.qt import (
 
 from ...config import ConfigHolder
 from .ui_styles import (
+    make_scrollable_page,
     make_section_card,
     make_instruction_label,
     make_separator,
@@ -27,10 +28,7 @@ def make_translate_tab(
     res = deepl_service.get_character_usage() if deepl_service else None
     characters_count, characters_limit = res or (0, 0)
 
-    root = QWidget()
-    root_layout = QVBoxLayout(root)
-    root_layout.setContentsMargins(16, 12, 16, 16)
-    root_layout.setSpacing(14)
+    root, root_layout = make_scrollable_page()
 
     root_layout.addWidget(
         make_instruction_label(

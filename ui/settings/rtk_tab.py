@@ -22,6 +22,7 @@ import string
 from ...config import ConfigHolder
 from ...domain.errors import JapaneseMiningError
 from .ui_styles import (
+    make_scrollable_page,
     make_section_card,
     make_instruction_label,
     make_primary_button,
@@ -107,10 +108,7 @@ def make_rtk_tab(
     # ==================================================================
     # Tab 1 – Deck Mapping
     # ==================================================================
-    mapping_page = QWidget()
-    mapping_root = QVBoxLayout(mapping_page)
-    mapping_root.setContentsMargins(16, 12, 16, 16)
-    mapping_root.setSpacing(14)
+    mapping_page, mapping_root = make_scrollable_page()
 
     mapping_root.addWidget(
         make_instruction_label(
@@ -224,10 +222,7 @@ def make_rtk_tab(
     # ==================================================================
     # Tab 2 – Setup & Import
     # ==================================================================
-    setup_page = QWidget()
-    setup_root = QVBoxLayout(setup_page)
-    setup_root.setContentsMargins(16, 12, 16, 16)
-    setup_root.setSpacing(14)
+    setup_page, setup_root = make_scrollable_page()
 
     setup_root.addWidget(
         make_instruction_label(
