@@ -480,7 +480,13 @@ class CollectionService:
 
             with path.open("r", newline="", encoding="utf-8") as f:
                 reader = csv.DictReader(f)
-                kanji_rows = {row["kanji"]: row for row in reader if row.get("kanji")}
+                kanji_rows = {
+                    row["kanji"]: row
+                    for row in reader
+                    if row.get("kanji")
+                    and row.get("id_6th_ed")
+                    and int(row["id_6th_ed"]) <= 2200
+                }
 
             # sort by Heisig number (id_6th_ed) so that the cards are added in order (id_5th_ed is fallback)
             sorted_rows = sorted(
@@ -653,7 +659,10 @@ class CollectionService:
         tags = tags or []
         model = col.models.by_name(self._config.rtk_note_type)
         if model is None:
-            raise RuntimeError(f"Note type '{self._config.rtk_note_type}' not found")
+            raise JapaneseMiningError(
+                f"RTK note type '{self._config.rtk_note_type}' not found. Please check your settings.",
+                details="Open Settings -> RTK and set the note type.",
+            )
 
         note = Note(col, model)
         note[kanji_field] = kanji

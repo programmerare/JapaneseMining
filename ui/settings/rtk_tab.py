@@ -251,7 +251,7 @@ def make_rtk_tab(
     create_note_type_edit.setMinimumWidth(300)
     create_form.addRow("Note type name", create_note_type_edit)
 
-    create_all_notes_cb = QCheckBox("Also create notes for all Heisig kanji (≈3039)")
+    create_all_notes_cb = QCheckBox("Also create notes for all Heisig kanji (≈2200)")
     create_all_notes_cb.setChecked(True)
     create_form.addRow("", create_all_notes_cb)
 
@@ -321,8 +321,8 @@ def make_rtk_tab(
     heisig_row = QHBoxLayout()
     heisig_row.addWidget(QLabel("Heisig number up to:"))
     heisig_spin = QSpinBox()
-    heisig_spin.setRange(1, 3100)
-    heisig_spin.setValue(3039)
+    heisig_spin.setRange(1, 2200)
+    heisig_spin.setValue(2200)
     heisig_row.addWidget(heisig_spin)
     heisig_apply_btn = make_secondary_button("Apply")
     heisig_row.addWidget(heisig_apply_btn)
@@ -348,10 +348,10 @@ def make_rtk_tab(
 
     range_row = QHBoxLayout()
     min_days_spin = QSpinBox()
-    min_days_spin.setRange(1, 3650)
+    min_days_spin.setRange(1, 2200)
     min_days_spin.setValue(30)
     max_days_spin = QSpinBox()
-    max_days_spin.setRange(1, 3650)
+    max_days_spin.setRange(1, 2200)
     max_days_spin.setValue(700)
     range_row.addWidget(min_days_spin)
     range_row.addWidget(QLabel("and"))
