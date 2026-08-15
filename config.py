@@ -63,7 +63,7 @@ class Config:
     # --- TRANSLATE ---
     use_deepl: bool = False
     deepl_api_key: str = ""
-    deepl_url: str = "https://api-free.deepl.com/v2"
+    deepl_url: str = "https://api-free.deepl.com"
     deepl_shortcut: str = "Ctrl+T"
     deepl_target_lang: str = "EN-US"
 
