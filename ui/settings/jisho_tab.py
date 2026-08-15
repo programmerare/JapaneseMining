@@ -512,7 +512,6 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
                 QKeySequence.SequenceFormat.NativeText
             )
         cfg.editor_button_position = button_pos_cb.currentData()
-        cfg.language = lang_cb.currentData()
 
         # Profiles (source of truth)
         cfg.jisho_profiles = deepcopy(state["profiles"])
