@@ -250,7 +250,6 @@ class KanjiDataService:
                         items.append((kanji, keyword, heisig))
         except FileNotFoundError:
             pass
-        print(f"Items loaded from flagged kanji: {items}")
         self._flagged_kanji = items
         self._seen_flagged_kanji = {k for k, _, _ in items}
 
