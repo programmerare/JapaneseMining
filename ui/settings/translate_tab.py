@@ -19,6 +19,7 @@ def make_translate_tab(
 ):
     config = config_holder.config
 
+    # Get DeepL character usage if the service is available, otherwise default to (0, 0)
     res = deepl_service.get_character_usage() if deepl_service else None
     characters_count, characters_limit = res or (0, 0)
 
