@@ -121,8 +121,10 @@ def _run_update_op(op_callable, *, show_tooltip: bool) -> None:
 
 
 def _on_success(result: UpdateResult, show_tooltip: bool) -> None:
-    if show_tooltip and result.message:
-        tooltip(result.message, period=10000)
+    if not show_tooltip or not result.message:
+        return
+    message = result.message
+    tooltip(message, period=6000, parent=mw)
 
 
 def _on_failure(exc: Exception) -> None:
