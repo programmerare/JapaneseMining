@@ -16,6 +16,7 @@ from aqt.qt import (
     QTextBrowser,
     QLineEdit,
     QFrame,
+    QFontMetrics,
     Qt,
 )
 from aqt.utils import tooltip, showWarning
@@ -92,13 +93,20 @@ COMMON_CONFUSING = [
 
 
 def _kanji_tile(kanji: str, keyword: str, tooltip_text: str = "") -> QWidget:
-    """Kanji on top, keyword underneath. Fixed width → even spacing."""
+    """Kanji on top, keyword underneath (single line + ellipsis).
+
+    Fixed width for even columns. Long keywords are truncated with "…";
+    the full keyword (and Heisig number when provided) is always in the tooltip.
+    """
     TILE_WIDTH = 72
 
     tile = QWidget()
     tile.setFixedWidth(TILE_WIDTH)
-    if tooltip_text:
-        tile.setToolTip(tooltip_text)
+
+    # Tooltip: keyword + optional Heisig / extra context
+    tip_parts = [p for p in (keyword, tooltip_text) if p]
+    if tip_parts:
+        tile.setToolTip(" — ".join(tip_parts))
 
     layout = QVBoxLayout(tile)
     layout.setContentsMargins(4, 4, 4, 4)
@@ -110,11 +118,16 @@ def _kanji_tile(kanji: str, keyword: str, tooltip_text: str = "") -> QWidget:
     glyph.setAlignment(Qt.AlignmentFlag.AlignCenter)
     layout.addWidget(glyph)
 
-    kw = QLabel(keyword or "—")
+    full_keyword = keyword or "—"
+    kw = QLabel()
     kw.setStyleSheet(f"font-size: 11px; color: {TEXT_SECONDARY};")
     kw.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    kw.setWordWrap(True)
-    kw.setMaximumHeight(32)
+    kw.setWordWrap(False)
+    # Single line; elide with "…" when text does not fit the fixed tile width
+    metrics = QFontMetrics(kw.font())
+    kw.setText(
+        metrics.elidedText(full_keyword, Qt.TextElideMode.ElideRight, TILE_WIDTH - 8)
+    )
     layout.addWidget(kw)
 
     return tile
