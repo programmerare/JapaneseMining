@@ -25,19 +25,15 @@ class CollectionService:
 
     # --- PUBLIC METHODS --- #
     def soft_update_everything(self) -> UpdateResult:
-        self._kanji_data.clear_update_needed()
         return self.update_japanese_mining_cards()
 
     def force_update_keywords(self) -> UpdateResult:
-        self._kanji_data.clear_update_needed()
         return self.update_japanese_mining_cards(force_update_keywords=True)
 
     def force_update_meanings(self) -> UpdateResult:
-        self._kanji_data.clear_update_needed()
         return self.update_japanese_mining_cards(force_update_meanings=True)
 
     def force_update_everything(self) -> UpdateResult:
-        self._kanji_data.clear_update_needed()
         return self.update_japanese_mining_cards(
             force_update_meanings=True, force_update_keywords=True
         )
@@ -302,6 +298,8 @@ class CollectionService:
 
         if self._kanji_data:
             self._kanji_data.save_learned_kanji(learned_kanji_rows, learned_kanji_cache)
+
+        self._kanji_data.clear_update_needed()
 
         return UpdateResult(
             learned_kanji=count_learned,
