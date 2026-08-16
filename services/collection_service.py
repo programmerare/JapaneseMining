@@ -1286,10 +1286,10 @@ hr {
 <hr>
 
 <div class="meta">
-  <strong>Part of Speech:</strong> {{Part of Speech}} ·<br>
+  <strong>Part of speech:</strong> {{Part of speech}} ·<br>
   <strong>Info:</strong> {{Info}} ·<br>
   <strong>Tags:</strong> {{Tags}} ·<br>
-  <strong>Other Forms:</strong> {{Other Forms}} ·
+  <strong>Other forms:</strong> {{Other forms}} ·
 </div>
 
 <!-- Kanji Keywords -->
@@ -1793,10 +1793,10 @@ hr {
 <hr>
 
 <div class="meta">
-  <strong>Part of Speech:</strong> {{Part of Speech}} ·<br>
+  <strong>Part of speech:</strong> {{Part of speech}} ·<br>
   <strong>Info:</strong> {{Info}} ·<br>
   <strong>Tags:</strong> {{Tags}} ·<br>
-  <strong>Other Forms:</strong> {{Other Forms}} ·
+  <strong>Other forms:</strong> {{Other forms}} ·
 </div>
 
 <!-- Kanji Keywords -->
