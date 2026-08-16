@@ -22,7 +22,7 @@ from .ui.editor import (
     make_segment_sentence,
 )
 from .ui.menu import setup_menu
-from .ui.soft_update_indicator import setup_soft_update_indicator
+from .ui.update_indicator import setup_update_indicator
 
 _executor = ThreadPoolExecutor(max_workers=2)
 
@@ -112,13 +112,13 @@ def setup_addon():
             kanji_data_service.load_todays_known_cards()
             kanji_data_service.load_flagged_kanji()
 
-            # Clear the soft update needed flag after loading (Including profile switch) to avoid showing the indicator unnecessarily
-            kanji_data_service.clear_soft_update_needed()
+            # Clear the update needed flag after loading (Including profile switch) to avoid showing the indicator unnecessarily
+            kanji_data_service.clear_update_needed()
 
         _executor.submit(load)
 
-    # --- soft update indicator ---
-    setup_soft_update_indicator(kanji_data_service)
+    # --- update indicator ---
+    setup_update_indicator(kanji_data_service)
 
     # --- HOOKS ---
     gui_hooks.collection_did_load.append(on_collection_loaded)

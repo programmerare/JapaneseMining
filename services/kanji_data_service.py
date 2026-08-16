@@ -30,7 +30,7 @@ class KanjiDataService:
         self._seen_known_cards: set[tuple[str, str]] = set()
         self._seen_flagged_kanji: set[str] = set()
         self._current_day: str | None = None
-        self.needs_soft_update: bool = False
+        self.needs_update: bool = False
 
     @property
     def _config(self):
@@ -476,27 +476,27 @@ class KanjiDataService:
                 heisig = note[heisig_field].strip() if heisig_field in note else ""
                 self.save_flagged_kanji(kanji, keyword, heisig)
 
-        # Mark soft update needed if the card is in the RTK deck
+        # Mark update needed if the card is in the RTK deck
         try:
             deck_name = mw.col.decks.name(card.did)
             rtk_deck = self._config_holder.config.rtk_deck
             if deck_name == rtk_deck or deck_name.startswith(rtk_deck + "::"):
-                self.mark_soft_update_needed()
+                self.mark_update_needed()
         except Exception:
             pass
 
-    # --- SOFT UPDATE INDICATOR --- #
-    def mark_soft_update_needed(self) -> None:
-        if self._config_holder.config.show_update_needed and not self.needs_soft_update:
-            self.needs_soft_update = True
-            from ..ui.soft_update_indicator import refresh_deck_browser
+    # --- UPDATE INDICATOR --- #
+    def mark_update_needed(self) -> None:
+        if self._config_holder.config.show_update_needed and not self.needs_update:
+            self.needs_update = True
+            from ..ui.update_indicator import refresh_deck_browser
 
             refresh_deck_browser()
 
-    def clear_soft_update_needed(self) -> None:
-        if self.needs_soft_update:
-            self.needs_soft_update = False
-            from ..ui.soft_update_indicator import refresh_deck_browser
+    def clear_update_needed(self) -> None:
+        if self.needs_update:
+            self.needs_update = False
+            from ..ui.update_indicator import refresh_deck_browser
 
             refresh_deck_browser()
 

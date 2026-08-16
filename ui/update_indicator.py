@@ -1,18 +1,18 @@
-"""Glowing Soft Update reminder on the Deck Browser."""
+"""Glowing Update reminder on the Deck Browser."""
 
 from aqt import gui_hooks, mw
 
 _DOT_HTML = (
-    '<div id="jm-soft-update-indicator" class="jm-soft-update-indicator" '
+    '<div id="jm--update-indicator" class="jm--update-indicator" '
     'title="Kanji knowledge may be outdated. '
-    'Run Soft Update Everything from the JapaneseMining menu.">'
-    '<span class="jm-soft-update-dot"></span>'
-    '<span class="jm-soft-update-label">Soft Update</span>'
+    'Run Any Update Option from the JapaneseMining menu.">'
+    '<span class="jm--update-dot"></span>'
+    '<span class="jm--update-label">Update</span>'
     '</div>'
 )
 
 _DOT_CSS = """
-.jm-soft-update-indicator {
+.jm--update-indicator {
     position: fixed;
     top: 0px;
     right: 16px;
@@ -33,7 +33,7 @@ _DOT_CSS = """
     user-select: none;
 }
 
-.jm-soft-update-dot {
+.jm--update-dot {
     display: inline-block;
     width: 8px;
     height: 8px;
@@ -50,23 +50,23 @@ _DOT_CSS = """
     100% { box-shadow: 0 0 0 0   rgba(245, 158, 11, 0); }
 }
 
-.jm-soft-update-label {
+.jm--update-label {
     line-height: 1;
 }
 """
 
-_STYLE_ID = "jm-soft-update-style"
+_STYLE_ID = "jm--update-style"
 
 
-def setup_soft_update_indicator(kanji_data_service) -> None:
-    """Register Deck Browser hooks for the Soft Update reminder."""
+def setup_update_indicator(kanji_data_service) -> None:
+    """Register Deck Browser hooks for the Update reminder."""
 
     def inject_css(web_content, context) -> None:
         if _STYLE_ID not in (web_content.head or ""):
             web_content.head += f'<style id="{_STYLE_ID}">{_DOT_CSS}</style>'
 
     def on_deck_browser_will_render_content(deck_browser, content) -> None:
-        if not kanji_data_service.needs_soft_update:
+        if not kanji_data_service.needs_update:
             return
         # Fixed top-right overlay; append to stats so it lands in the page body.
         content.stats = (content.stats or "") + _DOT_HTML
@@ -87,7 +87,7 @@ def refresh_deck_browser() -> None:
         except Exception:
             pass
 
-    # Soft Update (and other CollectionOps) run off the main thread.
+    # Update (and other CollectionOps) run off the main thread.
     # UI must always be scheduled back onto it.
     try:
         mw.taskman.run_on_main(_do_refresh)
