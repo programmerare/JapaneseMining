@@ -5,7 +5,8 @@ from aqt.qt import QAction, QMenu
 
 from ..domain.errors import JapaneseMiningError
 from ..domain.results import UpdateResult
-from .kanji_heatmap import show_kanji_heatmap
+from .kanji_window import make_show_kanji
+from .todays_progress import make_show_todays_progress
 from ..config import ConfigHolder
 
 
@@ -13,26 +14,21 @@ def setup_menu(
     config_holder: ConfigHolder,
     collection_service,
     kanji_data_service,
-    show_todays_words,
     show_settings,
-    show_difficult_kanji,
 ):
     """Set up the JapaneseMining menu in Anki's Tools menu."""
     my_menu = QMenu("JapaneseMining", mw)
 
     # Show Today's Progress
+    show_todays_progress = make_show_todays_progress(kanji_data_service)
     action = QAction("Show Today's Progress", mw)
-    action.triggered.connect(show_todays_words)
+    action.triggered.connect(show_todays_progress)
     my_menu.addAction(action)
 
-    # Show Kanji Heat Map
-    action = QAction("Show Kanji Heat Map", mw)
-    action.triggered.connect(lambda: show_kanji_heatmap(kanji_data_service))
-    my_menu.addAction(action)
-
-    # Show Difficult Kanji
-    action = QAction("Show Difficult Kanji", mw)
-    action.triggered.connect(show_difficult_kanji)
+    # Show Kanji (Heat Map + Difficult Kanji)
+    show_kanji = make_show_kanji(kanji_data_service)
+    action = QAction("Show Kanji", mw)
+    action.triggered.connect(show_kanji)
     my_menu.addAction(action)
 
     my_menu.addSeparator()
