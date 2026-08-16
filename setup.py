@@ -112,6 +112,9 @@ def setup_addon():
             kanji_data_service.load_todays_known_cards()
             kanji_data_service.load_flagged_kanji()
 
+            # Clear the soft update needed flag after loading (Including profile switch) to avoid showing the indicator unnecessarily
+            kanji_data_service.clear_soft_update_needed()
+
         _executor.submit(load)
 
     # --- soft update indicator ---
