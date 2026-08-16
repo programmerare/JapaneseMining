@@ -61,9 +61,15 @@ def make_general_tab(
 
     # ── Interface card ──────────────────────────────────────────────────
     ui_card, ui_layout = make_section_card("Interface")
+
     show_tooltips_checkbox = QCheckBox("Show tooltips")
     show_tooltips_checkbox.setChecked(config.show_tooltip)
     ui_layout.addWidget(show_tooltips_checkbox)
+
+    show_update_needed_checkbox = QCheckBox("Show update needed indicator")
+    show_update_needed_checkbox.setChecked(config.show_update_needed)
+    ui_layout.addWidget(show_update_needed_checkbox)
+
     root_layout.addWidget(ui_card)
 
     # ── Note type card ──────────────────────────────────────────────────
@@ -137,6 +143,7 @@ def make_general_tab(
 
     def apply_to_config(cfg):
         cfg.show_tooltip = show_tooltips_checkbox.isChecked()
+        cfg.show_update_needed = show_update_needed_checkbox.isChecked()
         cfg.mining_note_type = (
             mining_note_type_cb.currentText().strip() or cfg.mining_note_type
         )
