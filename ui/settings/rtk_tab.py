@@ -135,11 +135,13 @@ def make_rtk_tab(
 
     rtk_deck_cb = QComboBox()
     rtk_deck_cb.setMinimumWidth(340)
+    rtk_deck_cb.setMaximumWidth(340)
     _set_combo_value(rtk_deck_cb, getattr(config, "rtk_deck", "") or "", _deck_names())
     form.addRow("Deck", rtk_deck_cb)
 
     rtk_note_type_cb = QComboBox()
     rtk_note_type_cb.setMinimumWidth(340)
+    rtk_note_type_cb.setMaximumWidth(340)
     _set_combo_value(
         rtk_note_type_cb,
         getattr(config, "rtk_note_type", "") or "",
@@ -149,22 +151,27 @@ def make_rtk_tab(
 
     rtk_kanji_field_cb = QComboBox()
     rtk_kanji_field_cb.setMinimumWidth(340)
+    rtk_kanji_field_cb.setMaximumWidth(340)
     form.addRow("Kanji field", rtk_kanji_field_cb)
 
     rtk_alternative_kanji_field_cb = QComboBox()
     rtk_alternative_kanji_field_cb.setMinimumWidth(340)
+    rtk_alternative_kanji_field_cb.setMaximumWidth(340)
     form.addRow("Alternative kanji field", rtk_alternative_kanji_field_cb)
 
     rtk_keyword_field_cb = QComboBox()
     rtk_keyword_field_cb.setMinimumWidth(340)
+    rtk_keyword_field_cb.setMaximumWidth(340)
     form.addRow("Keyword field", rtk_keyword_field_cb)
 
     rtk_heisig_number_field_cb = QComboBox()
     rtk_heisig_number_field_cb.setMinimumWidth(340)
+    rtk_heisig_number_field_cb.setMaximumWidth(340)
     form.addRow("Heisig number field", rtk_heisig_number_field_cb)
 
     rtk_stroke_count_field_cb = QComboBox()
     rtk_stroke_count_field_cb.setMinimumWidth(340)
+    rtk_stroke_count_field_cb.setMaximumWidth(340)
     form.addRow("Stroke count field", rtk_stroke_count_field_cb)
 
     map_layout.addLayout(form)
