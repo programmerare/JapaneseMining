@@ -1,12 +1,14 @@
 from aqt import mw
 from copy import deepcopy
-from dataclasses import dataclass, asdict, field, fields
+from dataclasses import dataclass, asdict, field
 from pathlib import Path
 from typing import Any
 import json
 import uuid
 
-from .domain.errors import JapaneseMiningError
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
 
 JISHO_PROFILE_KEYS = (
     "search_field",
@@ -22,6 +24,40 @@ JISHO_PROFILE_KEYS = (
     "show_quick_fill_success",
 )
 
+TRANSLATE_PROFILE_KEYS = (
+    "source_field",
+    "target_field",
+    "source_lang",
+    "target_lang",
+)
+
+# Canonical list of fields every mining note type must have.
+# Used by CollectionService, General tab completeness checks, and Help.
+REQUIRED_MINING_FIELDS = [
+    "Word",
+    "Reading",
+    "Meaning",
+    "Example Sentence",
+    "Translation",
+    "Note",
+    "Mnemonic",
+    "Audio",
+    "Other forms",
+    "Tags",
+    "Part of speech",
+    "Info",
+    "See also",
+    "JLPT Level",
+    "Wanikani Level",
+    "Is Common",
+    "Kanji is known",
+    "No Kanji",
+    "Usually Kana",
+    "Kanji Keywords",
+    "Kanji Meanings",
+]
+
+# Key stored inside Anki's profile data so we survive renames.
 _PROFILE_ID_KEY = "japanese_mining_profile_id"
 
 ALLOWED_FILL_MODES = {"replace", "append"}
@@ -47,6 +83,11 @@ JISHO_MAPPING_OPTIONS = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Dataclass
+# ---------------------------------------------------------------------------
+
+
 @dataclass
 class Config:
     # --- GENERAL ---
@@ -61,36 +102,40 @@ class Config:
     rtk_heisig_number_field: str = ""
     rtk_stroke_count_field: str = ""
 
-    # --- TRANSLATE ---
+    # --- TRANSLATE (account-level) ---
     use_deepl: bool = False
     deepl_api_key: str = ""
     deepl_url: str = "https://api-free.deepl.com"
     deepl_shortcut: str = "Ctrl+T"
-    deepl_target_lang: str = "EN-US"
+
+    # --- TRANSLATE (per note-type profiles) ---
+    translate_profiles: dict = field(default_factory=dict)  # {note_type: {...}}
+    active_translate_profile: str = ""
 
     # --- JISHO ---
     use_jisho: bool = True
     jisho_shortcut: str = "Ctrl+J"
     jisho_fastfill_shortcut: str = "Ctrl+Shift+J"
-    editor_button_position: str = "toolbar"  # toolbarl | field_label | both
+    editor_button_position: str = "toolbar"  # toolbar | field_label | both
     language: str = "en"
     show_welcome_dialog: bool = False
 
-    jisho_profiles: dict = field(default_factory=dict)  # {note_type: {profile_fields}}
-    active_jisho_profile: str = ""  # last selected / fallback name
+    jisho_profiles: dict = field(default_factory=dict)  # {note_type: {...}}
+    active_jisho_profile: str = ""  # UI selection only; runtime resolves by note type
 
-    card_type: str = "JapaneseMining"  # note type
+    # Legacy flat fields (still written for AJC / older paths; prefer profiles)
+    card_type: str = "JapaneseMining"
     target_deck: str = ""
     search_field: str = "Word"
-    mappings: list = field(default_factory=list)  # list[{"jisho": str "field": str}]
-    fill_mode: str = "replace"  # replace | append
+    mappings: list = field(default_factory=list)
+    fill_mode: str = "replace"
     multi_meaning_format: str = "semicolon_merged"
     multi_word_format: str = "inline"
     remove_pos_ending: bool = True
     remove_furigana_search: bool = True
     disable_multi_word_warning: bool = False
     show_quick_fill_success: bool = False
-    quick_fill_mode: str = "all"  # all | first
+    quick_fill_mode: str = "all"
 
     # --- HYPERTTS ---
     use_hypertts: bool = False
@@ -108,7 +153,96 @@ class ConfigHolder:
         return self.config
 
 
-# --- PUBLIC FUNCTIONS ---
+# ---------------------------------------------------------------------------
+# Profile-aware paths
+# ---------------------------------------------------------------------------
+
+
+def _addon_root() -> Path:
+    return Path(__file__).resolve().parent
+
+
+def _user_files_root() -> Path:
+    return _addon_root() / "user_files"
+
+
+def _get_or_create_profile_id() -> str:
+    """Stable ID for the current Anki profile (survives renames)."""
+    try:
+        pm = mw.pm
+        profile = getattr(pm, "profile", None)
+        if isinstance(profile, dict):
+            existing = profile.get(_PROFILE_ID_KEY)
+            if isinstance(existing, str) and existing.strip():
+                return existing.strip()
+
+            new_id = str(uuid.uuid4())
+            profile[_PROFILE_ID_KEY] = new_id
+            try:
+                pm.save()
+            except Exception:
+                pass
+            return new_id
+    except Exception:
+        pass
+
+    try:
+        name = (mw.pm.name or "default").strip() or "default"
+    except Exception:
+        name = "default"
+    safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in name)
+    return f"name_{safe}"
+
+
+def _profile_config_path() -> Path:
+    profile_id = _get_or_create_profile_id()
+    path = _user_files_root() / "profiles" / profile_id / "config.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def profile_user_dir() -> Path:
+    """Per-profile durable storage under user_files/."""
+    root = _user_files_root() / "profiles" / _get_or_create_profile_id()
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+# ---------------------------------------------------------------------------
+# Defaults
+# ---------------------------------------------------------------------------
+
+
+def default_jisho_profile() -> dict:
+    return {
+        "search_field": "Word",
+        "target_deck": "",
+        "mappings": [],
+        "fill_mode": "replace",
+        "multi_meaning_format": "semicolon_merged",
+        "multi_word_format": "inline",
+        "remove_pos_ending": True,
+        "remove_furigana_search": True,
+        "disable_multi_word_warning": False,
+        "quick_fill_mode": "all",
+        "show_quick_fill_success": False,
+    }
+
+
+def default_translate_profile() -> dict:
+    return {
+        "source_field": "Example Sentence",
+        "target_field": "Translation",
+        "source_lang": "JA",
+        "target_lang": "EN-US",
+    }
+
+
+# ---------------------------------------------------------------------------
+# Load / save
+# ---------------------------------------------------------------------------
+
+
 def load_config() -> Config:
     """Load config for the current Anki profile. Always returns a complete Config."""
     defaults = Config()
@@ -146,89 +280,20 @@ def save_config(config: Config) -> None:
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
     except OSError as e:
-        raise JapaneseMiningError(
-            "Failed to write profile config.",
-            details=f"Could not write to {path}:\n{e}",
-        ) from e
+        print(f"Japanese Mining: failed to write profile config: {e}")
 
 
-def default_jisho_profile() -> dict:
-    return {
-        "search_field": "Word",
-        "target_deck": "",
-        "mappings": [],
-        "fill_mode": "replace",
-        "multi_meaning_format": "semicolon_merged",
-        "multi_word_format": "inline",
-        "remove_pos_ending": True,
-        "remove_furigana_search": True,
-        "disable_multi_word_warning": False,
-        "quick_fill_mode": "all",
-        "show_quick_fill_success": False,
-    }
-
-
-def profile_user_dir() -> Path:
-    """Per-profile durable storage under user_files/."""
-    root = (
-        Path(__file__).resolve().parent
-        / "user_files"
-        / "profiles"
-        / _get_or_create_profile_id()
-    )
-    root.mkdir(parents=True, exist_ok=True)
-    return root
-
-
-# --- PRIVATE FUNCTIONS ---
-def _addon_root() -> Path:
-    return Path(__file__).resolve().parent
-
-
-def _user_files_root() -> Path:
-    return _addon_root() / "user_files"
-
-
-def _get_or_create_profile_id() -> str:
-    """Stable ID for the current Anki profile (survives renames)."""
-    try:
-        pm = mw.pm
-        profile = getattr(pm, "profile", None)
-        if isinstance(profile, dict):
-            existing = profile.get(_PROFILE_ID_KEY)
-            if isinstance(existing, str) and existing.strip():
-                return existing.strip()
-
-            new_id = str(uuid.uuid4())
-            profile[_PROFILE_ID_KEY] = new_id
-            try:
-                pm.save()
-            except Exception:
-                pass
-            return new_id
-    except Exception:
-        pass
-
-    # Fallback while profile is not fully loaded
-    try:
-        name = (mw.pm.name or "default").strip() or "default"
-    except Exception:
-        name = "default"
-    safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in name)
-    return f"name_{safe}"
-
-
-def _profile_config_path() -> Path:
-    profile_id = _get_or_create_profile_id()
-    path = _user_files_root() / "profiles" / profile_id / "config.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    return path
+# ---------------------------------------------------------------------------
+# Normalization
+# ---------------------------------------------------------------------------
 
 
 def _normalize_mappings(raw: Any) -> list[dict[str, str]]:
     """Accept both old dict style and new list style. Keep only valid entries."""
     if isinstance(raw, dict):
-        items = [{"jisho": jisho, "field": field} for field, jisho in raw.items()]
+        items = [
+            {"jisho": jisho, "field": field_name} for field_name, jisho in raw.items()
+        ]
     elif isinstance(raw, list):
         items = [m for m in raw if isinstance(m, dict)]
     else:
@@ -254,34 +319,26 @@ def _normalize_config_dict(data: dict) -> dict:
     defaults = asdict(Config())
     result = deepcopy(defaults)
 
-    # Only keep keys that exist on Config
     for key in defaults:
         if key not in data:
             continue
         result[key] = data[key]
 
-    # --- force correct types / allowed values ---
     result["mappings"] = _normalize_mappings(result.get("mappings"))
 
     if result["fill_mode"] not in ALLOWED_FILL_MODES:
         result["fill_mode"] = "replace"
-
     if result["multi_meaning_format"] not in ALLOWED_MULTI_MEANING:
         result["multi_meaning_format"] = "semicolon_merged"
-
     if result["multi_word_format"] not in ALLOWED_MULTI_WORD:
         result["multi_word_format"] = "inline"
-
     if result["quick_fill_mode"] not in ALLOWED_QUICK_FILL:
         result["quick_fill_mode"] = "all"
-
     if result["editor_button_position"] not in ALLOWED_BUTTON_POS:
         result["editor_button_position"] = "toolbar"
-
     if result["language"] not in ALLOWED_LANG:
         result["language"] = "en"
 
-    # Booleans
     for bool_key in (
         "use_jisho",
         "remove_pos_ending",
@@ -296,13 +353,15 @@ def _normalize_config_dict(data: dict) -> dict:
     ):
         result[bool_key] = bool(result.get(bool_key, defaults[bool_key]))
 
-    # Shortcuts – never empty
     if not str(result.get("jisho_shortcut") or "").strip():
         result["jisho_shortcut"] = defaults["jisho_shortcut"]
     if not str(result.get("jisho_fastfill_shortcut") or "").strip():
         result["jisho_fastfill_shortcut"] = defaults["jisho_fastfill_shortcut"]
+    if not str(result.get("deepl_shortcut") or "").strip():
+        result["deepl_shortcut"] = defaults["deepl_shortcut"]
 
     _migrate_to_jisho_profiles(result)
+    _migrate_to_translate_profiles(result)
 
     return result
 
@@ -312,7 +371,6 @@ def _migrate_to_jisho_profiles(data: dict) -> dict:
     if not isinstance(profiles, dict):
         profiles = {}
 
-    # If we still have old flat fields, turn them into the first profile
     if not profiles:
         old_note_type = (
             data.get("card_type") or data.get("mining_note_type") or "JapaneseMining"
@@ -321,11 +379,9 @@ def _migrate_to_jisho_profiles(data: dict) -> dict:
         for key in JISHO_PROFILE_KEYS:
             if key in data:
                 profile[key] = data[key]
-        # mappings need the same cleaning you already do
         profile["mappings"] = _normalize_mappings(profile.get("mappings"))
         profiles[old_note_type] = profile
 
-    # Make sure every profile is complete
     clean_profiles = {}
     for name, raw in profiles.items():
         name = str(name or "").strip()
@@ -348,5 +404,61 @@ def _migrate_to_jisho_profiles(data: dict) -> dict:
     if active not in clean_profiles:
         active = next(iter(clean_profiles))
     data["active_jisho_profile"] = active
+
+    return data
+
+
+def _migrate_to_translate_profiles(data: dict) -> dict:
+    """Ensure translate_profiles is complete. Seed from legacy flat fields if empty."""
+    profiles = data.get("translate_profiles")
+    if not isinstance(profiles, dict):
+        profiles = {}
+
+    if not profiles:
+        old_note_type = (
+            data.get("mining_note_type") or data.get("card_type") or "JapaneseMining"
+        )
+        profile = default_translate_profile()
+        # Honour any leftover flat target language from older configs
+        legacy_target = str(data.get("deepl_target_lang") or "").strip()
+        if legacy_target:
+            profile["target_lang"] = legacy_target
+        profiles[old_note_type] = profile
+
+    clean_profiles = {}
+    for name, raw in profiles.items():
+        name = str(name or "").strip()
+        if not name:
+            continue
+        p = default_translate_profile()
+        if isinstance(raw, dict):
+            for key in TRANSLATE_PROFILE_KEYS:
+                if key in raw and raw[key] is not None:
+                    p[key] = (
+                        str(raw[key]).strip() if isinstance(raw[key], str) else raw[key]
+                    )
+        # Guard empty critical fields
+        if not p.get("source_field"):
+            p["source_field"] = "Example Sentence"
+        if not p.get("target_field"):
+            p["target_field"] = "Translation"
+        if not p.get("source_lang"):
+            p["source_lang"] = "JA"
+        if not p.get("target_lang"):
+            p["target_lang"] = "EN-US"
+        clean_profiles[name] = p
+
+    if not clean_profiles:
+        clean_profiles["JapaneseMining"] = default_translate_profile()
+
+    data["translate_profiles"] = clean_profiles
+
+    active = str(data.get("active_translate_profile") or "").strip()
+    if active not in clean_profiles:
+        active = next(iter(clean_profiles))
+    data["active_translate_profile"] = active
+
+    # Drop legacy key from the normalized dict so it is not re-persisted
+    data.pop("deepl_target_lang", None)
 
     return data

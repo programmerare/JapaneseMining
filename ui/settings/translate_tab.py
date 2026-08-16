@@ -2,32 +2,59 @@ from aqt import mw
 from aqt.qt import (
     QCheckBox,
     QComboBox,
-    QFrame,
+    QFormLayout,
+    QHBoxLayout,
+    QInputDialog,
     QKeySequence,
     QKeySequenceEdit,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QVBoxLayout,
     QWidget,
+    Qt,
 )
+from copy import deepcopy
 
-from ...config import ConfigHolder
+from ...config import ConfigHolder, default_translate_profile
 from ..ui_styles import (
     make_scrollable_page,
     make_section_card,
     make_instruction_label,
+    make_secondary_button,
     make_separator,
     TEXT_SECONDARY,
 )
 
+# Fallback lists used when the API key is missing or the request fails.
 _FALLBACK_TARGET_LANGS = [
-    ("en-US", "English (American)"),
-    ("en-GB", "English (British)"),
-    ("de", "German"),
-    ("fr", "French"),
-    ("es", "Spanish"),
-    ("ja", "Japanese"),
-    ("zh", "Chinese (simplified)"),
+    ("EN-US", "English (American)"),
+    ("EN-GB", "English (British)"),
+    ("DE", "German"),
+    ("FR", "French"),
+    ("ES", "Spanish"),
+    ("JA", "Japanese"),
+    ("ZH", "Chinese (simplified)"),
+    ("PT-BR", "Portuguese (Brazilian)"),
+    ("PT-PT", "Portuguese (European)"),
+    ("IT", "Italian"),
+    ("NL", "Dutch"),
+    ("PL", "Polish"),
+    ("RU", "Russian"),
+    ("KO", "Korean"),
+]
+
+_FALLBACK_SOURCE_LANGS = [
+    ("JA", "Japanese"),
+    ("EN", "English"),
+    ("DE", "German"),
+    ("FR", "French"),
+    ("ES", "Spanish"),
+    ("ZH", "Chinese"),
+    ("KO", "Korean"),
+    ("PT", "Portuguese"),
+    ("IT", "Italian"),
+    ("RU", "Russian"),
 ]
 
 
@@ -37,11 +64,15 @@ def _fill_lang_combo(
     combo.blockSignals(True)
     combo.clear()
     for code, name in items:
-        combo.addItem(f"{name} ({code})", code)  # userData = API code
-    # Restore selection by code
+        combo.addItem(f"{name} ({code})", code)
+    selected = (selected or "").strip()
     idx = combo.findData(selected)
-    if idx < 0:
-        idx = combo.findData(selected.upper()) if selected else -1
+    if idx < 0 and selected:
+        idx = combo.findData(selected.upper())
+    if idx < 0 and selected:
+        # Insert unknown code so we never silently change the user's choice
+        combo.insertItem(0, f"{selected} ({selected})", selected)
+        idx = 0
     if idx < 0 and combo.count():
         idx = 0
     if idx >= 0:
@@ -49,105 +80,348 @@ def _fill_lang_combo(
     combo.blockSignals(False)
 
 
+def _note_type_names() -> list[str]:
+    try:
+        if not mw.col:
+            return []
+        return sorted(m.name for m in mw.col.models.all_names_and_ids())
+    except Exception:
+        return []
+
+
+def _fields_for_note_type(note_type: str) -> list[str]:
+    try:
+        model = mw.col.models.by_name(note_type) if mw.col and note_type else None
+        if model:
+            return [f["name"] for f in model["flds"]]
+    except Exception:
+        pass
+    return []
+
+
 def make_translate_tab(
     config_holder: ConfigHolder, deepl_service=None, save_config_fn=None
 ):
+    """
+    Returns (tab_widget, title, apply_to_config_fn).
+
+    Account-level: enable, API key, URL, shortcut.
+    Per note-type profiles: source/target fields + source/target languages.
+    At runtime DeeplService resolves the profile from the current note's
+    note type — the "active" profile here is only for editing.
+    """
     config = config_holder.config
 
     root, root_layout = make_scrollable_page()
 
     root_layout.addWidget(
         make_instruction_label(
-            "DeepL integration for translating example sentences. "
-            "Requires a valid API key. Character usage is shown below."
+            "DeepL translation is profile-based: each note type can have its own "
+            "source/target fields and languages. In the editor the add-on picks the "
+            "profile that matches the current note automatically."
         )
     )
 
-    # Usage card — placeholder first, fill async
+    state = {
+        "profiles": deepcopy(config.translate_profiles or {}),
+        "active": config.active_translate_profile
+        or next(iter(config.translate_profiles or {}), ""),
+        "current_fields": [],
+    }
+
+    # ── Enable + account ────────────────────────────────────────────────
+    account_card, account_layout = make_section_card("Account")
+
+    use_cb = QCheckBox("Enable DeepL")
+    use_cb.setChecked(config.use_deepl)
+    account_layout.addWidget(use_cb)
+
+    account_layout.addWidget(make_separator())
+
+    account_layout.addWidget(QLabel("API key"))
+    key_edit = QLineEdit(config.deepl_api_key)
+    key_edit.setMinimumWidth(360)
+    key_edit.setEchoMode(QLineEdit.EchoMode.Password)
+    account_layout.addWidget(key_edit)
+
+    account_layout.addWidget(QLabel("URL"))
+    url_edit = QLineEdit(config.deepl_url)
+    url_edit.setMinimumWidth(360)
+    account_layout.addWidget(url_edit)
+
+    account_layout.addWidget(QLabel("Shortcut (global)"))
+    shortcut_edit = QKeySequenceEdit()
+    shortcut_edit.setKeySequence(QKeySequence(config.deepl_shortcut))
+    account_layout.addWidget(shortcut_edit)
+
+    root_layout.addWidget(account_card)
+
+    # ── Usage ───────────────────────────────────────────────────────────
     usage_card, usage_layout = make_section_card("Usage")
     character_usage = QLabel("Character count: —\nCharacters limit: —")
     character_usage.setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 13px;")
     usage_layout.addWidget(character_usage)
     root_layout.addWidget(usage_card)
 
-    # Settings card
-    settings_card, settings_layout = make_section_card("DeepL settings")
+    # ── Profile selector ────────────────────────────────────────────────
+    profile_card, profile_layout = make_section_card("Profile (Note type)")
 
-    deepl_use_checkbox = QCheckBox("Enable DeepL")
-    deepl_use_checkbox.setChecked(config.use_deepl)
-    settings_layout.addWidget(deepl_use_checkbox)
+    profile_row = QHBoxLayout()
+    profile_row.setSpacing(8)
+    profile_cb = QComboBox()
+    profile_cb.setEditable(False)
 
-    settings_layout.addWidget(make_separator())
+    def refresh_profile_combo():
+        profile_cb.blockSignals(True)
+        profile_cb.clear()
+        for name in sorted(state["profiles"].keys()):
+            profile_cb.addItem(name)
+        idx = profile_cb.findText(state["active"])
+        profile_cb.setCurrentIndex(idx if idx >= 0 else 0)
+        state["active"] = profile_cb.currentText()
+        profile_cb.blockSignals(False)
 
-    deepl_key_edit = QLineEdit(config.deepl_api_key)
-    deepl_key_edit.setMinimumWidth(360)
-    deepl_key_edit.setEchoMode(QLineEdit.EchoMode.Password)
-    settings_layout.addWidget(QLabel("API key"))
-    settings_layout.addWidget(deepl_key_edit)
+    refresh_profile_combo()
+    profile_row.addWidget(profile_cb, 1)
 
-    deepl_url_edit = QLineEdit(config.deepl_url)
-    deepl_url_edit.setMinimumWidth(360)
-    settings_layout.addWidget(QLabel("URL"))
-    settings_layout.addWidget(deepl_url_edit)
+    add_profile_btn = make_secondary_button("Add")
+    delete_profile_btn = make_secondary_button("Delete")
+    profile_row.addWidget(add_profile_btn)
+    profile_row.addWidget(delete_profile_btn)
+    profile_layout.addLayout(profile_row)
 
-    translate_target_lang_combo = QComboBox()
-    translate_target_lang_combo.setMinimumWidth(360)
-    _fill_lang_combo(
-        translate_target_lang_combo, _FALLBACK_TARGET_LANGS, config.deepl_target_lang
+    note = QLabel(
+        "The profile is selected automatically in the editor from the note’s "
+        "note type. Changing the selection here only edits that profile."
     )
+    note.setWordWrap(True)
+    note.setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 12px;")
+    profile_layout.addWidget(note)
 
-    settings_layout.addWidget(QLabel("Target language"))
-    settings_layout.addWidget(translate_target_lang_combo)
+    root_layout.addWidget(profile_card)
 
-    deepl_shortcut_edit = QKeySequenceEdit()
-    deepl_shortcut_edit.setKeySequence(QKeySequence(config.deepl_shortcut))
-    settings_layout.addWidget(QLabel("Shortcut"))
-    settings_layout.addWidget(deepl_shortcut_edit)
+    # ── Fields + languages for the active profile ───────────────────────
+    mapping_card, mapping_layout = make_section_card("Fields & languages")
 
-    root_layout.addWidget(settings_card)
+    form = QFormLayout()
+    form.setSpacing(10)
+    form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+    form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+
+    source_field_cb = QComboBox()
+    source_field_cb.setMinimumWidth(320)
+    form.addRow("Source field", source_field_cb)
+
+    target_field_cb = QComboBox()
+    target_field_cb.setMinimumWidth(320)
+    form.addRow("Target field", target_field_cb)
+
+    source_lang_cb = QComboBox()
+    source_lang_cb.setMinimumWidth(320)
+    _fill_lang_combo(source_lang_cb, _FALLBACK_SOURCE_LANGS, "JA")
+    form.addRow("Source language", source_lang_cb)
+
+    target_lang_cb = QComboBox()
+    target_lang_cb.setMinimumWidth(320)
+    _fill_lang_combo(target_lang_cb, _FALLBACK_TARGET_LANGS, "EN-US")
+    form.addRow("Target language", target_lang_cb)
+
+    mapping_layout.addLayout(form)
+    root_layout.addWidget(mapping_card)
     root_layout.addStretch()
 
+    # ------------------------------------------------------------------
+    # Profile load / persist helpers
+    # ------------------------------------------------------------------
+
+    def refresh_fields_for_note_type(note_type: str):
+        fields = _fields_for_note_type(note_type)
+        state["current_fields"] = fields
+
+        for combo in (source_field_cb, target_field_cb):
+            combo.blockSignals(True)
+            combo.clear()
+            combo.addItem("")
+            combo.addItems(fields)
+            combo.blockSignals(False)
+
+    def persist_current_profile():
+        name = state["active"]
+        if not name:
+            return
+        p = state["profiles"].setdefault(name, default_translate_profile())
+        p["source_field"] = source_field_cb.currentText().strip()
+        p["target_field"] = target_field_cb.currentText().strip()
+        src = source_lang_cb.currentData()
+        p["source_lang"] = (
+            src if isinstance(src, str) and src else source_lang_cb.currentText()
+        )
+        tgt = target_lang_cb.currentData()
+        p["target_lang"] = (
+            tgt if isinstance(tgt, str) and tgt else target_lang_cb.currentText()
+        )
+        state["profiles"][name] = p
+
+    def load_profile_into_ui(name: str):
+        profile = state["profiles"].get(name) or default_translate_profile()
+        state["active"] = name
+
+        refresh_fields_for_note_type(name)
+
+        source_field_cb.blockSignals(True)
+        wanted = profile.get("source_field", "")
+        if wanted and source_field_cb.findText(wanted) < 0:
+            source_field_cb.insertItem(0, wanted)
+        source_field_cb.setCurrentText(wanted)
+        source_field_cb.blockSignals(False)
+
+        target_field_cb.blockSignals(True)
+        wanted = profile.get("target_field", "")
+        if wanted and target_field_cb.findText(wanted) < 0:
+            target_field_cb.insertItem(0, wanted)
+        target_field_cb.setCurrentText(wanted)
+        target_field_cb.blockSignals(False)
+
+        current_source_items = []
+        for i in range(source_lang_cb.count()):
+            code = source_lang_cb.itemData(i)
+            if code:
+                current_source_items.append((code, source_lang_cb.itemText(i)))
+        if not current_source_items:
+            current_source_items = _FALLBACK_SOURCE_LANGS
+        _fill_lang_combo(
+            source_lang_cb, current_source_items, profile.get("source_lang", "JA")
+        )
+
+        current_target_items = []
+        for i in range(target_lang_cb.count()):
+            code = target_lang_cb.itemData(i)
+            if code:
+                current_target_items.append((code, target_lang_cb.itemText(i)))
+        if not current_target_items:
+            current_target_items = _FALLBACK_TARGET_LANGS
+        _fill_lang_combo(
+            target_lang_cb, current_target_items, profile.get("target_lang", "EN-US")
+        )
+
+    def on_profile_changed(_index: int):
+        old = state["active"]
+        new = profile_cb.currentText()
+        if not new or new == old:
+            return
+        persist_current_profile()
+        load_profile_into_ui(new)
+
+    profile_cb.currentIndexChanged.connect(on_profile_changed)
+
+    def add_profile():
+        models = _note_type_names()
+        dlg = QInputDialog(root)
+        dlg.setWindowTitle("Add Translate Profile")
+        dlg.setLabelText("Note type:")
+        dlg.setComboBoxItems(models)
+        dlg.setComboBoxEditable(True)
+        if dlg.exec() != QInputDialog.DialogCode.Accepted:
+            return
+
+        note_type = dlg.textValue().strip()
+        if not note_type:
+            return
+        if note_type in state["profiles"]:
+            QMessageBox.warning(
+                root,
+                "Profile exists",
+                f"A translate profile for “{note_type}” already exists.",
+            )
+            return
+
+        persist_current_profile()
+        state["profiles"][note_type] = default_translate_profile()
+        state["active"] = note_type
+        refresh_profile_combo()
+        load_profile_into_ui(note_type)
+
+    def delete_profile():
+        note_type = profile_cb.currentText()
+        if not note_type:
+            return
+        if len(state["profiles"]) <= 1:
+            QMessageBox.warning(
+                root,
+                "Cannot delete profile",
+                "At least one translate profile must remain.",
+            )
+            return
+
+        answer = QMessageBox.question(
+            root,
+            "Delete profile",
+            f"Delete the translate profile for “{note_type}”?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        del state["profiles"][note_type]
+        state["active"] = next(iter(state["profiles"]))
+        refresh_profile_combo()
+        load_profile_into_ui(state["active"])
+
+    add_profile_btn.clicked.connect(add_profile)
+    delete_profile_btn.clicked.connect(delete_profile)
+
+    # Initial load
+    load_profile_into_ui(state["active"])
+
+    # ------------------------------------------------------------------
+    # apply_to_config
+    # ------------------------------------------------------------------
+
     def apply_to_config(cfg):
-        seq = deepl_shortcut_edit.keySequence()
-        cfg.use_deepl = deepl_use_checkbox.isChecked()
-        cfg.deepl_api_key = deepl_key_edit.text().strip()
-        cfg.deepl_url = deepl_url_edit.text().strip() or cfg.deepl_url
-        data = translate_target_lang_combo.currentData()
-        cfg.deepl_target_lang = (
-            data
-            if isinstance(data, str) and data
-            else translate_target_lang_combo.currentText()
-        )
-        cfg.deepl_shortcut = (
-            seq.toString(QKeySequence.SequenceFormat.NativeText)
-            if not seq.isEmpty()
-            else cfg.deepl_shortcut
-        )
+        persist_current_profile()
 
-    # --- async language load (does not block dialog open) ---
+        cfg.use_deepl = use_cb.isChecked()
+        cfg.deepl_api_key = key_edit.text().strip()
+        cfg.deepl_url = url_edit.text().strip() or cfg.deepl_url
+        seq = shortcut_edit.keySequence()
+        if not seq.isEmpty():
+            cfg.deepl_shortcut = seq.toString(QKeySequence.SequenceFormat.NativeText)
+
+        cfg.translate_profiles = deepcopy(state["profiles"])
+        cfg.active_translate_profile = state["active"]
+
+    # ------------------------------------------------------------------
+    # Async language lists + usage (non-blocking dialog open)
+    # ------------------------------------------------------------------
+
     if deepl_service is not None:
-        selected = config.deepl_target_lang
 
-        def work():
-            return deepl_service.get_target_languages()
+        def load_langs():
+            return (
+                deepl_service.get_source_languages(),
+                deepl_service.get_target_languages(),
+            )
 
-        def on_done(fut):
+        def on_langs_done(fut):
             try:
-                langs = fut.result()
+                sources, targets = fut.result()
             except Exception:
                 return
-            if not langs:
+            if not sources and not targets:
                 return
 
             def apply():
-                _fill_lang_combo(translate_target_lang_combo, langs, selected)
+                src_sel = source_lang_cb.currentData() or "JA"
+                tgt_sel = target_lang_cb.currentData() or "EN-US"
+                if sources:
+                    _fill_lang_combo(source_lang_cb, sources, src_sel)
+                if targets:
+                    _fill_lang_combo(target_lang_cb, targets, tgt_sel)
 
             mw.taskman.run_on_main(apply)
 
-        mw.taskman.run_in_background(work, on_done)
-
-    # --- async character usage load (does not block dialog open) ---
-    if deepl_service is not None:
+        mw.taskman.run_in_background(load_langs, on_langs_done)
 
         def load_usage():
             return deepl_service.get_character_usage()
@@ -163,7 +437,7 @@ def make_translate_tab(
 
             def apply():
                 character_usage.setText(
-                    f"Character count: {count}\n" f"Characters limit: {limit}"
+                    f"Character count: {count}\nCharacters limit: {limit}"
                 )
 
             mw.taskman.run_on_main(apply)

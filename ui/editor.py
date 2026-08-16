@@ -32,7 +32,7 @@ def make_translate_btn_setup(deepl_service, config_holder: ConfigHolder):
             icon=None,
             cmd="deepl_translate",
             func=on_translate,
-            tip="Translate Example Sentence",
+            tip="Translate (DeepL)",
             label="T",
             id="deepl-translate",
             keys=config_holder.config.deepl_shortcut,
