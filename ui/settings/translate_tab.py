@@ -27,6 +27,7 @@ from ..ui_styles import (
 )
 
 # Fallback lists used when the API key is missing or the request fails.
+# Always stored as clean (code, display_name) pairs — never re-parse itemText.
 _FALLBACK_TARGET_LANGS = [
     ("EN-US", "English (American)"),
     ("EN-GB", "English (British)"),
@@ -61,23 +62,31 @@ _FALLBACK_SOURCE_LANGS = [
 def _fill_lang_combo(
     combo: QComboBox, items: list[tuple[str, str]], selected: str
 ) -> None:
+    """Rebuild combo from clean (code, name) pairs and select by code."""
     combo.blockSignals(True)
     combo.clear()
     for code, name in items:
         combo.addItem(f"{name} ({code})", code)
+    _select_lang(combo, selected)
+    combo.blockSignals(False)
+
+
+def _select_lang(combo: QComboBox, selected: str) -> None:
+    """Set current index by language code. Insert unknown codes so nothing is lost."""
     selected = (selected or "").strip()
+    if not selected:
+        if combo.count():
+            combo.setCurrentIndex(0)
+        return
+
     idx = combo.findData(selected)
-    if idx < 0 and selected:
+    if idx < 0:
         idx = combo.findData(selected.upper())
-    if idx < 0 and selected:
-        # Insert unknown code so we never silently change the user's choice
+    if idx < 0:
+        # Unknown / custom code — keep the user's value visible
         combo.insertItem(0, f"{selected} ({selected})", selected)
         idx = 0
-    if idx < 0 and combo.count():
-        idx = 0
-    if idx >= 0:
-        combo.setCurrentIndex(idx)
-    combo.blockSignals(False)
+    combo.setCurrentIndex(idx)
 
 
 def _note_type_names() -> list[str]:
@@ -127,6 +136,9 @@ def make_translate_tab(
         "active": config.active_translate_profile
         or next(iter(config.translate_profiles or {}), ""),
         "current_fields": [],
+        # Clean language lists — never derived from combo itemText
+        "source_langs": list(_FALLBACK_SOURCE_LANGS),
+        "target_langs": list(_FALLBACK_TARGET_LANGS),
     }
 
     # ── Enable + account ────────────────────────────────────────────────
@@ -218,17 +230,20 @@ def make_translate_tab(
 
     source_lang_cb = QComboBox()
     source_lang_cb.setMinimumWidth(320)
-    _fill_lang_combo(source_lang_cb, _FALLBACK_SOURCE_LANGS, "JA")
     form.addRow("Source language", source_lang_cb)
 
     target_lang_cb = QComboBox()
     target_lang_cb.setMinimumWidth(320)
-    _fill_lang_combo(target_lang_cb, _FALLBACK_TARGET_LANGS, "EN-US")
     form.addRow("Target language", target_lang_cb)
 
     mapping_layout.addLayout(form)
     root_layout.addWidget(mapping_card)
     root_layout.addStretch()
+
+    # Fill language combos once from fallbacks. Async API upgrade may
+    # replace the lists later — profile switches only change selection.
+    _fill_lang_combo(source_lang_cb, state["source_langs"], "JA")
+    _fill_lang_combo(target_lang_cb, state["target_langs"], "EN-US")
 
     # ------------------------------------------------------------------
     # Profile load / persist helpers
@@ -266,6 +281,7 @@ def make_translate_tab(
         profile = state["profiles"].get(name) or default_translate_profile()
         state["active"] = name
 
+        # Fields change per note type — rebuild those combos
         refresh_fields_for_note_type(name)
 
         source_field_cb.blockSignals(True)
@@ -282,27 +298,14 @@ def make_translate_tab(
         target_field_cb.setCurrentText(wanted)
         target_field_cb.blockSignals(False)
 
-        current_source_items = []
-        for i in range(source_lang_cb.count()):
-            code = source_lang_cb.itemData(i)
-            if code:
-                current_source_items.append((code, source_lang_cb.itemText(i)))
-        if not current_source_items:
-            current_source_items = _FALLBACK_SOURCE_LANGS
-        _fill_lang_combo(
-            source_lang_cb, current_source_items, profile.get("source_lang", "JA")
-        )
+        # Languages are global — only change the selected index by code
+        source_lang_cb.blockSignals(True)
+        _select_lang(source_lang_cb, profile.get("source_lang", "JA"))
+        source_lang_cb.blockSignals(False)
 
-        current_target_items = []
-        for i in range(target_lang_cb.count()):
-            code = target_lang_cb.itemData(i)
-            if code:
-                current_target_items.append((code, target_lang_cb.itemText(i)))
-        if not current_target_items:
-            current_target_items = _FALLBACK_TARGET_LANGS
-        _fill_lang_combo(
-            target_lang_cb, current_target_items, profile.get("target_lang", "EN-US")
-        )
+        target_lang_cb.blockSignals(True)
+        _select_lang(target_lang_cb, profile.get("target_lang", "EN-US"))
+        target_lang_cb.blockSignals(False)
 
     def on_profile_changed(_index: int):
         old = state["active"]
@@ -371,7 +374,7 @@ def make_translate_tab(
     add_profile_btn.clicked.connect(add_profile)
     delete_profile_btn.clicked.connect(delete_profile)
 
-    # Initial load
+    # Initial load (fields + language selection for the active profile)
     load_profile_into_ui(state["active"])
 
     # ------------------------------------------------------------------
@@ -412,12 +415,16 @@ def make_translate_tab(
                 return
 
             def apply():
+                # Remember current selections by code before rebuilding
                 src_sel = source_lang_cb.currentData() or "JA"
                 tgt_sel = target_lang_cb.currentData() or "EN-US"
+
                 if sources:
-                    _fill_lang_combo(source_lang_cb, sources, src_sel)
+                    state["source_langs"] = list(sources)
+                    _fill_lang_combo(source_lang_cb, state["source_langs"], src_sel)
                 if targets:
-                    _fill_lang_combo(target_lang_cb, targets, tgt_sel)
+                    state["target_langs"] = list(targets)
+                    _fill_lang_combo(target_lang_cb, state["target_langs"], tgt_sel)
 
             mw.taskman.run_on_main(apply)
 
