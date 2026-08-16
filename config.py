@@ -51,6 +51,7 @@ JISHO_MAPPING_OPTIONS = {
 class Config:
     # --- GENERAL ---
     show_tooltip: bool = True
+    show_update_needed: bool = True
     mining_note_type: str = "JapaneseMining"
     rtk_deck: str = ""
     rtk_note_type: str = ""
@@ -291,6 +292,7 @@ def _normalize_config_dict(data: dict) -> dict:
         "use_deepl",
         "use_hypertts",
         "show_tooltip",
+        "show_update_needed",
     ):
         result[bool_key] = bool(result.get(bool_key, defaults[bool_key]))
 
