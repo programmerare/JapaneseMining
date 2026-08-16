@@ -59,6 +59,11 @@ _FALLBACK_SOURCE_LANGS = [
 ]
 
 
+def _norm_lang(code: str) -> str:
+    """Normalize DeepL language codes for comparison (case + separators)."""
+    return (code or "").strip().upper().replace("_", "-")
+
+
 def _fill_lang_combo(
     combo: QComboBox, items: list[tuple[str, str]], selected: str
 ) -> None:
@@ -71,19 +76,29 @@ def _fill_lang_combo(
     combo.blockSignals(False)
 
 
+def _find_lang_index(combo: QComboBox, selected: str) -> int:
+    """Find combo index for a language code, case-insensitive. -1 if missing."""
+    want = _norm_lang(selected)
+    if not want:
+        return -1
+    for i in range(combo.count()):
+        data = combo.itemData(i)
+        if isinstance(data, str) and _norm_lang(data) == want:
+            return i
+    return -1
+
+
 def _select_lang(combo: QComboBox, selected: str) -> None:
-    """Set current index by language code. Insert unknown codes so nothing is lost."""
+    """Set current index by language code. Prefer existing items over inventing new ones."""
     selected = (selected or "").strip()
     if not selected:
         if combo.count():
             combo.setCurrentIndex(0)
         return
 
-    idx = combo.findData(selected)
+    idx = _find_lang_index(combo, selected)
     if idx < 0:
-        idx = combo.findData(selected.upper())
-    if idx < 0:
-        # Unknown / custom code — keep the user's value visible
+        # Truly unknown code — keep the user's value visible, but only once
         combo.insertItem(0, f"{selected} ({selected})", selected)
         idx = 0
     combo.setCurrentIndex(idx)
