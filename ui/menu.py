@@ -18,8 +18,6 @@ def setup_menu(
     show_difficult_kanji,
 ):
     """Set up the JapaneseMining menu in Anki's Tools menu."""
-    show_tt = config_holder.config.show_tooltip
-
     my_menu = QMenu("JapaneseMining", mw)
 
     # Show Today's Progress
@@ -51,7 +49,7 @@ def setup_menu(
     action = QAction("Soft Update Everything", mw)
     action.triggered.connect(
         lambda: _run_update_op(
-            collection_service.soft_update_everything, show_tooltip=show_tt
+            collection_service.soft_update_everything, show_tooltip=config_holder.config.show_tooltip
         )
     )
     my_menu.addAction(action)
@@ -60,7 +58,7 @@ def setup_menu(
     action = QAction("Force Update Keywords", mw)
     action.triggered.connect(
         lambda: _run_update_op(
-            collection_service.force_update_keywords, show_tooltip=show_tt
+            collection_service.force_update_keywords, show_tooltip=config_holder.config.show_tooltip
         )
     )
     my_menu.addAction(action)
@@ -69,7 +67,7 @@ def setup_menu(
     action = QAction("Force Update Meanings", mw)
     action.triggered.connect(
         lambda: _run_update_op(
-            collection_service.force_update_meanings, show_tooltip=show_tt
+            collection_service.force_update_meanings, show_tooltip=config_holder.config.show_tooltip
         )
     )
     my_menu.addAction(action)
@@ -78,7 +76,7 @@ def setup_menu(
     action = QAction("Force Update Everything", mw)
     action.triggered.connect(
         lambda: _run_update_op(
-            collection_service.force_update_everything, show_tooltip=show_tt
+            collection_service.force_update_everything, show_tooltip=config_holder.config.show_tooltip
         )
     )
     my_menu.addAction(action)
@@ -88,7 +86,7 @@ def setup_menu(
     action = QAction("Add Unknown Kanji", mw)
     action.triggered.connect(
         lambda: _run_update_op(
-            collection_service.add_unknown_kanji, show_tooltip=show_tt
+            collection_service.add_unknown_kanji, show_tooltip=config_holder.config.show_tooltip
         )
     )
     my_menu.addAction(action)
@@ -98,7 +96,7 @@ def setup_menu(
     action = QAction("Export Learned Kanji", mw)
     action.triggered.connect(
         lambda: _run_update_op(
-            collection_service.export_learned_kanji, show_tooltip=show_tt
+            collection_service.export_learned_kanji, show_tooltip=config_holder.config.show_tooltip
         )
     )
     my_menu.addAction(action)
