@@ -29,6 +29,7 @@ from ..ui_styles import (
     make_secondary_button,
     make_link_button,
     make_separator,
+    make_callout,
     TEXT_SECONDARY,
 )
 
@@ -113,8 +114,15 @@ def make_rtk_tab(
     mapping_root.addWidget(
         make_instruction_label(
             "Map the deck and note type that hold your Heisig (RTK) cards. "
-            "Kanji and Keyword are required. Alternative kanji, Heisig number, "
-            "and stroke count are optional — the add-on fills them when present."
+            "Changes here apply immediately to Setup & Import — you do not need "
+            "to click Save first. Kanji and Keyword are required."
+        )
+    )
+    mapping_root.addWidget(
+        make_callout(
+            "This mapped deck is the source of truth for learned_kanji.csv. "
+            "If you switch decks, run Export Learned Kanji to refresh the cache.",
+            kind="info",
         )
     )
 
@@ -231,6 +239,19 @@ def make_rtk_tab(
     mapping_root.addStretch()
     tabs.addTab(mapping_page, "Deck Mapping")
 
+    # Live push of mapping → in-memory config (no Save required for Setup/Import)
+    def push_mapping_to_config() -> None:
+        cfg = config_holder.config
+        cfg.rtk_deck = rtk_deck_cb.currentText().strip()
+        cfg.rtk_note_type = rtk_note_type_cb.currentText().strip()
+        cfg.rtk_kanji_field = rtk_kanji_field_cb.currentText().strip()
+        cfg.rtk_keyword_field = rtk_keyword_field_cb.currentText().strip()
+        cfg.rtk_alternative_kanji_field = (
+            rtk_alternative_kanji_field_cb.currentText().strip()
+        )
+        cfg.rtk_heisig_number_field = rtk_heisig_number_field_cb.currentText().strip()
+        cfg.rtk_stroke_count_field = rtk_stroke_count_field_cb.currentText().strip()
+
     # ==================================================================
     # Tab 2 – Setup & Import
     # ==================================================================
@@ -238,46 +259,52 @@ def make_rtk_tab(
 
     setup_root.addWidget(
         make_instruction_label(
-            "Choose the path that matches your situation. Create sets up the deck "
-            "and note type. Import marks kanji you already know and can create or "
-            "schedule the matching RTK cards."
+            "Create sets up a deck and note type. Import fills the full Heisig set "
+            "and parks kanji you already know. Deck Mapping above is the live source "
+            "for which deck/fields Import uses — no Save needed first."
         )
     )
 
     # ----- Create section -----
     create_card, create_layout = make_section_card("Create RTK Deck & Note Type")
 
-    create_hint = QLabel(
-        "• Beginner, no deck → leave “create all notes” checked (Heisig 6th ed only).\n"
-        "• Non-beginner, no deck → uncheck it, then use Import below.\n"
-        "• Already have a deck → prefer Deck Mapping. Create can reuse your note type "
-        "if Kanji + Keyword are mapped (or named that way) and will only add missing "
-        "notes / fill empty fields — never deletes or overwrites your card data.\n"
-        "• Recommended: let the add-on create its own note type for full field support."
+    create_layout.addWidget(
+        make_callout(
+            "Beginner → leave “create all notes” checked. "
+            "Already know some kanji → uncheck it, then use Import. "
+            "Recommended: let the add-on create its own note type for full field support.",
+            kind="info",
+        )
     )
-    create_hint.setWordWrap(True)
-    create_hint.setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 12px;")
-    create_layout.addWidget(create_hint)
+    create_layout.addWidget(
+        make_callout(
+            "Create never deletes notes and never overwrites non-empty fields. "
+            "It only adds missing notes and fills empty fields. "
+            "Anki may block duplicates if the same note type already has those kanji in another deck.",
+            kind="info",
+        )
+    )
 
     create_form = QFormLayout()
     create_form.setSpacing(8)
     create_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
     random_suffix = "".join(random.choices(string.ascii_letters + string.digits, k=8))
-    create_deck_edit = QLineEdit(
-        getattr(config, "rtk_deck", "") or f"RTK_{random_suffix}"
+    _initial_deck = (getattr(config, "rtk_deck", "") or "").strip() or f"RTK_{random_suffix}"
+    _initial_nt = (
+        (getattr(config, "rtk_note_type", "") or "").strip()
+        or f"Remembering the Kanji_{random_suffix}"
     )
+    create_deck_edit = QLineEdit(_initial_deck)
     create_deck_edit.setMinimumWidth(300)
     create_form.addRow("Deck name", create_deck_edit)
 
-    create_note_type_edit = QLineEdit(
-        getattr(config, "rtk_note_type", "") or f"Remembering the Kanji_{random_suffix}"
-    )
+    create_note_type_edit = QLineEdit(_initial_nt)
     create_note_type_edit.setMinimumWidth(300)
     create_form.addRow("Note type name", create_note_type_edit)
 
     create_all_notes_cb = QCheckBox(
-        "Also create notes for all Heisig kanji (≈2200). Skips duplicates; fills empty fields."
+        "Also create notes for all Heisig kanji (≈2200, 6th ed). Skips duplicates; fills empty fields."
     )
     create_all_notes_cb.setChecked(True)
     create_form.addRow("", create_all_notes_cb)
@@ -287,7 +314,30 @@ def make_rtk_tab(
     create_btn = make_primary_button("Create Deck & Note Type")
     create_layout.addWidget(create_btn, alignment=Qt.AlignmentFlag.AlignLeft)
 
+    # Keep Setup deck/note fields in sync with Deck Mapping (live, no Save)
+    def sync_setup_from_mapping() -> None:
+        deck = rtk_deck_cb.currentText().strip()
+        note_type = rtk_note_type_cb.currentText().strip()
+        if deck:
+            create_deck_edit.setText(deck)
+        if note_type:
+            create_note_type_edit.setText(note_type)
+        push_mapping_to_config()
+
+    rtk_deck_cb.currentTextChanged.connect(lambda _t: sync_setup_from_mapping())
+    rtk_note_type_cb.currentTextChanged.connect(lambda _t: sync_setup_from_mapping())
+    for _cb in (
+        rtk_kanji_field_cb,
+        rtk_keyword_field_cb,
+        rtk_alternative_kanji_field_cb,
+        rtk_heisig_number_field_cb,
+        rtk_stroke_count_field_cb,
+    ):
+        _cb.currentTextChanged.connect(lambda _t: push_mapping_to_config())
+
     def on_create_clicked() -> None:
+        # Prefer explicit Setup fields; still push mapping fields (kanji/keyword/…)
+        push_mapping_to_config()
         deck_name = create_deck_edit.text().strip()
         note_type_name = create_note_type_edit.text().strip()
         create_all = create_all_notes_cb.isChecked()
@@ -337,17 +387,25 @@ def make_rtk_tab(
     # ----- Import section -----
     import_card, import_layout = make_section_card("Import Known Kanji")
 
-    import_info = QLabel(
-        "Import known kanji (one per line, or kanji,keyword) or up to a Heisig "
-        "number (6th ed only). Ensures all ~2200 Heisig notes exist in the RTK deck; "
-        "marks the imported subset known (suspend or schedule) and leaves the rest "
-        "as new. Empty Keyword / Heisig number / Stroke count fields are filled when "
-        "possible. Tags: JapaneseMining::RTK, Heisig, Imported-Known on the known "
-        "subset. The RTK deck is the source of truth for learned_kanji.csv."
+    import_layout.addWidget(
+        make_callout(
+            "What Import does: ensures all ~2200 Heisig 6th-ed notes exist in the "
+            "mapped RTK deck; marks the imported subset as known; leaves the rest as new. "
+            "Empty Keyword / Heisig number / Stroke count fields are filled when possible. "
+            "Tags: JapaneseMining::RTK, Heisig, and Imported-Known on the known subset.",
+            kind="info",
+        )
     )
-    import_info.setWordWrap(True)
-    import_info.setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 12px;")
-    import_layout.addWidget(import_info)
+    import_layout.addWidget(
+        make_callout(
+            "Warning: if the RTK deck already has notes for the imported kanji, "
+            "those cards will be suspended or re-scheduled according to the option "
+            "below. Existing field values are never overwritten, but review queues "
+            "for the known subset will change. Do not run Import on a deck whose "
+            "scheduling you want to keep untouched for those kanji.",
+            kind="warning",
+        )
+    )
 
     file_btn = make_secondary_button("Choose file…")
     import_layout.addWidget(file_btn, alignment=Qt.AlignmentFlag.AlignLeft)
@@ -417,6 +475,8 @@ def make_rtk_tab(
     def on_file_import() -> None:
         from aqt.qt import QFileDialog
 
+        # Apply mapping live so Import uses the deck chosen on the Mapping tab
+        push_mapping_to_config()
         path, _ = QFileDialog.getOpenFileName(
             outer,
             "Select kanji list",
@@ -435,6 +495,7 @@ def make_rtk_tab(
         tooltip(f"Marked {marked} kanji as known. Touched {touched} card(s).")
 
     def on_heisig_import() -> None:
+        push_mapping_to_config()
         try:
             marked, touched = collection_service.import_known_kanji_up_to_heisig(
                 heisig_spin.value(), **_schedule_opts()
@@ -451,8 +512,15 @@ def make_rtk_tab(
     setup_root.addStretch()
     tabs.addTab(setup_page, "Setup & Import")
 
+    # When the user opens Setup & Import, re-sync from Mapping
+    def on_tab_changed(index: int) -> None:
+        if index == 1:  # Setup & Import
+            sync_setup_from_mapping()
+
+    tabs.currentChanged.connect(on_tab_changed)
+
     # ==================================================================
-    # apply_to_config
+    # apply_to_config (persisted on Save)
     # ==================================================================
     def apply_to_config(cfg):
         cfg.rtk_deck = rtk_deck_cb.currentText().strip()
