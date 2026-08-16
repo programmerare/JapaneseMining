@@ -168,6 +168,7 @@ class KanjiDataService:
 
     def load_todays_words(self) -> None:
         """Load words learned today from the CSV file."""
+        self._current_day = None
         today = str(date.today())
         items: list[tuple[str, str, str]] = []
         file_path = self._user_data_path(self._TODAYS_WORDS_FILE)
@@ -189,6 +190,7 @@ class KanjiDataService:
         self._seen_words = {(w, r) for w, r, _ in items}
 
     def load_todays_kanji(self) -> None:
+        self._current_day = None
         """Load kanji learned today from CSV."""
         today = str(date.today())
         items: list[tuple[str, str]] = []
@@ -211,6 +213,7 @@ class KanjiDataService:
 
     def load_todays_known_cards(self) -> None:
         """Load cards that became known today from CSV."""
+        self._current_day = None
         today = str(date.today())
         items: list[tuple[str, str, str]] = []
         file_path = self._user_data_path(self._TODAYS_KNOWN_CARDS_FILE)
@@ -232,6 +235,7 @@ class KanjiDataService:
 
     def load_flagged_kanji(self) -> None:
         """Load flagged kanji from CSV. Columns: Heisig Number, Kanji, Keyword."""
+        self._current_day = None
         items: list[tuple[str, str, str]] = []
         file_path = self._user_data_path(self._FLAGGED_KANJI_FILE)
         try:
