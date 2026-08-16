@@ -149,6 +149,34 @@ def make_secondary_button(text: str) -> QPushButton:
     return btn
 
 
+def make_compact_secondary_button(text: str) -> QPushButton:
+    """Smaller secondary button for toolbars / inline actions (less visual weight)."""
+    btn = QPushButton(text)
+    btn.setStyleSheet(f"""
+        QPushButton {{
+            background: white;
+            color: {ACCENT};
+            border: 1px solid {ACCENT};
+            border-radius: 5px;
+            padding: 4px 10px;
+            font-weight: 600;
+            font-size: 12px;
+        }}
+        QPushButton:hover {{
+            background: {BADGE_BG};
+        }}
+        QPushButton:pressed {{
+            background: #d2e3fc;
+        }}
+        QPushButton:disabled {{
+            background: #f0f0f0;
+            color: #9aa0a6;
+            border: 1px solid #d0d0d0;
+        }}
+    """)
+    return btn
+
+
 def make_link_button(text: str) -> QPushButton:
     btn = QPushButton(text)
     btn.setStyleSheet(LINK_BUTTON_SS)

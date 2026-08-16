@@ -29,7 +29,7 @@ def setup_menu(
     show_kanji = make_show_kanji(
         kanji_data_service,
         collection_service,
-        show_tooltip=config_holder.config.show_tooltip,
+        config_holder,
     )
     action = QAction("Show Kanji", mw)
     action.triggered.connect(show_kanji)

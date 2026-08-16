@@ -25,7 +25,7 @@ from .ui_styles import (
     make_section_card,
     make_instruction_label,
     make_primary_button,
-    make_secondary_button,
+    make_compact_secondary_button,
     TEXT_PRIMARY,
     TEXT_SECONDARY,
     TEXT_MUTED,
@@ -35,8 +35,6 @@ from .ui_styles import (
     BG_CARD,
 )
 
-# Domain errors are optional at import time so the UI still loads if the
-# package layout is slightly different during development.
 try:
     from ..domain.errors import JapaneseMiningError
     from ..domain.results import UpdateResult
@@ -206,9 +204,7 @@ def _run_collection_op(op_callable, *, show_tooltip: bool, parent) -> None:
     ).run_in_background()
 
 
-def _build_heatmap_tab(
-    kanji_data_service, collection_service, show_tooltip: bool
-) -> QWidget:
+def _build_heatmap_tab(kanji_data_service, collection_service, config_holder) -> QWidget:
     """Build the Heat Map tab content. Returns the root widget for the tab."""
     page, page_layout = make_scrollable_page()
 
@@ -227,10 +223,10 @@ def _build_heatmap_tab(
         )
     )
 
-    # Header card
-    header_card, header_layout = make_section_card()
+    # Header: count + compact action buttons (no heavy card — keeps heatmap tall)
     header_row = QHBoxLayout()
-    header_row.setSpacing(6)
+    header_row.setSpacing(8)
+    header_row.setContentsMargins(0, 0, 0, 0)
 
     header = QLabel(f"<b>{learned_count}</b> / <b>{total}</b> kanji learned")
     header.setStyleSheet(f"font-size: 15px; font-weight: 600; color: {TEXT_PRIMARY};")
@@ -248,12 +244,42 @@ def _build_heatmap_tab(
         "Unknown kanji stay grey. Strongest memories appear first."
     )
 
-    header_row.addStretch()
     header_row.addWidget(header)
     header_row.addWidget(info_icon)
     header_row.addStretch()
-    header_layout.addLayout(header_row)
-    page_layout.addWidget(header_card)
+
+    def _show_tooltip() -> bool:
+        # Read live from config_holder so Settings toggles take effect immediately
+        return bool(getattr(config_holder.config, "show_tooltip", True))
+
+    add_unknown_btn = make_compact_secondary_button("Add Unknown Kanji")
+    add_unknown_btn.setToolTip(
+        "Find kanji that appear in your vocabulary but are not yet in the RTK deck, "
+        "and add them."
+    )
+    add_unknown_btn.clicked.connect(
+        lambda: _run_collection_op(
+            collection_service.add_unknown_kanji,
+            show_tooltip=_show_tooltip(),
+            parent=mw,
+        )
+    )
+    header_row.addWidget(add_unknown_btn)
+
+    export_btn = make_compact_secondary_button("Export Learned Kanji")
+    export_btn.setToolTip(
+        "Export all RTK kanji, keywords and learned status to a CSV file."
+    )
+    export_btn.clicked.connect(
+        lambda: _run_collection_op(
+            collection_service.export_learned_kanji,
+            show_tooltip=_show_tooltip(),
+            parent=mw,
+        )
+    )
+    header_row.addWidget(export_btn)
+
+    page_layout.addLayout(header_row)
 
     # Search
     search = QLineEdit()
@@ -273,7 +299,7 @@ def _build_heatmap_tab(
     """)
     page_layout.addWidget(search)
 
-    # Heatmap browser inside a card-like frame
+    # Heatmap browser — gets the bulk of the vertical space
     browser_frame = QFrame()
     browser_frame.setObjectName("sectionCard")
     browser_frame.setStyleSheet(f"""
@@ -296,41 +322,6 @@ def _build_heatmap_tab(
     """)
     browser_layout.addWidget(browser)
     page_layout.addWidget(browser_frame, stretch=1)
-
-    # Actions that used to live in the Tools menu
-    actions_card, actions_layout = make_section_card("Actions")
-    actions_row = QHBoxLayout()
-    actions_row.setSpacing(10)
-
-    add_unknown_btn = make_secondary_button("Add Unknown Kanji")
-    add_unknown_btn.setToolTip(
-        "Find kanji that appear in your vocabulary but are not yet in the RTK deck, "
-        "and add them."
-    )
-    add_unknown_btn.clicked.connect(
-        lambda: _run_collection_op(
-            collection_service.add_unknown_kanji,
-            show_tooltip=show_tooltip,
-            parent=mw,
-        )
-    )
-    actions_row.addWidget(add_unknown_btn)
-
-    export_btn = make_secondary_button("Export Learned Kanji")
-    export_btn.setToolTip(
-        "Export all RTK kanji, keywords and learned status to a CSV file."
-    )
-    export_btn.clicked.connect(
-        lambda: _run_collection_op(
-            collection_service.export_learned_kanji,
-            show_tooltip=show_tooltip,
-            parent=mw,
-        )
-    )
-    actions_row.addWidget(export_btn)
-    actions_row.addStretch()
-    actions_layout.addLayout(actions_row)
-    page_layout.addWidget(actions_card)
 
     def render(filter_text: str = ""):
         filter_text = filter_text.strip().lower()
@@ -384,7 +375,6 @@ def _build_heatmap_tab(
     render()
     search.textChanged.connect(render)
 
-    page_layout.addStretch()
     return page
 
 
@@ -421,11 +411,8 @@ def _populate_flagged_section(layout: QVBoxLayout, kanji_data_service) -> None:
         layout.addLayout(row_layout)
 
 
-def _build_difficult_tab(kanji_data_service) -> tuple[QWidget, callable]:
-    """
-    Build the Difficult Kanji tab.
-    Returns (root_widget, refresh_callback).
-    """
+def _build_difficult_tab(kanji_data_service) -> QWidget:
+    """Build the Difficult Kanji tab. Refresh lives at the top of this tab."""
     page, page_layout = make_scrollable_page()
 
     page_layout.addWidget(
@@ -436,12 +423,31 @@ def _build_difficult_tab(kanji_data_service) -> tuple[QWidget, callable]:
         )
     )
 
-    # Flagged by user
+    # Compact toolbar with Refresh (only relevant on this tab)
+    toolbar = QHBoxLayout()
+    toolbar.setSpacing(8)
+    toolbar.setContentsMargins(0, 0, 0, 0)
+    toolbar.addStretch()
+
+    # Flagged content layout is created early so the refresh callback can close over it
     flagged_card, flagged_outer = make_section_card("Your Flagged Kanji")
     flagged_content = QVBoxLayout()
     flagged_content.setContentsMargins(0, 0, 0, 0)
     flagged_content.setSpacing(8)
     flagged_outer.addLayout(flagged_content)
+
+    def on_refresh():
+        count = kanji_data_service.sync_flagged_kanji_from_collection()
+        _populate_flagged_section(flagged_content, kanji_data_service)
+        tooltip(f"Synced {count} flagged kanji", parent=mw)
+
+    refresh_btn = make_compact_secondary_button("Refresh from collection")
+    refresh_btn.setToolTip(
+        "Scan the RTK deck for red-flagged cards and update this list"
+    )
+    refresh_btn.clicked.connect(on_refresh)
+    toolbar.addWidget(refresh_btn)
+    page_layout.addLayout(toolbar)
 
     _populate_flagged_section(flagged_content, kanji_data_service)
     page_layout.addWidget(flagged_card)
@@ -456,20 +462,17 @@ def _build_difficult_tab(kanji_data_service) -> tuple[QWidget, callable]:
 
     page_layout.addWidget(common_card)
     page_layout.addStretch()
-
-    def on_refresh():
-        count = kanji_data_service.sync_flagged_kanji_from_collection()
-        _populate_flagged_section(flagged_content, kanji_data_service)
-        return count
-
-    return page, on_refresh
+    return page
 
 
 # ── Public factory ───────────────────────────────────────────────────────
 
 
-def make_show_kanji(kanji_data_service, collection_service, show_tooltip: bool = True):
-    """Return a callable that opens the combined Kanji dialog."""
+def make_show_kanji(kanji_data_service, collection_service, config_holder):
+    """Return a callable that opens the combined Kanji dialog.
+
+    config_holder is required so show_tooltip is read live from Settings.
+    """
 
     def show_kanji():
         if kanji_data_service is None:
@@ -481,78 +484,30 @@ def make_show_kanji(kanji_data_service, collection_service, show_tooltip: bool =
         dialog.setMinimumSize(620, 500)
 
         outer = QVBoxLayout(dialog)
-        outer.setContentsMargins(0, 0, 0, 0)
-        outer.setSpacing(0)
+        outer.setContentsMargins(12, 12, 12, 8)
+        outer.setSpacing(10)
 
+        # Standard Anki / Qt tabs — same as Settings dialog (no custom grey underline)
         tabs = QTabWidget()
-        tabs.setDocumentMode(True)
-        tabs.setStyleSheet(f"""
-            QTabWidget::pane {{
-                border: none;
-                background: transparent;
-            }}
-            QTabBar::tab {{
-                background: transparent;
-                color: {TEXT_SECONDARY};
-                padding: 8px 18px;
-                margin-right: 2px;
-                border-bottom: 2px solid transparent;
-                font-size: 13px;
-                font-weight: 600;
-            }}
-            QTabBar::tab:selected {{
-                color: {ACCENT};
-                border-bottom: 2px solid {ACCENT};
-            }}
-            QTabBar::tab:hover:!selected {{
-                color: {TEXT_PRIMARY};
-            }}
-        """)
 
-        # Tab 1 — Heat Map
         heatmap_page = _build_heatmap_tab(
-            kanji_data_service, collection_service, show_tooltip
+            kanji_data_service, collection_service, config_holder
         )
         tabs.addTab(heatmap_page, "Heat Map")
 
-        # Tab 2 — Difficult Kanji
-        difficult_page, refresh_fn = _build_difficult_tab(kanji_data_service)
+        difficult_page = _build_difficult_tab(kanji_data_service)
         tabs.addTab(difficult_page, "Difficult Kanji")
 
         outer.addWidget(tabs, stretch=1)
 
-        # Footer
-        footer = QWidget()
-        footer_layout = QHBoxLayout(footer)
-        footer_layout.setContentsMargins(16, 8, 16, 12)
-        footer_layout.setSpacing(10)
-
-        def on_refresh():
-            count = refresh_fn()
-            tooltip(f"Synced {count} flagged kanji", parent=dialog)
-
-        refresh_btn = make_secondary_button("Refresh from collection")
-        refresh_btn.setToolTip(
-            "Scan the RTK deck for red-flagged cards and update the Difficult list. "
-            "Only available on the Difficult Kanji tab."
-        )
-        refresh_btn.clicked.connect(on_refresh)
-
-        def on_tab_changed(index: int):
-            # Disabled state is now clearly visible via SECONDARY_BUTTON_SS
-            refresh_btn.setEnabled(index == 1)
-
-        tabs.currentChanged.connect(on_tab_changed)
-        refresh_btn.setEnabled(False)  # Heat Map is the default tab
-
-        footer_layout.addWidget(refresh_btn)
-        footer_layout.addStretch()
-
+        # Footer: Close only
+        footer = QHBoxLayout()
+        footer.addStretch()
         close_btn = make_primary_button("Close")
         close_btn.clicked.connect(dialog.accept)
-        footer_layout.addWidget(close_btn)
+        footer.addWidget(close_btn)
+        outer.addLayout(footer)
 
-        outer.addWidget(footer)
         dialog.exec()
 
     return show_kanji
