@@ -298,8 +298,8 @@ class CollectionService:
 
         if self._kanji_data:
             self._kanji_data.save_learned_kanji(learned_kanji_rows, learned_kanji_cache)
+            self._kanji_data.clear_update_needed()
 
-        self._kanji_data.clear_update_needed()
 
         return UpdateResult(
             learned_kanji=count_learned,
