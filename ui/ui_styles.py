@@ -68,6 +68,11 @@ SECONDARY_BUTTON_SS = f"""
     QPushButton:pressed {{
         background: #d2e3fc;
     }}
+    QPushButton:disabled {{
+        background: #f0f0f0;
+        color: #9aa0a6;
+        border: 1px solid #d0d0d0;
+    }}
 """
 
 LINK_BUTTON_SS = f"""
