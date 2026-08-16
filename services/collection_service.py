@@ -4,7 +4,7 @@ import csv
 import math
 from pathlib import Path
 
-from ..config import ConfigHolder
+from ..config import ConfigHolder, REQUIRED_MINING_FIELDS
 from .kanji_data_service import KanjiDataService
 from ..domain.kanji import is_kanji
 from ..domain.errors import JapaneseMiningError
@@ -13,14 +13,7 @@ from ..domain.results import UpdateResult
 
 class CollectionService:
     _HEISIG_KANJI_FILE = "heisig_kanji.csv"
-    _REQUIRED_MINING_FIELDS = [
-        "Word",
-        "Kanji is known",
-        "No Kanji",
-        "Usually Kana",
-        "Kanji Keywords",
-        "Kanji Meanings",
-    ]
+    _REQUIRED_MINING_FIELDS = REQUIRED_MINING_FIELDS
 
     def __init__(self, config_holder: ConfigHolder, kanji_data: KanjiDataService):
         self._config_holder = config_holder
@@ -322,31 +315,6 @@ class CollectionService:
 
         note_type_name = (note_type_name or "").strip() or "JapaneseMining"
 
-        # Fields the add-on actually depends on + the ones every mining workflow needs
-        REQUIRED_FIELDS = [
-            "Word",
-            "Reading",
-            "Meaning",
-            "Example Sentence",
-            "Translation",
-            "Note",
-            "Mnemonic",
-            "Audio",
-            "Other forms",
-            "Tags",
-            "Part of speech",
-            "Info",
-            "See also",
-            "JLPT Level",
-            "Wanikani Level",
-            "Is Common",
-            "Kanji is known",
-            "No Kanji",
-            "Usually Kana",
-            "Kanji Keywords",
-            "Kanji Meanings",
-        ]
-
         mm = col.models
         model = mm.by_name(note_type_name)
         created = False
@@ -354,7 +322,7 @@ class CollectionService:
         if model is None:
             model = mm.new(note_type_name)
 
-            for name in REQUIRED_FIELDS:
+            for name in self._REQUIRED_MINING_FIELDS:
                 field = mm.new_field(name)
                 field["size"] = 12
                 field["font"] = "Arial"
@@ -379,7 +347,7 @@ class CollectionService:
             created = True
         else:
             existing = {f["name"] for f in model["flds"]}
-            missing = [f for f in REQUIRED_FIELDS if f not in existing]
+            missing = [f for f in self._REQUIRED_MINING_FIELDS if f not in existing]
             if missing:
                 return False, (
                     f"Note type “{note_type_name}” already exists but is missing "
