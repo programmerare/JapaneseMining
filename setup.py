@@ -14,8 +14,6 @@ from .services.jisho_service import JishoService
 from .services.hypertts_service import HyperTTSService
 from .services.kanji_data_service import KanjiDataService
 from .ui.settings.dialog import make_show_settings
-from .ui.todays_words import make_show_todays_words
-from .ui.difficult_kanji import make_show_difficult_kanji
 from .ui.editor import (
     make_translate_btn_setup,
     inject_editor_css,
@@ -170,17 +168,13 @@ def setup_addon():
     gui_hooks.reviewer_did_answer_card.append(kanji_data_service.handle_card_answered)
 
     # --- Setup menu actions ---
-    show_todays_words = make_show_todays_words(kanji_data_service)
     show_settings = make_show_settings(
         config_holder, save_config, collection_service, deepl_service
     )
-    show_difficult_kanji = make_show_difficult_kanji(kanji_data_service)
 
     setup_menu(
         config_holder,
         collection_service,
         kanji_data_service,
-        show_todays_words,
         show_settings,
-        show_difficult_kanji,
     )
