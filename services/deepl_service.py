@@ -72,8 +72,12 @@ class DeeplService:
         note = editor.note
         profile = self.resolve_profile(note)
         if profile is None:
-            # No profile for this note type → silently skip
-            return None
+            raise JapaneseMiningError(
+                f"No translate profile for note type “{note.note_type()['name']}”.",
+                details=(
+                    "Open Settings → Translate and create a profile for this note type."
+                ),
+            )
 
         source_field = (profile.get("source_field") or "").strip()
         target_field = (profile.get("target_field") or "").strip()
