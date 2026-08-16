@@ -62,7 +62,6 @@ def _make_scrollable(content_widget: QWidget) -> QScrollArea:
 
 # ── Sub-tab builders ─────────────────────────────────────────────────────
 
-
 def _build_overview() -> QWidget:
     page = QWidget()
     layout = QVBoxLayout(page)
@@ -108,9 +107,7 @@ def _build_overview() -> QWidget:
         cl2.addWidget(_bullet(item))
     layout.addWidget(card2)
 
-    layout.addWidget(
-        make_image_placeholder("[Screenshot: Overall workflow / main editor]")
-    )
+    layout.addWidget(make_image_placeholder("[Screenshot: Overall workflow / main editor]"))
     layout.addStretch()
     return _make_scrollable(page)
 
@@ -203,9 +200,7 @@ def _build_tags_decks() -> QWidget:
         cl2.addWidget(_bullet(t))
     layout.addWidget(card2)
 
-    layout.addWidget(
-        make_image_placeholder("[Screenshot: Example deck & tag structure]")
-    )
+    layout.addWidget(make_image_placeholder("[Screenshot: Example deck & tag structure]"))
     layout.addStretch()
     return _make_scrollable(page)
 
@@ -332,22 +327,10 @@ def _build_rtk_help() -> QWidget:
         )
     )
     confusions = [
-        (
-            "快 (exhilarate) vs 決 (decide)",
-            "Both contain the water primitive; stories must clearly separate the feelings.",
-        ),
-        (
-            "未 (not yet) vs 末 (extremity)",
-            "Very similar shapes — pay attention to the longer stroke.",
-        ),
-        (
-            "土 (soil) vs 士 (gentleman)",
-            "Almost identical; the relative length of the horizontal strokes is the difference.",
-        ),
-        (
-            "千 (thousand) vs 干 (dry)",
-            "Again a single-stroke difference that is easy to miss under speed.",
-        ),
+        ("快 (exhilarate) vs 決 (decide)", "Both contain the water primitive; stories must clearly separate the feelings."),
+        ("未 (not yet) vs 末 (extremity)", "Very similar shapes — pay attention to the longer stroke."),
+        ("土 (soil) vs 士 (gentleman)", "Almost identical; the relative length of the horizontal strokes is the difference."),
+        ("千 (thousand) vs 干 (dry)", "Again a single-stroke difference that is easy to miss under speed."),
     ]
     for pair, note in confusions:
         cl4.addWidget(_subheading(pair))
@@ -462,9 +445,21 @@ def _build_rtk_help() -> QWidget:
     cl6.addWidget(
         _body_label(
             "Go to Deck Mapping. Point the add-on at your deck and note type. "
-            "Kanji field and Keyword field are required. Create / Import only add "
-            "missing notes and fill empty fields — never delete cards or overwrite "
-            "values you already wrote. Recommended: the add-on’s own note type."
+            "Kanji field and Keyword field are required. Mapping changes apply "
+            "immediately to Setup & Import — you do not need to click Save first. "
+            "Create only adds missing notes and fills empty fields. "
+            "Recommended: the add-on’s own note type for full field support."
+        )
+    )
+    cl6.addWidget(_subheading("Important: Import on a deck that already has notes"))
+    cl6.addWidget(
+        _body_label(
+            "Import will suspend or re-schedule cards for every kanji in the "
+            "imported set — including notes that already existed in that deck. "
+            "Field content is never overwritten, but review queues for those cards "
+            "will change. Do not run Import if you want to keep the current "
+            "scheduling of those kanji. Prefer Import when building a deck or when "
+            "you intentionally want those cards parked as known."
         )
     )
     cl6.addWidget(_subheading("Minimum fields"))
@@ -477,7 +472,9 @@ def _build_rtk_help() -> QWidget:
     )
     layout.addWidget(card6)
 
-    layout.addWidget(make_image_placeholder("[Screenshot: RTK Setup & Import tab]"))
+    layout.addWidget(
+        make_image_placeholder("[Screenshot: RTK Setup & Import tab]")
+    )
     layout.addStretch()
     return _make_scrollable(page)
 
@@ -517,29 +514,21 @@ def _build_troubleshooting() -> QWidget:
     layout.setContentsMargins(16, 12, 16, 16)
     layout.setSpacing(14)
 
-    layout.addWidget(make_instruction_label("Quick fixes for the most common issues."))
+    layout.addWidget(
+        make_instruction_label(
+            "Quick fixes for the most common issues."
+        )
+    )
 
     card, cl = make_section_card("Jisho does nothing")
     cl.addWidget(_bullet("Confirm “Enable Jisho” is checked and restart Anki."))
-    cl.addWidget(
-        _bullet(
-            "Check that the active profile’s Search field matches a field that actually contains the word."
-        )
-    )
+    cl.addWidget(_bullet("Check that the active profile’s Search field matches a field that actually contains the word."))
     cl.addWidget(_bullet("Verify the field mappings are not empty."))
     layout.addWidget(card)
 
     card2, cl2 = make_section_card("RTK keywords missing")
-    cl2.addWidget(
-        _bullet(
-            "Make sure the RTK deck & note type are configured in the Deck Mapping tab."
-        )
-    )
-    cl2.addWidget(
-        _bullet(
-            "Run an import (file or Heisig number) so the known-kanji cache is populated."
-        )
-    )
+    cl2.addWidget(_bullet("Make sure the RTK deck & note type are configured in the Deck Mapping tab."))
+    cl2.addWidget(_bullet("Run an import (file or Heisig number) so the known-kanji cache is populated."))
     layout.addWidget(card2)
 
     card3, cl3 = make_section_card("DeepL / character limit")
@@ -552,7 +541,6 @@ def _build_troubleshooting() -> QWidget:
 
 
 # ── Public factory ───────────────────────────────────────────────────────
-
 
 def make_help_tab(config_holder=None, save_config_fn=None):
     """
