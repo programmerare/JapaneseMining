@@ -26,7 +26,11 @@ def setup_menu(
     my_menu.addAction(action)
 
     # Show Kanji (Heat Map + Difficult Kanji)
-    show_kanji = make_show_kanji(kanji_data_service)
+    show_kanji = make_show_kanji(
+        kanji_data_service,
+        collection_service,
+        show_tooltip=config_holder.config.show_tooltip,
+    )
     action = QAction("Show Kanji", mw)
     action.triggered.connect(show_kanji)
     my_menu.addAction(action)
@@ -45,7 +49,8 @@ def setup_menu(
     action = QAction("Soft Update Everything", mw)
     action.triggered.connect(
         lambda: _run_update_op(
-            collection_service.soft_update_everything, show_tooltip=config_holder.config.show_tooltip
+            collection_service.soft_update_everything,
+            show_tooltip=config_holder.config.show_tooltip,
         )
     )
     my_menu.addAction(action)
@@ -54,7 +59,8 @@ def setup_menu(
     action = QAction("Force Update Keywords", mw)
     action.triggered.connect(
         lambda: _run_update_op(
-            collection_service.force_update_keywords, show_tooltip=config_holder.config.show_tooltip
+            collection_service.force_update_keywords,
+            show_tooltip=config_holder.config.show_tooltip,
         )
     )
     my_menu.addAction(action)
@@ -63,7 +69,8 @@ def setup_menu(
     action = QAction("Force Update Meanings", mw)
     action.triggered.connect(
         lambda: _run_update_op(
-            collection_service.force_update_meanings, show_tooltip=config_holder.config.show_tooltip
+            collection_service.force_update_meanings,
+            show_tooltip=config_holder.config.show_tooltip,
         )
     )
     my_menu.addAction(action)
@@ -72,27 +79,8 @@ def setup_menu(
     action = QAction("Force Update Everything", mw)
     action.triggered.connect(
         lambda: _run_update_op(
-            collection_service.force_update_everything, show_tooltip=config_holder.config.show_tooltip
-        )
-    )
-    my_menu.addAction(action)
-
-    # Search for  and add unknown Kanji
-    my_menu.addSeparator()
-    action = QAction("Add Unknown Kanji", mw)
-    action.triggered.connect(
-        lambda: _run_update_op(
-            collection_service.add_unknown_kanji, show_tooltip=config_holder.config.show_tooltip
-        )
-    )
-    my_menu.addAction(action)
-
-    # Export Learned Kanji
-    my_menu.addSeparator()
-    action = QAction("Export Learned Kanji", mw)
-    action.triggered.connect(
-        lambda: _run_update_op(
-            collection_service.export_learned_kanji, show_tooltip=config_holder.config.show_tooltip
+            collection_service.force_update_everything,
+            show_tooltip=config_holder.config.show_tooltip,
         )
     )
     my_menu.addAction(action)
