@@ -123,8 +123,12 @@ def _kanji_tile(kanji: str, keyword: str, tooltip_text: str = "") -> QWidget:
     kw.setStyleSheet(f"font-size: 11px; color: {TEXT_SECONDARY};")
     kw.setAlignment(Qt.AlignmentFlag.AlignCenter)
     kw.setWordWrap(False)
-    # Single line; elide with "…" when text does not fit the fixed tile width
-    metrics = QFontMetrics(kw.font())
+    # Measure with an explicit font — stylesheet size is not always on
+    # QWidget.font() before the widget is polished/shown.
+    font = kw.font()
+    font.setPixelSize(11)
+    kw.setFont(font)
+    metrics = QFontMetrics(font)
     kw.setText(
         metrics.elidedText(full_keyword, Qt.TextElideMode.ElideRight, TILE_WIDTH - 8)
     )
@@ -191,18 +195,23 @@ def _knowledge_to_color(r: float) -> str:
     return f"hsl({hue:.0f}, 78%, 42%)"
 
 
-def _run_collection_op(op_callable, *, show_tooltip: bool, parent) -> None:
-    """Run a CollectionService method that returns UpdateResult on a background thread."""
+def _run_collection_op(op_callable, *, show_tooltip: bool, parent, on_success_extra=None) -> None:
+    """Run a CollectionService method that returns UpdateResult on a background thread.
+
+    on_success_extra: optional callable(result) run after the tooltip on success.
+    Use this to refresh UI without closing the dialog.
+    """
 
     def op(col):
         return op_callable()
 
     def on_success(result):
-        if not show_tooltip:
-            return
-        message = getattr(result, "message", None)
-        if message:
-            tooltip(message, period=6000, parent=parent)
+        if show_tooltip:
+            message = getattr(result, "message", None)
+            if message:
+                tooltip(message, period=6000, parent=parent)
+        if on_success_extra is not None:
+            on_success_extra(result)
 
     def on_failure(exc: Exception):
         if JapaneseMiningError is not None and isinstance(exc, JapaneseMiningError):
@@ -218,14 +227,35 @@ def _run_collection_op(op_callable, *, show_tooltip: bool, parent) -> None:
 
 
 def _build_heatmap_tab(kanji_data_service, collection_service, config_holder) -> QWidget:
-    """Build the Heat Map tab content. Returns the root widget for the tab."""
+    """Build the Heat Map tab content. Returns the root widget for the tab.
+
+    Data is held in a mutable state dict so Export / Add Unknown can refresh
+    the heatmap in place without closing the dialog.
+    """
     page, page_layout = make_scrollable_page()
 
-    learned, remaining, learned_count, total, keywords, knowledge = (
-        kanji_data_service.get_heatmap_data()
-    )
-    all_kanji = learned + remaining
-    learned_set = set(learned)
+    # Mutable snapshot — reloaded after collection ops that change learned status
+    state = {
+        "all_kanji": [],
+        "learned_set": set(),
+        "keywords": {},
+        "knowledge": {},
+        "learned_count": 0,
+        "total": 0,
+    }
+
+    def load_state():
+        learned, remaining, learned_count, total, keywords, knowledge = (
+            kanji_data_service.get_heatmap_data()
+        )
+        state["all_kanji"] = learned + remaining
+        state["learned_set"] = set(learned)
+        state["keywords"] = keywords
+        state["knowledge"] = knowledge
+        state["learned_count"] = learned_count
+        state["total"] = total
+
+    load_state()
 
     # Instruction
     page_layout.addWidget(
@@ -241,8 +271,15 @@ def _build_heatmap_tab(kanji_data_service, collection_service, config_holder) ->
     header_row.setSpacing(8)
     header_row.setContentsMargins(0, 0, 0, 0)
 
-    header = QLabel(f"<b>{learned_count}</b> / <b>{total}</b> kanji learned")
+    header = QLabel()
     header.setStyleSheet(f"font-size: 15px; font-weight: 600; color: {TEXT_PRIMARY};")
+
+    def update_header():
+        header.setText(
+            f"<b>{state['learned_count']}</b> / <b>{state['total']}</b> kanji learned"
+        )
+
+    update_header()
 
     info_icon = QLabel("ⓘ")
     info_icon.setStyleSheet(f"font-size: 14px; color: {TEXT_MUTED};")
@@ -265,36 +302,7 @@ def _build_heatmap_tab(kanji_data_service, collection_service, config_holder) ->
         # Read live from config_holder so Settings toggles take effect immediately
         return bool(getattr(config_holder.config, "show_tooltip", True))
 
-    add_unknown_btn = make_compact_secondary_button("Add Unknown Kanji")
-    add_unknown_btn.setToolTip(
-        "Find kanji that appear in your vocabulary but are not yet in the RTK deck, "
-        "and add them."
-    )
-    add_unknown_btn.clicked.connect(
-        lambda: _run_collection_op(
-            collection_service.add_unknown_kanji,
-            show_tooltip=_show_tooltip(),
-            parent=mw,
-        )
-    )
-    header_row.addWidget(add_unknown_btn)
-
-    export_btn = make_compact_secondary_button("Export Learned Kanji")
-    export_btn.setToolTip(
-        "Export all RTK kanji, keywords and learned status to a CSV file."
-    )
-    export_btn.clicked.connect(
-        lambda: _run_collection_op(
-            collection_service.export_learned_kanji,
-            show_tooltip=_show_tooltip(),
-            parent=mw,
-        )
-    )
-    header_row.addWidget(export_btn)
-
-    page_layout.addLayout(header_row)
-
-    # Search
+    # Search (created before buttons so refresh can keep the current filter)
     search = QLineEdit()
     search.setPlaceholderText("Search by kanji or keyword…")
     search.setClearButtonEnabled(True)
@@ -310,7 +318,6 @@ def _build_heatmap_tab(kanji_data_service, collection_service, config_holder) ->
             border-color: {ACCENT};
         }}
     """)
-    page_layout.addWidget(search)
 
     # Heatmap browser — gets the bulk of the vertical space
     browser_frame = QFrame()
@@ -334,10 +341,13 @@ def _build_heatmap_tab(kanji_data_service, collection_service, config_holder) ->
         }
     """)
     browser_layout.addWidget(browser)
-    page_layout.addWidget(browser_frame, stretch=1)
 
     def render(filter_text: str = ""):
         filter_text = filter_text.strip().lower()
+        all_kanji = state["all_kanji"]
+        keywords = state["keywords"]
+        learned_set = state["learned_set"]
+        knowledge = state["knowledge"]
 
         if filter_text:
             filtered = [
@@ -385,6 +395,45 @@ def _build_heatmap_tab(kanji_data_service, collection_service, config_holder) ->
         html.append("</div>")
         browser.setHtml("".join(html))
 
+    def refresh_heatmap(_result=None):
+        """Re-read heatmap data and redraw. Safe to call from CollectionOp success."""
+        load_state()
+        update_header()
+        render(search.text())
+
+    add_unknown_btn = make_compact_secondary_button("Add Unknown Kanji")
+    add_unknown_btn.setToolTip(
+        "Find kanji that appear in your vocabulary but are not yet in the RTK deck, "
+        "and add them."
+    )
+    add_unknown_btn.clicked.connect(
+        lambda: _run_collection_op(
+            collection_service.add_unknown_kanji,
+            show_tooltip=_show_tooltip(),
+            parent=mw,
+            on_success_extra=refresh_heatmap,
+        )
+    )
+    header_row.addWidget(add_unknown_btn)
+
+    export_btn = make_compact_secondary_button("Export Learned Kanji")
+    export_btn.setToolTip(
+        "Export all RTK kanji, keywords and learned status to a CSV file."
+    )
+    export_btn.clicked.connect(
+        lambda: _run_collection_op(
+            collection_service.export_learned_kanji,
+            show_tooltip=_show_tooltip(),
+            parent=mw,
+            on_success_extra=refresh_heatmap,
+        )
+    )
+    header_row.addWidget(export_btn)
+
+    page_layout.addLayout(header_row)
+    page_layout.addWidget(search)
+    page_layout.addWidget(browser_frame, stretch=1)
+
     render()
     search.textChanged.connect(render)
 
@@ -424,8 +473,12 @@ def _populate_flagged_section(layout: QVBoxLayout, kanji_data_service) -> None:
         layout.addLayout(row_layout)
 
 
-def _build_difficult_tab(kanji_data_service) -> QWidget:
-    """Build the Difficult Kanji tab. Refresh lives at the top of this tab."""
+def _build_difficult_tab(kanji_data_service, *, auto_refresh: bool = True) -> QWidget:
+    """Build the Difficult Kanji tab. Refresh lives at the top of this tab.
+
+    When auto_refresh is True (default), sync flagged kanji from the collection
+    once as the tab is built so the list is current on every open.
+    """
     page, page_layout = make_scrollable_page()
 
     page_layout.addWidget(
@@ -449,20 +502,26 @@ def _build_difficult_tab(kanji_data_service) -> QWidget:
     flagged_content.setSpacing(8)
     flagged_outer.addLayout(flagged_content)
 
-    def on_refresh():
+    def on_refresh(*, show_tooltip_msg: bool = True):
         count = kanji_data_service.sync_flagged_kanji_from_collection()
         _populate_flagged_section(flagged_content, kanji_data_service)
-        tooltip(f"Synced {count} flagged kanji", parent=mw)
+        if show_tooltip_msg:
+            tooltip(f"Synced {count} flagged kanji", parent=mw)
 
     refresh_btn = make_compact_secondary_button("Refresh from collection")
     refresh_btn.setToolTip(
         "Scan the RTK deck for red-flagged cards and update this list"
     )
-    refresh_btn.clicked.connect(on_refresh)
+    refresh_btn.clicked.connect(lambda: on_refresh(show_tooltip_msg=True))
     toolbar.addWidget(refresh_btn)
     page_layout.addLayout(toolbar)
 
-    _populate_flagged_section(flagged_content, kanji_data_service)
+    if auto_refresh:
+        # Silent sync on open — no tooltip spam every time the dialog appears
+        on_refresh(show_tooltip_msg=False)
+    else:
+        _populate_flagged_section(flagged_content, kanji_data_service)
+
     page_layout.addWidget(flagged_card)
 
     # Commonly confused
@@ -508,7 +567,7 @@ def make_show_kanji(kanji_data_service, collection_service, config_holder):
         )
         tabs.addTab(heatmap_page, "Heat Map")
 
-        difficult_page = _build_difficult_tab(kanji_data_service)
+        difficult_page = _build_difficult_tab(kanji_data_service, auto_refresh=True)
         tabs.addTab(difficult_page, "Difficult Kanji")
 
         outer.addWidget(tabs, stretch=1)
