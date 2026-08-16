@@ -21,6 +21,14 @@ ACCENT_PRESSED = "#0d47a1"
 BADGE_BG = "#e8f0fe"
 BADGE_TEXT = "#1a73e8"
 
+# Callout palette (info / warning)
+INFO_BG = "#e8f0fe"
+INFO_BORDER = "#aecbfa"
+INFO_TEXT = "#174ea6"
+WARNING_BG = "#fef7e0"
+WARNING_BORDER = "#fdd663"
+WARNING_TEXT = "#7a5c00"
+
 # ── Reusable stylesheets ────────────────────────────────────────────────
 SECTION_CARD_SS = f"""
     QFrame#sectionCard {{
@@ -135,6 +143,41 @@ def make_instruction_label(text: str) -> QLabel:
     label.setWordWrap(True)
     label.setStyleSheet(INSTRUCTION_SS)
     return label
+
+
+def make_callout(text: str, *, kind: str = "info") -> QFrame:
+    """
+    Modern inline callout for guidance or warnings.
+
+    kind: "info" | "warning"
+    """
+    if kind == "warning":
+        bg, border, color, prefix = WARNING_BG, WARNING_BORDER, WARNING_TEXT, "⚠ "
+    else:
+        bg, border, color, prefix = INFO_BG, INFO_BORDER, INFO_TEXT, "ℹ "
+
+    frame = QFrame()
+    frame.setObjectName("callout")
+    frame.setStyleSheet(
+        f"""
+        QFrame#callout {{
+            background: {bg};
+            border: 1px solid {border};
+            border-radius: 8px;
+        }}
+        """
+    )
+    layout = QVBoxLayout(frame)
+    layout.setContentsMargins(12, 10, 12, 10)
+    layout.setSpacing(0)
+
+    label = QLabel(prefix + text)
+    label.setWordWrap(True)
+    label.setStyleSheet(
+        f"color: {color}; font-size: 12.5px; line-height: 1.45; background: transparent;"
+    )
+    layout.addWidget(label)
+    return frame
 
 
 def make_primary_button(text: str) -> QPushButton:
