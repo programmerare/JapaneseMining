@@ -487,7 +487,7 @@ class KanjiDataService:
 
     # --- SOFT UPDATE INDICATOR --- #
     def mark_soft_update_needed(self) -> None:
-        if not self.needs_soft_update:
+        if self._config_holder.config.show_update_needed and not self.needs_soft_update:
             self.needs_soft_update = True
             from ..ui.soft_update_indicator import refresh_deck_browser
 
