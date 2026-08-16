@@ -363,14 +363,119 @@ def _build_rtk_help() -> QWidget:
     # How the add-on helps
     card5, cl5 = make_section_card("How JapaneseMining helps")
     for item in [
-        "Create a full RTK deck + note type with one click (≈3039 kanji).",
-        "Import known kanji from a file or up to a Heisig number.",
-        "Optionally suspend or schedule those cards so they don’t flood reviews.",
-        "When you mine a word, the add-on can look up the Heisig keywords for its kanji.",
+        "Create a full RTK deck + note type with one click (≈2200 core Heisig kanji, 6th ed).",
+        "Import known kanji: creates the full ~2200 set, parks the known subset "
+        "(suspend or schedule), leaves the rest as new.",
+        "When you mine a word, look up Heisig keywords for its kanji.",
         "Track which kanji became known today in the Today’s Progress window.",
     ]:
         cl5.addWidget(_bullet(item))
     layout.addWidget(card5)
+
+    # Tags
+    card_tags, cl_tags = make_section_card("Tags the add-on uses")
+    cl_tags.addWidget(
+        _body_label(
+            "Every RTK note the add-on creates or touches gets a consistent tag "
+            "namespace so you can search and filter in the browser."
+        )
+    )
+    for tag, meaning in [
+        (
+            "JapaneseMining::RTK",
+            "Added to every RTK note the add-on manages. Search: tag:JapaneseMining::RTK",
+        ),
+        (
+            "Heisig",
+            "Bulk-created from the Heisig 6th-edition list (Create all notes / Import).",
+        ),
+        (
+            "Imported-Known",
+            "This kanji was marked known via Import (file or Heisig number). "
+            "Usually suspended or far-scheduled so it does not flood reviews.",
+        ),
+        (
+            "Self-Added",
+            "Added automatically when you mine a word that contains an unknown kanji "
+            "(Add Unknown Kanji flow).",
+        ),
+    ]:
+        cl_tags.addWidget(_subheading(tag))
+        cl_tags.addWidget(_body_label(meaning))
+    layout.addWidget(card_tags)
+
+    # Source of truth
+    card_sot, cl_sot = make_section_card("Source of truth: the RTK deck")
+    cl_sot.addWidget(
+        _body_label(
+            "learned_kanji.csv is a cache derived from the configured RTK deck. "
+            "That deck is the source of truth."
+        )
+    )
+    cl_sot.addWidget(_subheading("How export decides Learned / Knowledge"))
+    cl_sot.addWidget(
+        _body_label(
+            "• Card has been studied (not new) → Learned, Knowledge from Anki/FSRS "
+            "(real review history).\n"
+            "• Card is suspended (e.g. after Import) → Learned, Knowledge = 1.0 "
+            "until you study it.\n"
+            "• Card is pure new (not suspended) → not learned."
+        )
+    )
+    cl_sot.addWidget(_subheading("After you study an imported card"))
+    cl_sot.addWidget(
+        _body_label(
+            "Unsusspend (if needed) and review it. The next Export Learned Kanji "
+            "writes the real Anki knowledge score — the deck always wins over the "
+            "previous CSV value."
+        )
+    )
+    cl_sot.addWidget(_subheading("Switching decks"))
+    cl_sot.addWidget(
+        _body_label(
+            "If you map a different RTK deck and run Export, the CSV is rebuilt "
+            "entirely from that deck. The previous deck’s data is not kept."
+        )
+    )
+    layout.addWidget(card_sot)
+
+    # What to do depending on your situation
+    card6, cl6 = make_section_card("What should I click? (by situation)")
+    cl6.addWidget(_subheading("1. Beginner — no RTK deck yet"))
+    cl6.addWidget(
+        _body_label(
+            "Open Settings → RTK → Setup & Import. Keep “create notes for all Heisig "
+            "kanji” checked and press Create. You get a deck, a note type with the "
+            "standard fields, and ~2200 notes ordered by Heisig 6th-edition number."
+        )
+    )
+    cl6.addWidget(_subheading("2. Not a beginner — no RTK deck yet"))
+    cl6.addWidget(
+        _body_label(
+            "Create the deck + note type (all-notes optional). Then use Import "
+            "(file or Heisig number up to N, 6th ed only). Import ensures all "
+            "~2200 notes exist, marks the known subset as learned (suspend or "
+            "schedule), and leaves the rest as new cards for you to study."
+        )
+    )
+    cl6.addWidget(_subheading("3. I already have an RTK deck"))
+    cl6.addWidget(
+        _body_label(
+            "Go to Deck Mapping. Point the add-on at your deck and note type. "
+            "Kanji field and Keyword field are required. Create / Import only add "
+            "missing notes and fill empty fields — never delete cards or overwrite "
+            "values you already wrote. Recommended: the add-on’s own note type."
+        )
+    )
+    cl6.addWidget(_subheading("Minimum fields"))
+    cl6.addWidget(
+        _body_label(
+            "Any note type the add-on can drive must expose a Kanji field and a "
+            "Keyword field (via mapping or those exact names). Everything else is "
+            "best-effort fill when the field exists and is empty."
+        )
+    )
+    layout.addWidget(card6)
 
     layout.addWidget(make_image_placeholder("[Screenshot: RTK Setup & Import tab]"))
     layout.addStretch()

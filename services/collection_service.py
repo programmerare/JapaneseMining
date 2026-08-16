@@ -159,7 +159,22 @@ class CollectionService:
         return added
 
     def export_learned_kanji(self) -> UpdateResult:
-        """Save all Kanji, keywords, and learned status in a csv file."""
+        """
+        Rebuild learned_kanji.csv from the configured RTK deck only.
+
+        Source of truth = the RTK deck in config (not the previous CSV).
+
+        Per kanji in that deck:
+        - Any card with type != 0 (learning / review / relearning)
+          → Learned, Knowledge from Anki scheduling/FSRS (reflects real study)
+        - Else any card suspended (queue == -1)
+          → Learned, Knowledge = 1.0 (intentionally parked as known, e.g. import)
+        - Else (pure new, not suspended)
+          → not learned
+
+        Switching the mapped RTK deck and exporting therefore fully refreshes
+        the CSV from that deck. This method never modifies notes or cards.
+        """
         if not self._rtk_configured():
             raise JapaneseMiningError(
                 "RTK deck is not configured. Please check your settings.",
@@ -172,57 +187,100 @@ class CollectionService:
         alt_kanji_field = self._config.rtk_alternative_kanji_field
 
         all_card_ids = col.find_cards(f'deck:"{deck}"')
-        learned_card_ids = set(col.find_cards(f'deck:"{deck}" -is:new'))
 
-        kanji_list = []
-        count_unknown_kanji = 0
-        count_learned_kanji = 0
-        count_learned_alternative_kanji = 0
+        # kanji -> {reviewed, suspended, knowledge, keyword}
+        from_anki: dict[str, dict] = {}
+
+        def _touch(
+            kanji: str,
+            *,
+            reviewed: bool,
+            suspended: bool,
+            knowledge: float,
+            keyword: str,
+        ) -> None:
+            if not kanji:
+                return
+            entry = from_anki.get(kanji)
+            if entry is None:
+                from_anki[kanji] = {
+                    "reviewed": reviewed,
+                    "suspended": suspended and not reviewed,
+                    "knowledge": knowledge if reviewed else 0.0,
+                    "keyword": keyword or "",
+                }
+            else:
+                entry["reviewed"] = entry["reviewed"] or reviewed
+                if reviewed:
+                    entry["suspended"] = False
+                    if knowledge > entry["knowledge"]:
+                        entry["knowledge"] = knowledge
+                elif suspended and not entry["reviewed"]:
+                    entry["suspended"] = True
+                if keyword and not entry["keyword"]:
+                    entry["keyword"] = keyword
 
         for cid in all_card_ids:
             card = col.get_card(cid)
             note = card.note()
-            is_learned = cid in learned_card_ids
+            reviewed = card.type != 0  # 0 = new (incl. suspended-new)
+            suspended = card.queue == -1
+            knowledge = self._get_card_knowledge(card) if reviewed else 0.0
+            keyword = ""
+            if (
+                self._config.rtk_keyword_field
+                and self._config.rtk_keyword_field in note
+            ):
+                keyword = self._get_field(note, self._config.rtk_keyword_field)
 
-            if kanji_field in note:
-                kanji = self._get_field(note, kanji_field)
-                if kanji:
-                    kanji_list.append((kanji, is_learned))
-                    if is_learned:
-                        count_learned_kanji += 1
-                    else:
-                        count_unknown_kanji += 1
-
-            if alt_kanji_field in note:
-                kanji = self._get_field(note, alt_kanji_field).strip()
-                if kanji:
-                    kanji_list.append((kanji, is_learned))
-                    if is_learned:
-                        count_learned_alternative_kanji += 1
-                    else:
-                        count_unknown_kanji += 1
-
-        kanji_rows = {}
-        for kanji, is_learned in kanji_list:
-            kanji_rows[kanji] = kanji_rows.get(kanji, False) or is_learned
+            if kanji_field and kanji_field in note:
+                _touch(
+                    self._get_field(note, kanji_field).strip(),
+                    reviewed=reviewed,
+                    suspended=suspended,
+                    knowledge=knowledge,
+                    keyword=keyword,
+                )
+            if alt_kanji_field and alt_kanji_field in note:
+                _touch(
+                    self._get_field(note, alt_kanji_field).strip(),
+                    reviewed=reviewed,
+                    suspended=suspended,
+                    knowledge=knowledge,
+                    keyword=keyword,
+                )
 
         learned_kanji_rows = []
         learned_kanji_cache = {}
+        count_learned = 0
+        count_not_learned = 0
 
-        for kanji in sorted(kanji_rows, key=lambda item: (not kanji_rows[item], item)):
-            keyword = self.fetch_kanji_keyword(kanji)
-            learned = kanji_rows[kanji]
+        def _sort_key(k: str) -> tuple:
+            e = from_anki[k]
+            is_learned = e["reviewed"] or e["suspended"]
+            return (not is_learned, k)
 
-            knowledge = 0.0
-            if learned:
-                card_ids = col.find_cards(
-                    f'deck:"{deck}" ({kanji_field}:{kanji} OR "{alt_kanji_field}:{kanji}")'
-                )
-                for cid in card_ids:
-                    card = col.get_card(cid)
-                    r = self._get_card_knowledge(card)
-                    if r > knowledge:
-                        knowledge = r
+        for kanji in sorted(from_anki.keys(), key=_sort_key):
+            anki = from_anki[kanji]
+            reviewed = bool(anki["reviewed"])
+            suspended = bool(anki["suspended"])
+            learned = reviewed or suspended
+
+            keyword = (anki.get("keyword") or "").strip()
+            if not keyword:
+                try:
+                    keyword = self.fetch_kanji_keyword(kanji) or ""
+                except JapaneseMiningError:
+                    keyword = ""
+
+            if reviewed:
+                # Real study wins — reflect current Anki/FSRS state
+                knowledge = float(anki.get("knowledge") or 0.0)
+            elif suspended:
+                # Parked as known (import / manual suspend) until first review
+                knowledge = 1.0
+            else:
+                knowledge = 0.0
 
             learned_kanji_rows.append(
                 {
@@ -237,13 +295,17 @@ class CollectionService:
                 "Learned": learned,
                 "Knowledge": knowledge if learned else 0.0,
             }
+            if learned:
+                count_learned += 1
+            else:
+                count_not_learned += 1
 
         if self._kanji_data:
             self._kanji_data.save_learned_kanji(learned_kanji_rows, learned_kanji_cache)
 
         return UpdateResult(
-            learned_kanji=count_learned_kanji + count_learned_alternative_kanji,
-            not_learned_kanji=count_unknown_kanji,
+            learned_kanji=count_learned,
+            not_learned_kanji=count_not_learned,
         )
 
     def update_single_note_kanji_knowledge(
@@ -373,8 +435,13 @@ class CollectionService:
     ) -> tuple[bool, str]:
         """
         Create (or reuse) the RTK note type + deck.
-        Optionally bulk-create notes from heisig_kanji.csv.
-        Updates self._config with the standard field mapping.
+
+        Behaviour:
+        - New note type  → create with standard fields and wire config mappings.
+        - Existing note type → require only Kanji + Keyword; do NOT overwrite
+          the user's field mappings (they configure those in Deck Mapping).
+        - create_all_notes → add missing Heisig notes only (never duplicates).
+
         Returns (success, human-readable message).
         """
         col = mw.col
@@ -391,23 +458,25 @@ class CollectionService:
         model = mm.by_name(note_type_name)
         created_model = False
 
+        STANDARD_FIELDS = (
+            "Kanji",
+            "Alternative Kanji",
+            "Keyword",
+            "Story",
+            "Heisig Number",
+            "Stroke Count",
+        )
+
         if model is None:
             model = mm.new(note_type_name)
 
-            for field_name in (
-                "Kanji",
-                "Alternative Kanji",
-                "Keyword",
-                "Story",
-                "Heisig Number",
-                "Stroke Count",
-            ):
+            for field_name in STANDARD_FIELDS:
                 field = mm.new_field(field_name)
                 field["size"] = 12
                 field["font"] = "Arial"
                 mm.add_field(model, field)
 
-            model["sortf"] = 4  # Heisig Number becomes the sort field
+            model["sortf"] = 4  # Heisig Number
 
             t = mm.new_template("KeywordToKanji")
             t["qfmt"] = RTK_FRONT_HTML
@@ -418,52 +487,114 @@ class CollectionService:
             mm.add(model)
             created_model = True
         else:
-            existing = {f["name"] for f in model["flds"]}
-            required = {"Kanji", "Alternative Kanji", "Keyword"}
-            missing = required - existing
-            if missing:
+            # Existing note type: do not require literal "Kanji"/"Keyword" names.
+            # Accept already-mapped fields that exist on the model, or standard names.
+            existing_fields = {f["name"] for f in model["flds"]}
+            kanji_f = (self._config.rtk_kanji_field or "").strip()
+            keyword_f = (self._config.rtk_keyword_field or "").strip()
+            if kanji_f not in existing_fields:
+                kanji_f = "Kanji" if "Kanji" in existing_fields else ""
+            if keyword_f not in existing_fields:
+                keyword_f = "Keyword" if "Keyword" in existing_fields else ""
+            if not kanji_f or not keyword_f:
                 return False, (
-                    f"Note type “{note_type_name}” already exists but is missing "
-                    f"required fields: {', '.join(sorted(missing))}. "
-                    "Choose a different name or fix the note type."
+                    f"Note type “{note_type_name}” has no usable Kanji/Keyword fields. "
+                    "Either map them in the Deck Mapping tab first, or choose a note type "
+                    "that contains fields named Kanji and Keyword. "
+                    "Recommended: create a fresh note type name so the add-on can build "
+                    "the full standard RTK note type for you."
                 )
 
         # ----- 2. Deck (creates if missing) -----
         deck_id = col.decks.id(deck_name)
 
-        # ----- 3. Update config so the rest of the addon is consistent -----
+        # ----- 3. Config -----
+        # Always point at the chosen deck + note type.
+        # Field mappings: only force standard names when WE created the model.
+        # If the user reuses an existing note type, keep their mappings; only
+        # auto-detect blanks from standard names that exist on the model.
+        # We never delete or rewrite non-empty fields on existing user notes.
         self._config.rtk_deck = deck_name
         self._config.rtk_note_type = note_type_name
-        self._config.rtk_kanji_field = "Kanji"
-        self._config.rtk_alternative_kanji_field = "Alternative Kanji"
-        self._config.rtk_keyword_field = "Keyword"
-        self._config.rtk_heisig_number_field = "Heisig Number"
-        self._config.rtk_stroke_count_field = "Stroke Count"
 
-        # ----- 4. Optionally create all Heisig notes -----
+        if created_model:
+            self._config.rtk_kanji_field = "Kanji"
+            self._config.rtk_alternative_kanji_field = "Alternative Kanji"
+            self._config.rtk_keyword_field = "Keyword"
+            self._config.rtk_heisig_number_field = "Heisig Number"
+            self._config.rtk_stroke_count_field = "Stroke Count"
+        else:
+            existing_fields = {f["name"] for f in model["flds"]}
+            if not (self._config.rtk_kanji_field or "").strip() or (
+                self._config.rtk_kanji_field not in existing_fields
+            ):
+                if "Kanji" in existing_fields:
+                    self._config.rtk_kanji_field = "Kanji"
+            if not (self._config.rtk_keyword_field or "").strip() or (
+                self._config.rtk_keyword_field not in existing_fields
+            ):
+                if "Keyword" in existing_fields:
+                    self._config.rtk_keyword_field = "Keyword"
+            if (
+                not (self._config.rtk_alternative_kanji_field or "").strip()
+                and "Alternative Kanji" in existing_fields
+            ):
+                self._config.rtk_alternative_kanji_field = "Alternative Kanji"
+            if (
+                not (self._config.rtk_heisig_number_field or "").strip()
+                and "Heisig Number" in existing_fields
+            ):
+                self._config.rtk_heisig_number_field = "Heisig Number"
+            if (
+                not (self._config.rtk_stroke_count_field or "").strip()
+                and "Stroke Count" in existing_fields
+            ):
+                self._config.rtk_stroke_count_field = "Stroke Count"
+
+        # Guard: without kanji + keyword we cannot create notes reliably
+        if not self._config.rtk_kanji_field or not self._config.rtk_keyword_field:
+            return False, (
+                f"Deck “{deck_name}” and note type “{note_type_name}” are set, "
+                "but Kanji / Keyword field mappings are empty. "
+                "Open the Deck Mapping tab and select the fields, then try again."
+            )
+
+        # ----- 4. Optionally create all Heisig notes (skip duplicates) -----
         notes_created = 0
+        notes_filled = 0
         if create_all_notes:
             path = self._resolve_heisig_csv()
             if path is None:
                 raise JapaneseMiningError(
                     f"Could not find {self._HEISIG_KANJI_FILE}.",
-                    details=f"Put {self._HEISIG_KANJI_FILE} in the Anki media folder or in the add-on’s vendor/ directory.",
+                    details=(
+                        f"Put {self._HEISIG_KANJI_FILE} in the Anki media folder "
+                        "or in the add-on’s vendor/ directory."
+                    ),
                 )
 
             with path.open("r", newline="", encoding="utf-8") as f:
                 reader = csv.DictReader(f)
-                kanji_rows = {
-                    row["kanji"]: row
-                    for row in reader
-                    if row.get("kanji")
-                    and row.get("id_6th_ed")
-                    and int(row["id_6th_ed"]) <= 2200
-                }
+                kanji_rows: dict[str, dict] = {}
+                for row in reader:
+                    if not row.get("kanji"):
+                        continue
+                    # Bulk create: 6th edition only (no 5th-ed fallback)
+                    raw_6 = (row.get("id_6th_ed") or "").strip()
+                    if not raw_6:
+                        continue
+                    try:
+                        num_6 = int(raw_6)
+                    except ValueError:
+                        continue
+                    if num_6 <= 2200:
+                        kanji_rows[row["kanji"]] = row
 
-            # sort by Heisig number (id_6th_ed) so that the cards are added in order (id_5th_ed is fallback)
             sorted_rows = sorted(
                 kanji_rows.values(),
-                key=lambda row: self._heisig_number_and_edition(row)[0],
+                key=lambda row: int(
+                    (row.get("id_6th_ed") or "99999").strip() or "99999"
+                ),
             )
 
             for row in sorted_rows:
@@ -473,17 +604,28 @@ class CollectionService:
                     tags=["Heisig"],
                     heisig_kanjis=kanji_rows,
                 )
-                if note is None:
-                    continue
-
-                col.add_note(note, deck_id)
-
-                heisig_num = self._heisig_number_and_edition(row)[0]
-                for card in note.cards():
-                    card.due = heisig_num
-                    col.update_card(card)
-
-                notes_created += 1
+                if note is not None:
+                    col.add_note(note, deck_id)
+                    try:
+                        heisig_num = int((row.get("id_6th_ed") or "0").strip() or "0")
+                    except ValueError:
+                        heisig_num = 0
+                    if heisig_num:
+                        for card in note.cards():
+                            card.due = heisig_num
+                            col.update_card(card)
+                    notes_created += 1
+                else:
+                    # Already exists — fill any empty Heisig fields
+                    note_ids = col.find_notes(
+                        f'note:"{note_type_name}" '
+                        f"{self._config.rtk_kanji_field}:{kanji}"
+                    )
+                    if note_ids:
+                        existing_note = col.get_note(note_ids[0])
+                        if self._fill_note_from_heisig_row(existing_note, row):
+                            col.update_note(existing_note)
+                            notes_filled += 1
 
         col.save()
 
@@ -492,9 +634,22 @@ class CollectionService:
             parts.append(f"Created note type “{note_type_name}”")
         else:
             parts.append(f"Re-used existing note type “{note_type_name}”")
+            parts.append(
+                "Recommended: the add-on’s own RTK note type for full field support"
+            )
         parts.append(f"Deck “{deck_name}” is ready")
         if create_all_notes:
             parts.append(f"Added {notes_created} new notes")
+            if notes_filled:
+                parts.append(
+                    f"Filled empty fields on {notes_filled} existing notes "
+                    "(existing values were left untouched)"
+                )
+            if notes_created == 0 and notes_filled == 0:
+                parts.append(
+                    "No new notes added — they may already exist for this note type "
+                    "(Anki blocks duplicates across decks)"
+                )
 
         self.export_learned_kanji()
 
@@ -568,10 +723,17 @@ class CollectionService:
         with path.open("r", newline="", encoding="utf-8") as f:
             rows = list(csv.DictReader(f))
 
+        # Import-by-number: 6th edition only (matches RTK 6th ordering)
         entries: list[tuple[str, str]] = []
         for row in rows:
-            n, edition = self._heisig_number_and_edition(row)
-            if n == 99999:  # Missing
+            if not row.get("kanji"):
+                continue
+            raw_6 = (row.get("id_6th_ed") or "").strip()
+            if not raw_6:
+                continue
+            try:
+                n = int(raw_6)
+            except ValueError:
                 continue
             if n > heisig_number:
                 continue
@@ -623,7 +785,13 @@ class CollectionService:
     def _create_rtk_note(
         self, kanji: str, alt_kanji: str = "", tags=None, heisig_kanjis=None
     ) -> Note | None:
-        """Create a new Remembering the Kanji note"""
+        """
+        Create a new RTK note filled from Heisig data where possible.
+
+        Returns None if the note would be a duplicate or empty (caller should
+        then look up the existing note if it needs to update scheduling/fields).
+        Only writes into fields that exist on the note type.
+        """
         col = mw.col
         kanji_field = self._config.rtk_kanji_field
         alt_kanji_field = self._config.rtk_alternative_kanji_field
@@ -637,26 +805,68 @@ class CollectionService:
             )
 
         note = Note(col, model)
-        note[kanji_field] = kanji
-        note[alt_kanji_field] = alt_kanji
-        note.tags.extend(tags)
+        if kanji_field and kanji_field in note:
+            note[kanji_field] = kanji
+        if alt_kanji and alt_kanji_field and alt_kanji_field in note:
+            note[alt_kanji_field] = alt_kanji
+
+        # Standard tag namespace so users can search reliably
+        base_tags = ["JapaneseMining::RTK"]
+        for t in base_tags + list(tags):
+            if t and t not in note.tags:
+                note.tags.append(t)
 
         if heisig_kanjis is not None:
             row = heisig_kanjis.get(kanji)
             if row:
-                note[self._config.rtk_keyword_field] = row["keyword_6th_ed"]
-            if row and self._has_field(note, self._config.rtk_heisig_number_field):
-                note[self._config.rtk_heisig_number_field] = row[
-                    "id_6th_ed"
-                ]  # Optional
-            if row and self._has_field(note, self._config.rtk_stroke_count_field):
-                note[self._config.rtk_stroke_count_field] = row[
-                    "stroke_count"
-                ]  # Optional
+                self._fill_note_from_heisig_row(note, row)
 
         if note.dupeOrEmpty():
             return None
         return note
+
+    def _fill_note_from_heisig_row(self, note: Note, row: dict) -> bool:
+        """
+        Best-effort fill of Keyword / Heisig Number / Stroke Count from a
+        Heisig CSV row. Only writes into fields that exist AND are currently
+        empty (never overwrites user data). Returns True if anything changed.
+        """
+        changed = False
+        keyword_field = self._config.rtk_keyword_field
+        heisig_field = self._config.rtk_heisig_number_field
+        stroke_field = self._config.rtk_stroke_count_field
+
+        if (
+            keyword_field
+            and keyword_field in note
+            and not (note[keyword_field] or "").strip()
+        ):
+            kw = self._heisig_keyword(row)
+            if kw:
+                note[keyword_field] = kw
+                changed = True
+
+        if (
+            heisig_field
+            and heisig_field in note
+            and not (note[heisig_field] or "").strip()
+        ):
+            num, _edition = self._heisig_number_and_edition(row)
+            if num != 99999:
+                note[heisig_field] = str(num)
+                changed = True
+
+        if (
+            stroke_field
+            and stroke_field in note
+            and not (note[stroke_field] or "").strip()
+        ):
+            strokes = (row.get("stroke_count") or "").strip()
+            if strokes:
+                note[stroke_field] = strokes
+                changed = True
+
+        return changed
 
     def _update_note_kanji_knowledge(
         self,
@@ -920,39 +1130,38 @@ class CollectionService:
         schedule_min_days: int,
         schedule_max_days: int,
     ) -> tuple[int, int]:
-        from datetime import date, timedelta
+        """
+        Import known kanji into the configured RTK deck.
+
+        Behaviour:
+        1. Ensure all Heisig 6th-ed kanji (≤2200) exist as notes in the RTK deck.
+        2. For the imported subset: mark cards suspended or scheduled, tag
+           Imported-Known.
+        3. Remaining notes stay as new cards (not learned).
+        4. Rebuild learned_kanji.csv from the deck (source of truth).
+
+        Never deletes notes. Only fills empty fields on existing notes.
+        """
         import random
 
-        # 1. Load Heisig data once (for keywords + later card creation)
-        heisig_rows: dict[str, dict] = {}
-        path = self._resolve_heisig_csv()
-        if path is not None:
-            with path.open("r", newline="", encoding="utf-8") as f:
-                reader = csv.DictReader(f)
-                heisig_rows = {row["kanji"]: row for row in reader if row.get("kanji")}
-
-        # 2. Build the new learned cache entries
-        cache = dict(self._kanji_data.get_learned_kanji())  # start from current
-        rows_for_csv = []
-
-        for kanji, keyword in entries:
-            kanji = (kanji or "").strip()
-            if not kanji or not is_kanji(kanji[0]):  # simple guard
-                continue
-            kanji = kanji[0]  # take first character if someone pasted a compound
-
-            if not keyword and fill_keywords and kanji in heisig_rows:
-                keyword = self._heisig_keyword(heisig_rows[kanji])
-
-            cache[kanji] = {
-                "Keyword": keyword or cache.get(kanji, {}).get("Keyword", ""),
-                "Learned": True,
-                "Knowledge": 1.0,
-            }
-
-        # Rebuild full CSV rows (keep previously known + newly imported)
-        for k, v in sorted(cache.items(), key=lambda kv: (not kv[1]["Learned"], kv[0])):
-            rows_for_csv.append(
+        if not self._rtk_configured():
+            # Still update an in-memory/disk cache of known kanji for mining,
+            # but without a deck we cannot create cards.
+            self._kanji_data.load_learned_kanji()
+            cache = dict(self._kanji_data.get_learned_kanji())
+            marked = 0
+            for kanji, keyword in entries:
+                kanji = (kanji or "").strip()
+                if not kanji or not is_kanji(kanji[0]):
+                    continue
+                kanji = kanji[0]
+                cache[kanji] = {
+                    "Keyword": keyword or cache.get(kanji, {}).get("Keyword", ""),
+                    "Learned": True,
+                    "Knowledge": 1.0,
+                }
+                marked += 1
+            rows = [
                 {
                     "Kanji": k,
                     "Keyword": v.get("Keyword", ""),
@@ -961,55 +1170,138 @@ class CollectionService:
                         f"{v.get('Knowledge', 0.0):.4f}" if v.get("Learned") else ""
                     ),
                 }
+                for k, v in sorted(
+                    cache.items(), key=lambda kv: (not kv[1].get("Learned"), kv[0])
+                )
+            ]
+            self._kanji_data.save_learned_kanji(rows, cache)
+            return marked, 0
+
+        # 1. Load Heisig 6th-ed rows (≤2200) — full set for note creation
+        path = self._resolve_heisig_csv()
+        if path is None:
+            raise JapaneseMiningError(
+                f"Could not find {self._HEISIG_KANJI_FILE}.",
+                details=(
+                    f"Put {self._HEISIG_KANJI_FILE} in the Anki media folder "
+                    "or in the add-on’s vendor/ directory."
+                ),
             )
 
-        self._kanji_data.save_learned_kanji(rows_for_csv, cache)
-
-        # 3. Optionally touch RTK cards
-        cards_touched = 0
-        if self._rtk_configured():
-            col = mw.col
-            deck_id = col.decks.id(self._config.rtk_deck)
-
-            for kanji, _ in entries:
-                kanji = (kanji or "").strip()
-                if not kanji:
+        heisig_rows: dict[str, dict] = {}
+        with path.open("r", newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                if not row.get("kanji"):
                     continue
-                kanji = kanji[0]
+                raw_6 = (row.get("id_6th_ed") or "").strip()
+                if not raw_6:
+                    continue
+                try:
+                    if int(raw_6) <= 2200:
+                        heisig_rows[row["kanji"]] = row
+                except ValueError:
+                    continue
 
-                # Re-use existing note-creation helper
-                note = self._create_rtk_note(
-                    kanji=kanji,
-                    tags=["Imported-Known"],
-                    heisig_kanjis=heisig_rows,
-                )
+        # Known set from the import list
+        known_set: set[str] = set()
+        known_keywords: dict[str, str] = {}
+        for kanji, keyword in entries:
+            kanji = (kanji or "").strip()
+            if not kanji or not is_kanji(kanji[0]):
+                continue
+            kanji = kanji[0]
+            known_set.add(kanji)
+            if keyword:
+                known_keywords[kanji] = keyword
+            elif fill_keywords and kanji in heisig_rows:
+                known_keywords[kanji] = self._heisig_keyword(heisig_rows[kanji])
+
+        col = mw.col
+        deck_id = col.decks.id(self._config.rtk_deck)
+        kanji_field = self._config.rtk_kanji_field
+        note_type = self._config.rtk_note_type
+        cards_touched = 0
+        notes_created = 0
+
+        def _find_existing_note(kanji: str):
+            note_ids = col.find_notes(f'note:"{note_type}" {kanji_field}:{kanji}')
+            if not note_ids:
+                alt = self._config.rtk_alternative_kanji_field
+                if alt:
+                    note_ids = col.find_notes(f'note:"{note_type}" "{alt}:{kanji}"')
+            if not note_ids:
+                return None
+            return col.get_note(note_ids[0])
+
+        # 2. Ensure every 6th-ed kanji has a note; mark known subset
+        sorted_kanji = sorted(
+            heisig_rows.keys(),
+            key=lambda k: int(
+                (heisig_rows[k].get("id_6th_ed") or "99999").strip() or "99999"
+            ),
+        )
+
+        for kanji in sorted_kanji:
+            row = heisig_rows[kanji]
+            is_known = kanji in known_set
+            tags = ["Heisig"]
+            if is_known:
+                tags.append("Imported-Known")
+
+            note = self._create_rtk_note(
+                kanji=kanji,
+                tags=tags,
+                heisig_kanjis=heisig_rows,
+            )
+            if note is not None:
+                # Prefer explicit keyword from the import file when provided
+                if is_known and known_keywords.get(kanji):
+                    kw_field = self._config.rtk_keyword_field
+                    if (
+                        kw_field
+                        and kw_field in note
+                        and not (note[kw_field] or "").strip()
+                    ):
+                        note[kw_field] = known_keywords[kanji]
+                col.add_note(note, deck_id)
+                notes_created += 1
+            else:
+                note = _find_existing_note(kanji)
                 if note is None:
-                    # already exists – find it and update scheduling if needed
-                    note_ids = col.find_notes(
-                        f'note:"{self._config.rtk_note_type}" '
-                        f"{self._config.rtk_kanji_field}:{kanji}"
-                    )
-                    if not note_ids:
-                        continue
-                    note = col.get_note(note_ids[0])
-                else:
-                    col.add_note(note, deck_id)
+                    continue
+                if self._fill_note_from_heisig_row(note, row):
+                    col.update_note(note)
+                # Tags: add without removing user tags
+                changed_tags = False
+                for t in ["JapaneseMining::RTK", "Heisig"] + (
+                    ["Imported-Known"] if is_known else []
+                ):
+                    if t not in note.tags:
+                        note.tags.append(t)
+                        changed_tags = True
+                if changed_tags:
+                    col.update_note(note)
 
+            if is_known and note is not None:
                 for card in note.cards():
                     if suspend:
-                        card.queue = -1  # suspended
+                        card.queue = -1
                     else:
-                        # Turn into a review card with a far-future due date
                         days = random.randint(schedule_min_days, schedule_max_days)
-                        card.type = 2  # review
+                        card.type = 2
                         card.queue = 2
                         card.ivl = days
-                        card.factor = 2500  # 250 %
+                        card.factor = 2500
                         card.due = col.sched.today + days
                     col.update_card(card)
                     cards_touched += 1
 
-        return len({e[0][0] for e in entries if e[0]}), cards_touched
+        col.save()
+
+        # 3. Deck is source of truth — rebuild CSV from card state
+        self.export_learned_kanji()
+
+        return len(known_set), cards_touched
 
     def _parse_kanji_file(self, path: Path) -> list[tuple[str, str]]:
         """

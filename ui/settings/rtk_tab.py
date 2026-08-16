@@ -112,8 +112,9 @@ def make_rtk_tab(
 
     mapping_root.addWidget(
         make_instruction_label(
-            "Tell the add-on which deck and note type hold your Heisig (RTK) cards, "
-            "and which fields contain kanji, keyword, Heisig number, etc."
+            "Map the deck and note type that hold your Heisig (RTK) cards. "
+            "Kanji and Keyword are required. Alternative kanji, Heisig number, "
+            "and stroke count are optional — the add-on fills them when present."
         )
     )
 
@@ -137,7 +138,7 @@ def make_rtk_tab(
     rtk_deck_cb.setMinimumWidth(340)
     rtk_deck_cb.setMaximumWidth(340)
     _set_combo_value(rtk_deck_cb, getattr(config, "rtk_deck", "") or "", _deck_names())
-    form.addRow("Deck", rtk_deck_cb)
+    form.addRow("Deck *", rtk_deck_cb)
 
     rtk_note_type_cb = QComboBox()
     rtk_note_type_cb.setMinimumWidth(340)
@@ -147,22 +148,22 @@ def make_rtk_tab(
         getattr(config, "rtk_note_type", "") or "",
         _note_type_names(),
     )
-    form.addRow("Note type", rtk_note_type_cb)
+    form.addRow("Note type *", rtk_note_type_cb)
 
     rtk_kanji_field_cb = QComboBox()
     rtk_kanji_field_cb.setMinimumWidth(340)
     rtk_kanji_field_cb.setMaximumWidth(340)
-    form.addRow("Kanji field", rtk_kanji_field_cb)
+    form.addRow("Kanji field *", rtk_kanji_field_cb)
+
+    rtk_keyword_field_cb = QComboBox()
+    rtk_keyword_field_cb.setMinimumWidth(340)
+    rtk_keyword_field_cb.setMaximumWidth(340)
+    form.addRow("Keyword field *", rtk_keyword_field_cb)
 
     rtk_alternative_kanji_field_cb = QComboBox()
     rtk_alternative_kanji_field_cb.setMinimumWidth(340)
     rtk_alternative_kanji_field_cb.setMaximumWidth(340)
     form.addRow("Alternative kanji field", rtk_alternative_kanji_field_cb)
-
-    rtk_keyword_field_cb = QComboBox()
-    rtk_keyword_field_cb.setMinimumWidth(340)
-    rtk_keyword_field_cb.setMaximumWidth(340)
-    form.addRow("Keyword field", rtk_keyword_field_cb)
 
     rtk_heisig_number_field_cb = QComboBox()
     rtk_heisig_number_field_cb.setMinimumWidth(340)
@@ -174,15 +175,19 @@ def make_rtk_tab(
     rtk_stroke_count_field_cb.setMaximumWidth(340)
     form.addRow("Stroke count field", rtk_stroke_count_field_cb)
 
+    req_hint = QLabel("* Required for RTK features (keyword lookup, heatmap, imports).")
+    req_hint.setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 11px;")
+    form.addRow("", req_hint)
+
     map_layout.addLayout(form)
 
     field_combos = [
         (rtk_kanji_field_cb, getattr(config, "rtk_kanji_field", "") or ""),
+        (rtk_keyword_field_cb, getattr(config, "rtk_keyword_field", "") or ""),
         (
             rtk_alternative_kanji_field_cb,
             getattr(config, "rtk_alternative_kanji_field", "") or "",
         ),
-        (rtk_keyword_field_cb, getattr(config, "rtk_keyword_field", "") or ""),
         (
             rtk_heisig_number_field_cb,
             getattr(config, "rtk_heisig_number_field", "") or "",
@@ -233,13 +238,26 @@ def make_rtk_tab(
 
     setup_root.addWidget(
         make_instruction_label(
-            "Create a ready-to-use RTK deck and note type, or import kanji you "
-            "already know so the add-on can mark them and (optionally) schedule cards."
+            "Choose the path that matches your situation. Create sets up the deck "
+            "and note type. Import marks kanji you already know and can create or "
+            "schedule the matching RTK cards."
         )
     )
 
     # ----- Create section -----
     create_card, create_layout = make_section_card("Create RTK Deck & Note Type")
+
+    create_hint = QLabel(
+        "• Beginner, no deck → leave “create all notes” checked (Heisig 6th ed only).\n"
+        "• Non-beginner, no deck → uncheck it, then use Import below.\n"
+        "• Already have a deck → prefer Deck Mapping. Create can reuse your note type "
+        "if Kanji + Keyword are mapped (or named that way) and will only add missing "
+        "notes / fill empty fields — never deletes or overwrites your card data.\n"
+        "• Recommended: let the add-on create its own note type for full field support."
+    )
+    create_hint.setWordWrap(True)
+    create_hint.setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 12px;")
+    create_layout.addWidget(create_hint)
 
     create_form = QFormLayout()
     create_form.setSpacing(8)
@@ -258,7 +276,9 @@ def make_rtk_tab(
     create_note_type_edit.setMinimumWidth(300)
     create_form.addRow("Note type name", create_note_type_edit)
 
-    create_all_notes_cb = QCheckBox("Also create notes for all Heisig kanji (≈2200)")
+    create_all_notes_cb = QCheckBox(
+        "Also create notes for all Heisig kanji (≈2200). Skips duplicates; fills empty fields."
+    )
     create_all_notes_cb.setChecked(True)
     create_form.addRow("", create_all_notes_cb)
 
@@ -290,17 +310,21 @@ def make_rtk_tab(
             if save_config_fn:
                 save_config_fn(collection_service._config)
 
-            _set_combo_value(rtk_deck_cb, deck_name, _deck_names())
-            _set_combo_value(rtk_note_type_cb, note_type_name, _note_type_names())
-            refresh_rtk_fields(note_type_name, preserve_missing=False)
-            for combo, name in (
-                (rtk_kanji_field_cb, "Kanji"),
-                (rtk_alternative_kanji_field_cb, "Alternative Kanji"),
-                (rtk_keyword_field_cb, "Keyword"),
-                (rtk_heisig_number_field_cb, "Heisig Number"),
-                (rtk_stroke_count_field_cb, "Stroke Count"),
+            cfg = collection_service._config
+            _set_combo_value(rtk_deck_cb, cfg.rtk_deck, _deck_names())
+            _set_combo_value(rtk_note_type_cb, cfg.rtk_note_type, _note_type_names())
+            refresh_rtk_fields(cfg.rtk_note_type, preserve_missing=True)
+            # Reflect whatever mappings create_rtk_deck_and_note_type decided
+            fields = _field_names(cfg.rtk_note_type)
+            for combo, value in (
+                (rtk_kanji_field_cb, cfg.rtk_kanji_field),
+                (rtk_keyword_field_cb, cfg.rtk_keyword_field),
+                (rtk_alternative_kanji_field_cb, cfg.rtk_alternative_kanji_field),
+                (rtk_heisig_number_field_cb, cfg.rtk_heisig_number_field),
+                (rtk_stroke_count_field_cb, cfg.rtk_stroke_count_field),
             ):
-                _set_combo_value(combo, name, _field_names(note_type_name))
+                if value:
+                    _set_combo_value(combo, value, fields, preserve_missing=True)
 
             tooltip(message)
             tabs.setCurrentIndex(0)
@@ -314,9 +338,12 @@ def make_rtk_tab(
     import_card, import_layout = make_section_card("Import Known Kanji")
 
     import_info = QLabel(
-        "Import a list of known kanji from a file, or mark everything up to a "
-        "given Heisig number. The learned_kanji cache is always updated. "
-        "Card creation only happens when an RTK deck is already configured."
+        "Import known kanji (one per line, or kanji,keyword) or up to a Heisig "
+        "number (6th ed only). Ensures all ~2200 Heisig notes exist in the RTK deck; "
+        "marks the imported subset known (suspend or schedule) and leaves the rest "
+        "as new. Empty Keyword / Heisig number / Stroke count fields are filled when "
+        "possible. Tags: JapaneseMining::RTK, Heisig, Imported-Known on the known "
+        "subset. The RTK deck is the source of truth for learned_kanji.csv."
     )
     import_info.setWordWrap(True)
     import_info.setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 12px;")
