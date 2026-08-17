@@ -540,6 +540,98 @@ def _build_troubleshooting() -> QWidget:
     return _make_scrollable(page)
 
 
+def _build_backup_help() -> QWidget:
+    page = QWidget()
+    layout = QVBoxLayout(page)
+    layout.setContentsMargins(16, 12, 16, 16)
+    layout.setSpacing(14)
+
+    layout.addWidget(
+        make_instruction_label(
+            "How RTK backups work, what they contain, and how to restore safely."
+        )
+    )
+
+    card, cl = make_section_card("What a backup is")
+    cl.addWidget(
+        _body_label(
+            "A backup is a precise snapshot of the configured RTK deck: every note’s "
+            "field values, tags, and per-card scheduling state (type, queue, due, "
+            "interval, ease, reps, lapses, and FSRS stability/difficulty when Anki "
+            "exposes them)."
+        )
+    )
+    cl.addWidget(
+        _body_label(
+            "Backups are taken from the live RTK deck only — never from the "
+            "learned_kanji cache. The cache stays a thin derived view "
+            "(kanji / keyword / learned / knowledge)."
+        )
+    )
+    layout.addWidget(card)
+
+    card2, cl2 = make_section_card("Where files live")
+    cl2.addWidget(
+        _body_label(
+            "Backups are stored under the add-on profile folder:\n"
+            "user_files/profiles/<profile_id>/backups/\n"
+            "Up to 50 backups are kept; older ones are pruned automatically."
+        )
+    )
+    layout.addWidget(card2)
+
+    card3, cl3 = make_section_card("Create")
+    cl3.addWidget(
+        _body_label(
+            "Open Settings → Backup and press “Create backup now”. A daily backup "
+            "is also attempted automatically when Anki loads the collection (if none "
+            "exists for the current UTC day and RTK is configured)."
+        )
+    )
+    layout.addWidget(card3)
+
+    card4, cl4 = make_section_card("Restore")
+    cl4.addWidget(
+        _body_label(
+            "Select a backup and restore. This always creates a new deck "
+            "(default name Backup_YYYY-MM-DD_HHMM). Your current RTK deck is never "
+            "modified."
+        )
+    )
+    cl4.addWidget(_subheading("Note type handling"))
+    cl4.addWidget(
+        _body_label(
+            "If the original note type still exists with the exact same field list, "
+            "it is reused. Otherwise a new note type is created with a unique name "
+            "and the exact fields from the backup. Field values always come from "
+            "the snapshot."
+        )
+    )
+    cl4.addWidget(_subheading("Optional: switch RTK mapping"))
+    cl4.addWidget(
+        _body_label(
+            "Tick “set this deck as the active RTK deck” if you want the add-on to "
+            "point at the restored deck afterwards. The mapping is saved when you "
+            "confirm restore."
+        )
+    )
+    layout.addWidget(card4)
+
+    card5, cl5 = make_section_card("Limitations")
+    cl5.addWidget(
+        _body_label(
+            "FSRS state is restored as precisely as the Anki Python API allows. "
+            "Classic scheduling fields are always written; memory_state / custom_data "
+            "are applied when the running Anki version supports them. After a major "
+            "Anki upgrade, verify a few cards before relying on a large restore."
+        )
+    )
+    layout.addWidget(card5)
+
+    layout.addStretch()
+    return _make_scrollable(page)
+
+
 # ── Public factory ───────────────────────────────────────────────────────
 
 def make_help_tab(config_holder=None, save_config_fn=None):
@@ -565,6 +657,7 @@ def make_help_tab(config_holder=None, save_config_fn=None):
     rtk_index = sub_tabs.count()
     sub_tabs.addTab(_build_rtk_help(), "Remembering the Kanji")
     sub_tabs.addTab(_build_hypertts(), "HyperTTS")
+    sub_tabs.addTab(_build_backup_help(), "Backup")
     sub_tabs.addTab(_build_troubleshooting(), "Troubleshooting")
 
     def goto_rtk():

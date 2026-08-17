@@ -13,6 +13,7 @@ from .services.deepl_service import DeeplService
 from .services.jisho_service import JishoService
 from .services.hypertts_service import HyperTTSService
 from .services.kanji_data_service import KanjiDataService
+from .services.backup_service import BackupService
 from .ui.settings.dialog import make_show_settings
 from .ui.editor import (
     make_translate_btn_setup,
@@ -41,6 +42,7 @@ def _get_current_editor():
 def _get_live_add_cards_editor() -> Editor | None:
     # AddCards window keeps a reference to its editor
     from aqt.addcards import AddCards
+
     for widget in mw.app.topLevelWidgets():
         if isinstance(widget, AddCards) and widget.isVisible():
             editor = getattr(widget, "editor", None)
@@ -72,6 +74,7 @@ def setup_addon():
     deepl_service = DeeplService(config_holder)
     jisho_service = JishoService(config_holder)
     hypertts_service = HyperTTSService(config_holder)
+    backup_service = BackupService(config_holder)
 
     # --- data loading in background (must run after collection is ready) ---
     def on_collection_loaded(col):
@@ -109,6 +112,11 @@ def setup_addon():
             kanji_data_service.load_todays_kanji()
             kanji_data_service.load_todays_known_cards()
             kanji_data_service.load_flagged_kanji()
+
+            try:
+                backup_service.maybe_create_daily_backup()
+            except Exception:
+                pass
 
             # Clear the update needed flag after loading (Including profile switch) to avoid showing the indicator unnecessarily
             kanji_data_service.clear_update_needed()
@@ -169,7 +177,7 @@ def setup_addon():
 
     # --- Setup menu actions ---
     show_settings = make_show_settings(
-        config_holder, save_config, collection_service, deepl_service
+        config_holder, save_config, collection_service, deepl_service, backup_service
     )
 
     setup_menu(

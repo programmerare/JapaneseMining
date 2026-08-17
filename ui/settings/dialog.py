@@ -12,13 +12,18 @@ from .rtk_tab import make_rtk_tab
 from .translate_tab import make_translate_tab
 from .jisho_tab import make_jisho_tab
 from .hypertts_tab import make_hypertts_tab
+from .backup_tab import make_backup_tab
 from .help_tab import make_help_tab
 from ...config import ConfigHolder
 from ...domain.errors import JapaneseMiningError
 
 
 def make_show_settings(
-    config_holder: ConfigHolder, save_config_fn, collection_service, deepl_service
+    config_holder: ConfigHolder,
+    save_config_fn,
+    collection_service,
+    deepl_service,
+    backup_service=None,
 ):
     def show_settings():
         """Show a dialog for configuring the JapaneseMining add-on."""
@@ -35,7 +40,7 @@ def make_show_settings(
         tabs = QTabWidget()
         apply_fns = []
 
-        # We need a forward reference so RTK can jump to Help → RTK
+        # Forward reference so RTK can jump to Help → RTK
         help_tab_widget = None
         help_tab_index = -1
 
@@ -52,7 +57,7 @@ def make_show_settings(
         tabs.addTab(tab, title)
         apply_fns.append(apply_fn)
 
-        # RTK (pass the jump callback)
+        # RTK
         tab, title, apply_fn = make_rtk_tab(
             config_holder,
             collection_service,
@@ -78,6 +83,14 @@ def make_show_settings(
         tab, title, apply_fn = make_hypertts_tab(config_holder, save_config_fn)
         tabs.addTab(tab, title)
         apply_fns.append(apply_fn)
+
+        # Backup (optional until service is wired)
+        if backup_service is not None:
+            tab, title, apply_fn = make_backup_tab(
+                config_holder, backup_service, save_config_fn
+            )
+            tabs.addTab(tab, title)
+            apply_fns.append(apply_fn)
 
         # Help (last)
         help_tab_widget, title, apply_fn = make_help_tab(config_holder, save_config_fn)
