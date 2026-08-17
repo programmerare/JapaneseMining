@@ -557,8 +557,8 @@ def _build_backup_help() -> QWidget:
         _body_label(
             "A backup is a precise snapshot of the configured RTK deck: every note’s "
             "field values, tags, and per-card scheduling state (type, queue, due, "
-            "interval, ease, reps, lapses, and FSRS stability/difficulty when Anki "
-            "exposes them)."
+            "interval, ease, reps, lapses, coloured flags, and FSRS stability/"
+            "difficulty when Anki exposes them)."
         )
     )
     cl.addWidget(

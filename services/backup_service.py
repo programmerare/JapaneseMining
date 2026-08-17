@@ -38,6 +38,7 @@ from ..config import ConfigHolder, profile_user_dir
 from ..domain.errors import JapaneseMiningError
 from ..domain.results import UpdateResult
 
+
 _SCHEMA_VERSION = 1
 _MAX_BACKUPS = 50
 _BACKUP_PREFIX = "rtk_backup_"
@@ -48,14 +49,13 @@ _BACKUP_SUFFIX = ".json"
 # Data shapes (internal; serialised to JSON)
 # ---------------------------------------------------------------------------
 
-
 @dataclass
 class CardSnapshot:
     """Scheduling + FSRS state for one card of a note."""
 
     ord: int = 0
-    type: int = 0  # 0=new, 1=learning, 2=review, 3=relearning
-    queue: int = 0  # -1=suspended, …
+    type: int = 0          # 0=new, 1=learning, 2=review, 3=relearning
+    queue: int = 0         # -1=suspended, …
     due: int = 0
     ivl: int = 0
     factor: int = 0
@@ -64,6 +64,7 @@ class CardSnapshot:
     left: int = 0
     odue: int = 0
     odid: int = 0
+    flags: int = 0         # Anki coloured flag (0 = none, 1–7)
     # FSRS (best-effort; may be None on older Anki / non-FSRS decks)
     stability: float | None = None
     difficulty: float | None = None
@@ -76,7 +77,7 @@ class CardSnapshot:
 @dataclass
 class NoteSnapshot:
     kanji: str
-    fields: dict[str, str]  # field_name -> value (exact)
+    fields: dict[str, str]          # field_name -> value (exact)
     tags: list[str] = field(default_factory=list)
     cards: list[CardSnapshot] = field(default_factory=list)
 
@@ -84,7 +85,7 @@ class NoteSnapshot:
 @dataclass
 class NoteTypeSnapshot:
     name: str
-    fields: list[str]  # ordered field names
+    fields: list[str]               # ordered field names
     # Templates / CSS are optional; restore can fall back to a minimal card
     templates: list[dict[str, str]] = field(default_factory=list)
     css: str = ""
@@ -93,10 +94,10 @@ class NoteTypeSnapshot:
 @dataclass
 class BackupMeta:
     format_version: int
-    created_at: str  # ISO-8601 UTC
+    created_at: str                 # ISO-8601 UTC
     source_deck: str
     source_note_type: str
-    field_map: dict[str, str]  # config field roles at backup time
+    field_map: dict[str, str]       # config field roles at backup time
     anki_version: str = ""
     entry_count: int = 0
     learned_count: int = 0
@@ -112,7 +113,6 @@ class BackupDocument:
 # ---------------------------------------------------------------------------
 # Service
 # ---------------------------------------------------------------------------
-
 
 class BackupService:
     """Create, list, prune and restore RTK deck backups."""
@@ -212,10 +212,7 @@ class BackupService:
 
         for nid, cards in notes_map.items():
             note = col.get_note(nid)
-            fields = {
-                f["name"]: (note[f["name"]] if f["name"] in note else "")
-                for f in model["flds"]
-            }
+            fields = {f["name"]: (note[f["name"]] if f["name"] in note else "") for f in model["flds"]}
             kanji = ""
             if kanji_field and kanji_field in fields:
                 kanji = (fields[kanji_field] or "").strip()
@@ -471,6 +468,12 @@ class BackupService:
         except Exception:
             pass
 
+        flags = 0
+        try:
+            flags = int(getattr(card, "flags", 0) or 0)
+        except Exception:
+            flags = 0
+
         return CardSnapshot(
             ord=int(getattr(card, "ord", 0) or 0),
             type=int(card.type),
@@ -483,6 +486,7 @@ class BackupService:
             left=int(getattr(card, "left", 0) or 0),
             odue=int(getattr(card, "odue", 0) or 0),
             odid=int(getattr(card, "odid", 0) or 0),
+            flags=flags,
             stability=stability,
             difficulty=difficulty,
             retrievability=retrievability,
@@ -506,6 +510,10 @@ class BackupService:
         try:
             card.odue = int(snap.odue)
             card.odid = int(snap.odid)
+        except Exception:
+            pass
+        try:
+            card.flags = int(getattr(snap, "flags", 0) or 0)
         except Exception:
             pass
 
