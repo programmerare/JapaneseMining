@@ -235,6 +235,59 @@ def make_rtk_tab(
         )
         refresh_rtk_fields(preserve_missing=True)
 
+    def load_mapping_from_config() -> None:
+        """
+        Re-read mapping from config_holder.config into the UI.
+        Used after Backup restore with “set as active RTK deck”.
+        """
+        cfg = config_holder.config
+        # Block signals so we don't push stale intermediate states
+        widgets = (
+            rtk_deck_cb,
+            rtk_note_type_cb,
+            rtk_kanji_field_cb,
+            rtk_keyword_field_cb,
+            rtk_alternative_kanji_field_cb,
+            rtk_heisig_number_field_cb,
+            rtk_stroke_count_field_cb,
+        )
+        for w in widgets:
+            w.blockSignals(True)
+        try:
+            _set_combo_value(
+                rtk_deck_cb, getattr(cfg, "rtk_deck", "") or "", _deck_names()
+            )
+            _set_combo_value(
+                rtk_note_type_cb,
+                getattr(cfg, "rtk_note_type", "") or "",
+                _note_type_names(),
+            )
+            # Field lists depend on note type — rebuild from config values
+            fields = _field_names(rtk_note_type_cb.currentText())
+            for combo, attr in (
+                (rtk_kanji_field_cb, "rtk_kanji_field"),
+                (rtk_keyword_field_cb, "rtk_keyword_field"),
+                (rtk_alternative_kanji_field_cb, "rtk_alternative_kanji_field"),
+                (rtk_heisig_number_field_cb, "rtk_heisig_number_field"),
+                (rtk_stroke_count_field_cb, "rtk_stroke_count_field"),
+            ):
+                _set_combo_value(
+                    combo,
+                    getattr(cfg, attr, "") or "",
+                    fields,
+                    preserve_missing=True,
+                )
+            # Keep Setup & Import fields in sync
+            deck = rtk_deck_cb.currentText().strip()
+            note_type = rtk_note_type_cb.currentText().strip()
+            if deck:
+                create_deck_edit.setText(deck)
+            if note_type:
+                create_note_type_edit.setText(note_type)
+        finally:
+            for w in widgets:
+                w.blockSignals(False)
+
     mapping_root.addWidget(map_card)
     mapping_root.addStretch()
     tabs.addTab(mapping_page, "Deck Mapping")
@@ -290,11 +343,12 @@ def make_rtk_tab(
     create_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
     random_suffix = "".join(random.choices(string.ascii_letters + string.digits, k=8))
-    _initial_deck = (getattr(config, "rtk_deck", "") or "").strip() or f"RTK_{random_suffix}"
+    _initial_deck = (
+        getattr(config, "rtk_deck", "") or ""
+    ).strip() or f"RTK_{random_suffix}"
     _initial_nt = (
-        (getattr(config, "rtk_note_type", "") or "").strip()
-        or f"Remembering the Kanji_{random_suffix}"
-    )
+        getattr(config, "rtk_note_type", "") or ""
+    ).strip() or f"Remembering the Kanji_{random_suffix}"
     create_deck_edit = QLineEdit(_initial_deck)
     create_deck_edit.setMinimumWidth(300)
     create_form.addRow("Deck name", create_deck_edit)
@@ -534,6 +588,7 @@ def make_rtk_tab(
         cfg.rtk_stroke_count_field = rtk_stroke_count_field_cb.currentText().strip()
 
     outer.refresh_mapping_combos = refresh_mapping_combos
+    outer.load_mapping_from_config = load_mapping_from_config
     outer.rtk_deck_cb = rtk_deck_cb
     outer.rtk_note_type_cb = rtk_note_type_cb
 

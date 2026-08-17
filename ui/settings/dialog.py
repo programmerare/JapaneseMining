@@ -43,11 +43,19 @@ def make_show_settings(
         # Forward reference so RTK can jump to Help → RTK
         help_tab_widget = None
         help_tab_index = -1
+        rtk_tab_widget = None
 
         def goto_rtk_help():
             if help_tab_widget is not None and help_tab_index >= 0:
                 tabs.setCurrentIndex(help_tab_index)
                 help_tab_widget.goto_rtk()
+
+        def refresh_rtk_mapping_ui():
+            """Pull current config_holder mapping into the RTK tab widgets."""
+            if rtk_tab_widget is not None and hasattr(
+                rtk_tab_widget, "load_mapping_from_config"
+            ):
+                rtk_tab_widget.load_mapping_from_config()
 
         # --- build tabs ---
         # General
@@ -58,13 +66,13 @@ def make_show_settings(
         apply_fns.append(apply_fn)
 
         # RTK
-        tab, title, apply_fn = make_rtk_tab(
+        rtk_tab_widget, title, apply_fn = make_rtk_tab(
             config_holder,
             collection_service,
             save_config_fn,
             on_goto_rtk_help=goto_rtk_help,
         )
-        tabs.addTab(tab, title)
+        tabs.addTab(rtk_tab_widget, title)
         apply_fns.append(apply_fn)
 
         # Translate
@@ -87,7 +95,10 @@ def make_show_settings(
         # Backup (optional until service is wired)
         if backup_service is not None:
             tab, title, apply_fn = make_backup_tab(
-                config_holder, backup_service, save_config_fn
+                config_holder,
+                backup_service,
+                save_config_fn,
+                on_rtk_mapping_updated=refresh_rtk_mapping_ui,
             )
             tabs.addTab(tab, title)
             apply_fns.append(apply_fn)

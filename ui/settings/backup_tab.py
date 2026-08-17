@@ -44,7 +44,6 @@ def _format_created_at(iso: str) -> str:
     if not iso:
         return "—"
     try:
-        # Accept both with and without timezone
         dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
         return dt.astimezone().strftime("%Y-%m-%d %H:%M")
     except Exception:
@@ -59,13 +58,26 @@ def _format_size(n: int) -> str:
     return f"{n / (1024 * 1024):.1f} MB"
 
 
-def make_backup_tab(config_holder: ConfigHolder, backup_service, save_config_fn=None):
+def make_backup_tab(
+    config_holder: ConfigHolder,
+    backup_service,
+    save_config_fn=None,
+    on_rtk_mapping_updated=None,
+):
     """
     Returns (widget, title, apply_to_config_fn).
 
-    apply_to_config is a no-op — backup has no persistent settings of its own.
+    on_rtk_mapping_updated: optional callback invoked after a restore that
+    switches the active RTK mapping, so the RTK tab can refresh its combos.
+
+    apply_to_config re-applies any pending mapping from a restore so that
+    Settings → Save cannot overwrite it with stale RTK-tab combo values.
     """
     outer, layout = make_scrollable_page()
+
+    # After restore + “set as active”, hold the mapping so Save cannot clobber it.
+    # Backup's apply_fn runs after RTK's in the dialog, so we win.
+    pending_rtk_mapping: dict | None = None
 
     layout.addWidget(
         make_instruction_label(
@@ -171,7 +183,6 @@ def make_backup_tab(config_holder: ConfigHolder, backup_service, save_config_fn=
     layout.addStretch()
 
     # ── logic ─────────────────────────────────────────────────────────────
-    # item data role for full path
     PATH_ROLE = Qt.ItemDataRole.UserRole
 
     def refresh_list():
@@ -228,7 +239,21 @@ def make_backup_tab(config_holder: ConfigHolder, backup_service, save_config_fn=
         finally:
             create_btn.setEnabled(True)
 
+    def _snapshot_pending_mapping() -> dict:
+        cfg = config_holder.config
+        return {
+            "rtk_deck": cfg.rtk_deck or "",
+            "rtk_note_type": cfg.rtk_note_type or "",
+            "rtk_kanji_field": cfg.rtk_kanji_field or "",
+            "rtk_keyword_field": cfg.rtk_keyword_field or "",
+            "rtk_alternative_kanji_field": cfg.rtk_alternative_kanji_field or "",
+            "rtk_heisig_number_field": cfg.rtk_heisig_number_field or "",
+            "rtk_stroke_count_field": cfg.rtk_stroke_count_field or "",
+        }
+
     def on_restore():
+        nonlocal pending_rtk_mapping
+
         selected = backup_list.selectedItems()
         if not selected:
             return
@@ -238,6 +263,7 @@ def make_backup_tab(config_holder: ConfigHolder, backup_service, save_config_fn=
 
         stamp = datetime.now().strftime("%Y-%m-%d_%H%M")
         default_deck = f"Backup_{stamp}"
+        switch = set_as_rtk.isChecked()
 
         msg = (
             f"Restore this backup into a new deck?\n\n"
@@ -245,10 +271,10 @@ def make_backup_tab(config_holder: ConfigHolder, backup_service, save_config_fn=
             f"Source file: {Path(path).name}\n\n"
             "The current RTK deck will not be modified."
         )
-        if set_as_rtk.isChecked():
+        if switch:
             msg += (
                 "\n\nAfterwards the add-on will point at the new deck "
-                "(remember to click Save in Settings)."
+                "and the mapping will be saved immediately."
             )
 
         reply = QMessageBox.question(
@@ -266,26 +292,46 @@ def make_backup_tab(config_holder: ConfigHolder, backup_service, save_config_fn=
             result = backup_service.restore_to_new_deck(
                 path,
                 deck_name=default_deck,
-                set_as_rtk_deck=set_as_rtk.isChecked(),
+                set_as_rtk_deck=switch,
             )
             n = getattr(result, "kanji_added_to_rtk", 0) or 0
-            showInfo(
-                f"Restored {n} notes into deck “{default_deck}”.\n\n"
-                + (
-                    "Config now points at this deck — click Save to persist."
-                    if set_as_rtk.isChecked()
-                    else "Your previous RTK mapping is unchanged."
-                ),
-                parent=mw,
-                title="JapaneseMining",
-            )
-            if set_as_rtk.isChecked() and save_config_fn is not None:
-                # Persist immediately so the user does not lose the mapping
-                # if they close Settings without Save.
-                try:
-                    save_config_fn(config_holder.config)
-                except Exception:
-                    pass
+
+            if switch:
+                # Remember mapping so Settings → Save cannot overwrite with
+                # stale RTK-tab combo values (apply order: RTK then Backup).
+                pending_rtk_mapping = _snapshot_pending_mapping()
+
+                if save_config_fn is not None:
+                    try:
+                        save_config_fn(config_holder.config)
+                    except Exception as e:
+                        showWarning(
+                            f"Restored {n} notes, but saving the new RTK mapping failed:\n\n{e}",
+                            parent=mw,
+                            title="JapaneseMining",
+                        )
+
+                # Refresh RTK tab UI so the user sees the new deck immediately
+                if on_rtk_mapping_updated is not None:
+                    try:
+                        on_rtk_mapping_updated()
+                    except Exception:
+                        pass
+
+                showInfo(
+                    f"Restored {n} notes into deck “{default_deck}”.\n\n"
+                    f"Active RTK deck is now “{config_holder.config.rtk_deck}”. "
+                    "Open the RTK tab to confirm the mapping.",
+                    parent=mw,
+                    title="JapaneseMining",
+                )
+            else:
+                showInfo(
+                    f"Restored {n} notes into deck “{default_deck}”.\n\n"
+                    "Your previous RTK mapping is unchanged.",
+                    parent=mw,
+                    title="JapaneseMining",
+                )
         except JapaneseMiningError as e:
             showWarning(e.full_message(), parent=mw, title="JapaneseMining")
         except Exception as e:
@@ -300,7 +346,11 @@ def make_backup_tab(config_holder: ConfigHolder, backup_service, save_config_fn=
 
     refresh_list()
 
-    def apply_to_config(_cfg):
-        pass  # no settings to persist
+    def apply_to_config(cfg):
+        # Runs after RTK's apply_to_config. Re-apply pending restore mapping
+        # so a Settings → Save cannot clobber the deck we just switched to.
+        if pending_rtk_mapping:
+            for key, value in pending_rtk_mapping.items():
+                setattr(cfg, key, value)
 
     return outer, "Backup", apply_to_config
