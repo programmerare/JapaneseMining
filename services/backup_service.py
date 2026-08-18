@@ -119,10 +119,10 @@ class BackupService:
 
     def __init__(self, config_holder: ConfigHolder):
         self._config_holder = config_holder
-        # Local calendar date (YYYY-MM-DD) of the last successful daily backup
-        # check in this process. Lets overnight Anki sessions get a new backup
-        # without relying on collection_did_load alone.
-        self._last_daily_backup_date: str | None = None
+        # Local calendar date (YYYY-MM-DD) of the last daily-backup check,
+        # keyed by Anki profile name. Process-wide state must not block other
+        # profiles after a switch on the same day.
+        self._last_daily_backup_by_profile: dict[str, str] = {}
 
     @property
     def _config(self):
@@ -367,6 +367,10 @@ class BackupService:
             if "JapaneseMining::BackupRestore" not in note.tags:
                 note.tags.append("JapaneseMining::BackupRestore")
 
+            if note.dupeOrEmpty():
+                # Skip pure duplicates; still try to locate existing note if needed
+                continue
+
             col.add_note(note, deck_id)
             created += 1
 
@@ -402,7 +406,8 @@ class BackupService:
         Returns the path if a backup was created, else None.
         """
         today_local = datetime.now().strftime("%Y-%m-%d")
-        if self._last_daily_backup_date == today_local:
+        profile_key = self._profile_key()
+        if self._last_daily_backup_by_profile.get(profile_key) == today_local:
             return None
 
         # File already present for this local day (prefix uses UTC stamp —
@@ -412,24 +417,24 @@ class BackupService:
         for p in dir_.glob(f"{_BACKUP_PREFIX}*{_BACKUP_SUFFIX}"):
             name = p.name
             if f"{_BACKUP_PREFIX}{today_utc_prefix}" in name:
-                self._last_daily_backup_date = today_local
+                self._last_daily_backup_by_profile[profile_key] = today_local
                 return None
             try:
                 mtime_day = datetime.fromtimestamp(p.stat().st_mtime).strftime(
                     "%Y-%m-%d"
                 )
                 if mtime_day == today_local:
-                    self._last_daily_backup_date = today_local
+                    self._last_daily_backup_by_profile[profile_key] = today_local
                     return None
             except OSError:
                 pass
 
         try:
             if not self._rtk_configured():
-                self._last_daily_backup_date = today_local
+                self._last_daily_backup_by_profile[profile_key] = today_local
                 return None
             path = self.create_backup()
-            self._last_daily_backup_date = today_local
+            self._last_daily_backup_by_profile[profile_key] = today_local
             return path
         except JapaneseMiningError:
             # Do not stamp the day on config errors — user may fix RTK mapping
@@ -437,6 +442,15 @@ class BackupService:
             return None
         except Exception:
             return None
+
+    def _profile_key(self) -> str:
+        try:
+            name = getattr(getattr(mw, "pm", None), "name", None)
+            if name:
+                return str(name)
+        except Exception:
+            pass
+        return "_default"
 
     # ----- internals ------------------------------------------------------
 
