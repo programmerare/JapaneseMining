@@ -48,14 +48,17 @@ class KanjiDataService:
 
     def get_todays_words(self) -> list[tuple[str, str, str]]:
         """Return the words learned today from the cache."""
+        self.ensure_today()
         return self._todays_words
 
     def get_todays_kanji(self) -> list[tuple[str, str]]:
         """Return the kanji learned today from the cache."""
+        self.ensure_today()
         return self._todays_kanji
 
     def get_todays_known_cards(self) -> list[tuple[str, str, str]]:
         """Return the known cards learned today from the cache."""
+        self.ensure_today()
         return self._todays_known_cards
 
     def get_flagged_kanji(self) -> list[tuple[str, str, str]]:
@@ -64,11 +67,39 @@ class KanjiDataService:
 
     def get_todays_summary(self) -> dict[str, int]:
         """Return a summary of the words, kanji, and known cards learned today."""
+        self.ensure_today()
         return {
             "words": len(self._todays_words),
             "kanji": len(self._todays_kanji),
             "known_cards": len(self._todays_known_cards),
         }
+
+    def ensure_today(self) -> None:
+        """
+        Roll today's progress caches forward when the calendar day changes.
+
+        collection_did_load only runs on profile open / Anki start. If Anki
+        stays open overnight, callers must hit this so UI does not keep
+        showing yesterday's words/kanji/known cards.
+        """
+        today = str(date.today())
+        if self._current_day == today:
+            return
+
+        self.load_todays_words()
+        self.load_todays_kanji()
+        self.load_todays_known_cards()
+
+        # load_* may set _current_day from the CSV (possibly yesterday) with
+        # empty filtered lists. Force a clean "today" state either way.
+        if self._current_day != today:
+            self._current_day = today
+            self._todays_words = []
+            self._todays_kanji = []
+            self._todays_known_cards = []
+            self._seen_words.clear()
+            self._seen_kanji.clear()
+            self._seen_known_cards.clear()
 
     def get_heatmap_data(
         self,

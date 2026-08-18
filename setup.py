@@ -76,6 +76,23 @@ def setup_addon():
     hypertts_service = HyperTTSService(config_holder)
     backup_service = BackupService(config_holder)
 
+    def _daily_maintenance() -> None:
+        """
+        Day-boundary work that must not depend only on collection_did_load.
+
+        Anki can stay open across midnight; collection_did_load will not fire
+        again until profile switch / restart. Call this from main-window and
+        deck-browser hooks.
+        """
+        try:
+            kanji_data_service.ensure_today()
+        except Exception:
+            pass
+        try:
+            backup_service.maybe_create_daily_backup()
+        except Exception:
+            pass
+
     # --- data loading in background (must run after collection is ready) ---
     def on_collection_loaded(col):
         config_holder.reload()
@@ -113,21 +130,37 @@ def setup_addon():
             kanji_data_service.load_todays_known_cards()
             kanji_data_service.load_flagged_kanji()
 
-            try:
-                backup_service.maybe_create_daily_backup()
-            except Exception:
-                pass
+            # Day-boundary backup + cache roll (also runs on window/deck hooks)
+            _daily_maintenance()
 
             # Clear the update needed flag after loading (Including profile switch) to avoid showing the indicator unnecessarily
             kanji_data_service.clear_update_needed()
 
         _executor.submit(load)
 
+    def on_main_window_did_init():
+        # Fires when the main window is ready. Combined with deck_browser
+        # render, covers "Anki left open overnight".
+        def run():
+            _daily_maintenance()
+
+        _executor.submit(run)
+
+    def on_deck_browser_did_render(deck_browser):
+        # Cheap date check; maybe_create_daily_backup / ensure_today no-op
+        # when already current for today.
+        def run():
+            _daily_maintenance()
+
+        _executor.submit(run)
+
     # --- update indicator ---
     setup_update_indicator(kanji_data_service)
 
     # --- HOOKS ---
     gui_hooks.collection_did_load.append(on_collection_loaded)
+    gui_hooks.main_window_did_init.append(on_main_window_did_init)
+    gui_hooks.deck_browser_did_render.append(on_deck_browser_did_render)
 
     # --- editor tracking ---
     gui_hooks.editor_did_init.append(_set_current_editor)

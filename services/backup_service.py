@@ -119,6 +119,10 @@ class BackupService:
 
     def __init__(self, config_holder: ConfigHolder):
         self._config_holder = config_holder
+        # Local calendar date (YYYY-MM-DD) of the last successful daily backup
+        # check in this process. Lets overnight Anki sessions get a new backup
+        # without relying on collection_did_load alone.
+        self._last_daily_backup_date: str | None = None
 
     @property
     def _config(self):
@@ -300,7 +304,6 @@ class BackupService:
         backup_path: str | Path,
         *,
         deck_name: str | None = None,
-        set_as_rtk_deck: bool = False,
     ) -> UpdateResult:
         """
         Recreate notes + cards from a backup into a *new* deck.
@@ -310,9 +313,8 @@ class BackupService:
         - Restores field values, tags, and card scheduling state as precisely
           as the Anki API allows (type/queue/due/ivl/factor/reps/lapses +
           FSRS memory_state when present).
-        - Never modifies the current RTK deck.
-        - If set_as_rtk_deck=True, updates config to point at the new deck
-          (caller must persist config).
+        - Never modifies the current RTK deck or Deck Mapping. The user
+          renames the deck and updates RTK settings if they want to switch.
 
         Returns an UpdateResult with kanji_added_to_rtk = number of notes created.
         """
@@ -378,38 +380,53 @@ class BackupService:
 
         col.save()
 
-        if set_as_rtk_deck:
-            self._config.rtk_deck = deck_name
-            self._config.rtk_note_type = model["name"]
-            # Field map from backup meta (best-effort)
-            fm = doc.meta.field_map or {}
-            if fm.get("kanji"):
-                self._config.rtk_kanji_field = fm["kanji"]
-            if fm.get("keyword"):
-                self._config.rtk_keyword_field = fm["keyword"]
-            if fm.get("alternative_kanji"):
-                self._config.rtk_alternative_kanji_field = fm["alternative_kanji"]
-            if fm.get("heisig_number"):
-                self._config.rtk_heisig_number_field = fm["heisig_number"]
-            if fm.get("stroke_count"):
-                self._config.rtk_stroke_count_field = fm["stroke_count"]
-
         return UpdateResult(kanji_added_to_rtk=created)
 
     def maybe_create_daily_backup(self) -> Path | None:
         """
-        Create a backup if none exists for the current UTC day.
-        Intended to be called on Anki startup or from a light scheduler.
+        Create a backup at most once per local calendar day.
+
+        Safe to call often (main window init, deck browser render, etc.).
+        Skips when:
+        - we already created/attempted a daily backup today in this process, or
+        - a backup file for today already exists on disk, or
+        - RTK is not configured / deck is empty.
+
         Returns the path if a backup was created, else None.
         """
-        today = datetime.now(timezone.utc).strftime("%Y%m%d")
-        for p in self.backups_dir().glob(f"{_BACKUP_PREFIX}{today}*{_BACKUP_SUFFIX}"):
-            return None  # already have one for today
+        today_local = datetime.now().strftime("%Y-%m-%d")
+        if self._last_daily_backup_date == today_local:
+            return None
+
+        # File already present for this local day (prefix uses UTC stamp —
+        # also accept any file whose mtime falls on local today).
+        today_utc_prefix = datetime.now(timezone.utc).strftime("%Y%m%d")
+        dir_ = self.backups_dir()
+        for p in dir_.glob(f"{_BACKUP_PREFIX}*{_BACKUP_SUFFIX}"):
+            name = p.name
+            if f"{_BACKUP_PREFIX}{today_utc_prefix}" in name:
+                self._last_daily_backup_date = today_local
+                return None
+            try:
+                mtime_day = datetime.fromtimestamp(p.stat().st_mtime).strftime(
+                    "%Y-%m-%d"
+                )
+                if mtime_day == today_local:
+                    self._last_daily_backup_date = today_local
+                    return None
+            except OSError:
+                pass
+
         try:
             if not self._rtk_configured():
+                self._last_daily_backup_date = today_local
                 return None
-            return self.create_backup()
+            path = self.create_backup()
+            self._last_daily_backup_date = today_local
+            return path
         except JapaneseMiningError:
+            # Do not stamp the day on config errors — user may fix RTK mapping
+            # and we should retry later the same day.
             return None
         except Exception:
             return None

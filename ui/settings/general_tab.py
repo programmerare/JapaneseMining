@@ -105,7 +105,9 @@ def _make_status_card() -> tuple[QFrame, QLabel, QLabel, QLabel]:
 
     missing = QLabel("")
     missing.setWordWrap(True)
-    missing.setStyleSheet("color: #b45309; font-size: 12px; font-family: monospace;")
+    missing.setStyleSheet(
+        "color: #b45309; font-size: 12px; font-family: monospace;"
+    )
     missing.setVisible(False)
     layout.addWidget(missing)
 
@@ -205,7 +207,9 @@ def make_general_tab(
     ui_layout.addWidget(show_tooltips_checkbox)
 
     show_update_needed_checkbox = QCheckBox("Show update needed indicator")
-    show_update_needed_checkbox.setChecked(getattr(config, "show_update_needed", True))
+    show_update_needed_checkbox.setChecked(
+        getattr(config, "show_update_needed", True)
+    )
     ui_layout.addWidget(show_update_needed_checkbox)
 
     root_layout.addWidget(ui_card)
@@ -236,8 +240,7 @@ def make_general_tab(
     mining_info = QLabel("ⓘ")
     mining_info.setStyleSheet("color: #666; font-size: 13px;")
     mining_info.setToolTip(
-        "Required fields:\n"
-        + "\n".join(f"• {f}" for f in REQUIRED_MINING_FIELDS)
+        "Required fields:\n" + "\n".join(f"• {f}" for f in REQUIRED_MINING_FIELDS)
         + "\n\nExtra fields are fine."
     )
     mining_info.setCursor(Qt.CursorShape.WhatsThisCursor)
@@ -291,8 +294,7 @@ def make_general_tab(
     # ── Mining note types you own ───────────────────────────────────────
     list_card, list_layout = _make_mining_list_card()
     list_hint = QLabel(
-        "Note types that already contain every required mining field. "
-        "Click one to select it above."
+        "Note types that already contain every required mining field."
     )
     list_hint.setWordWrap(True)
     list_hint.setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 12px;")
@@ -320,10 +322,9 @@ def make_general_tab(
             return
 
         for name in names:
-            btn = QPushButton(name)
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setStyleSheet(f"""
-                QPushButton {{
+            chip = QLabel(name)
+            chip.setStyleSheet(f"""
+                QLabel {{
                     background: {BADGE_BG};
                     color: {ACCENT};
                     border: 1px solid #d2e3fc;
@@ -331,19 +332,9 @@ def make_general_tab(
                     padding: 6px 12px;
                     font-weight: 600;
                     font-size: 12px;
-                    text-align: left;
-                }}
-                QPushButton:hover {{
-                    background: #d2e3fc;
                 }}
             """)
-            btn.clicked.connect(
-                lambda _=False, n=name: (
-                    mining_note_type_cb.setCurrentText(n),
-                    _refresh_status(status_frame, n),
-                )
-            )
-            chips_layout.addWidget(btn)
+            chips_layout.addWidget(chip)
 
     refresh_mining_list()
     root_layout.addWidget(list_card)

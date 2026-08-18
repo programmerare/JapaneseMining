@@ -13,14 +13,11 @@ from pathlib import Path
 from aqt import mw
 from aqt.qt import (
     QAbstractItemView,
-    QCheckBox,
     QHBoxLayout,
     QLabel,
     QListWidget,
     QListWidgetItem,
     QMessageBox,
-    QVBoxLayout,
-    QWidget,
     Qt,
 )
 from aqt.utils import showInfo, showWarning, tooltip
@@ -34,7 +31,6 @@ from ..ui_styles import (
     make_scrollable_page,
     make_secondary_button,
     make_section_card,
-    TEXT_BODY,
     TEXT_MUTED,
     TEXT_SECONDARY,
 )
@@ -67,17 +63,10 @@ def make_backup_tab(
     """
     Returns (widget, title, apply_to_config_fn).
 
-    on_rtk_mapping_updated: optional callback invoked after a restore that
-    switches the active RTK mapping, so the RTK tab can refresh its combos.
-
-    apply_to_config re-applies any pending mapping from a restore so that
-    Settings → Save cannot overwrite it with stale RTK-tab combo values.
+    Restore always creates a new deck. The user renames / remaps in RTK
+    settings if they want the restored deck to become the active RTK deck.
     """
     outer, layout = make_scrollable_page()
-
-    # After restore + “set as active”, hold the mapping so Save cannot clobber it.
-    # Backup's apply_fn runs after RTK's in the dialog, so we win.
-    pending_rtk_mapping: dict | None = None
 
     layout.addWidget(
         make_instruction_label(
@@ -91,7 +80,8 @@ def make_backup_tab(
         make_callout(
             "Backups are taken directly from the live RTK deck — not from the "
             "learned_kanji cache. Keep the RTK deck mapped correctly in the RTK tab "
-            "before creating a backup.",
+            "before creating a backup. After a restore, rename the new deck and "
+            "update Deck Mapping if you want to use it as your RTK deck.",
             kind="info",
         )
     )
@@ -122,7 +112,8 @@ def make_backup_tab(
     backup_list = QListWidget()
     backup_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
     backup_list.setMinimumHeight(220)
-    backup_list.setStyleSheet("""
+    backup_list.setStyleSheet(
+        """
         QListWidget {
             background: white;
             border: 1px solid #e8e8e8;
@@ -138,7 +129,8 @@ def make_backup_tab(
             background: #e8f0fe;
             color: #174ea6;
         }
-        """)
+        """
+    )
     list_cl.addWidget(backup_list)
 
     empty_label = QLabel("No backups yet. Create one above.")
@@ -160,15 +152,11 @@ def make_backup_tab(
     restore_cl.addWidget(
         make_callout(
             "Restore creates a new deck (default name Backup_YYYY-MM-DD_HHMM). "
-            "Your current RTK deck is left untouched. Optionally point the add-on "
-            "at the restored deck afterwards.",
+            "Your current RTK deck and Deck Mapping are left untouched. "
+            "Rename the deck and point RTK mapping at it if you want to switch.",
             kind="warning",
         )
     )
-
-    set_as_rtk = QCheckBox("After restore, set this deck as the active RTK deck")
-    set_as_rtk.setStyleSheet(f"color: {TEXT_BODY}; font-size: 13px;")
-    restore_cl.addWidget(set_as_rtk)
 
     restore_row = QHBoxLayout()
     restore_btn = make_secondary_button("Restore selected → new deck")
@@ -239,21 +227,7 @@ def make_backup_tab(
         finally:
             create_btn.setEnabled(True)
 
-    def _snapshot_pending_mapping() -> dict:
-        cfg = config_holder.config
-        return {
-            "rtk_deck": cfg.rtk_deck or "",
-            "rtk_note_type": cfg.rtk_note_type or "",
-            "rtk_kanji_field": cfg.rtk_kanji_field or "",
-            "rtk_keyword_field": cfg.rtk_keyword_field or "",
-            "rtk_alternative_kanji_field": cfg.rtk_alternative_kanji_field or "",
-            "rtk_heisig_number_field": cfg.rtk_heisig_number_field or "",
-            "rtk_stroke_count_field": cfg.rtk_stroke_count_field or "",
-        }
-
     def on_restore():
-        nonlocal pending_rtk_mapping
-
         selected = backup_list.selectedItems()
         if not selected:
             return
@@ -263,19 +237,13 @@ def make_backup_tab(
 
         stamp = datetime.now().strftime("%Y-%m-%d_%H%M")
         default_deck = f"Backup_{stamp}"
-        switch = set_as_rtk.isChecked()
 
         msg = (
             f"Restore this backup into a new deck?\n\n"
             f"Deck name: {default_deck}\n"
             f"Source file: {Path(path).name}\n\n"
-            "The current RTK deck will not be modified."
+            "The current RTK deck and settings will not be modified."
         )
-        if switch:
-            msg += (
-                "\n\nAfterwards the add-on will point at the new deck "
-                "and the mapping will be saved immediately."
-            )
 
         reply = QMessageBox.question(
             mw,
@@ -292,46 +260,15 @@ def make_backup_tab(
             result = backup_service.restore_to_new_deck(
                 path,
                 deck_name=default_deck,
-                set_as_rtk_deck=switch,
             )
             n = getattr(result, "kanji_added_to_rtk", 0) or 0
-
-            if switch:
-                # Remember mapping so Settings → Save cannot overwrite with
-                # stale RTK-tab combo values (apply order: RTK then Backup).
-                pending_rtk_mapping = _snapshot_pending_mapping()
-
-                if save_config_fn is not None:
-                    try:
-                        save_config_fn(config_holder.config)
-                    except Exception as e:
-                        showWarning(
-                            f"Restored {n} notes, but saving the new RTK mapping failed:\n\n{e}",
-                            parent=mw,
-                            title="JapaneseMining",
-                        )
-
-                # Refresh RTK tab UI so the user sees the new deck immediately
-                if on_rtk_mapping_updated is not None:
-                    try:
-                        on_rtk_mapping_updated()
-                    except Exception:
-                        pass
-
-                showInfo(
-                    f"Restored {n} notes into deck “{default_deck}”.\n\n"
-                    f"Active RTK deck is now “{config_holder.config.rtk_deck}”. "
-                    "Open the RTK tab to confirm the mapping.",
-                    parent=mw,
-                    title="JapaneseMining",
-                )
-            else:
-                showInfo(
-                    f"Restored {n} notes into deck “{default_deck}”.\n\n"
-                    "Your previous RTK mapping is unchanged.",
-                    parent=mw,
-                    title="JapaneseMining",
-                )
+            showInfo(
+                f"Restored {n} notes into deck “{default_deck}”.\n\n"
+                "Your RTK mapping is unchanged. Rename the deck and update "
+                "Settings → RTK → Deck Mapping if you want to use it.",
+                parent=mw,
+                title="JapaneseMining",
+            )
         except JapaneseMiningError as e:
             showWarning(e.full_message(), parent=mw, title="JapaneseMining")
         except Exception as e:
@@ -346,11 +283,7 @@ def make_backup_tab(
 
     refresh_list()
 
-    def apply_to_config(cfg):
-        # Runs after RTK's apply_to_config. Re-apply pending restore mapping
-        # so a Settings → Save cannot clobber the deck we just switched to.
-        if pending_rtk_mapping:
-            for key, value in pending_rtk_mapping.items():
-                setattr(cfg, key, value)
+    def apply_to_config(_cfg):
+        pass
 
     return outer, "Backup", apply_to_config

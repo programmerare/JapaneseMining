@@ -607,12 +607,12 @@ def _build_backup_help() -> QWidget:
             "the snapshot."
         )
     )
-    cl4.addWidget(_subheading("Optional: switch RTK mapping"))
+    cl4.addWidget(_subheading("Using a restored deck as RTK"))
     cl4.addWidget(
         _body_label(
-            "Tick “set this deck as the active RTK deck” if you want the add-on to "
-            "point at the restored deck afterwards. The mapping is saved when you "
-            "confirm restore."
+            "Restore never changes Deck Mapping. If you want the restored deck to "
+            "become your RTK deck, rename it as you like, then set Deck Mapping "
+            "under Settings → RTK and run Export Learned Kanji."
         )
     )
     layout.addWidget(card4)
