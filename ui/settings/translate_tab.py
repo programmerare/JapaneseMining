@@ -22,6 +22,7 @@ from ..ui_styles import (
     make_section_card,
     make_instruction_label,
     make_secondary_button,
+    make_link_button,
     make_separator,
     TEXT_SECONDARY,
 )
@@ -124,7 +125,10 @@ def _fields_for_note_type(note_type: str) -> list[str]:
 
 
 def make_translate_tab(
-    config_holder: ConfigHolder, deepl_service=None, save_config_fn=None
+    config_holder: ConfigHolder,
+    deepl_service=None,
+    save_config_fn=None,
+    on_goto_help=None,
 ):
     """
     Returns (tab_widget, title, apply_to_config_fn).
@@ -140,11 +144,18 @@ def make_translate_tab(
 
     root_layout.addWidget(
         make_instruction_label(
-            "DeepL translation is profile-based: each note type can have its own "
-            "source/target fields and languages. In the editor the add-on picks the "
-            "profile that matches the current note automatically."
+            "Each note type can have its own source/target fields and languages. "
+            "In the editor the matching profile is chosen automatically."
         )
     )
+
+    if on_goto_help:
+        help_row = QHBoxLayout()
+        help_btn = make_link_button("Help → Translate →")
+        help_btn.clicked.connect(on_goto_help)
+        help_row.addWidget(help_btn)
+        help_row.addStretch()
+        root_layout.addLayout(help_row)
 
     state = {
         "profiles": deepcopy(config.translate_profiles or {}),

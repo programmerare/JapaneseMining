@@ -27,6 +27,7 @@ from ...domain.errors import JapaneseMiningError
 from ..ui_styles import (
     make_callout,
     make_instruction_label,
+    make_link_button,
     make_primary_button,
     make_scrollable_page,
     make_secondary_button,
@@ -59,6 +60,7 @@ def make_backup_tab(
     backup_service,
     save_config_fn=None,
     on_rtk_mapping_updated=None,
+    on_goto_help=None,
 ):
     """
     Returns (widget, title, apply_to_config_fn).
@@ -70,18 +72,23 @@ def make_backup_tab(
 
     layout.addWidget(
         make_instruction_label(
-            "Snapshot the configured RTK deck (fields, tags, and full card "
-            "scheduling including FSRS state when available). Restore always "
-            "creates a new deck so your current RTK deck is never overwritten."
+            "Snapshot the mapped RTK deck (fields, tags, scheduling / FSRS). "
+            "Restore always creates a new deck — the live RTK deck is never overwritten."
         )
     )
 
+    if on_goto_help:
+        help_row = QHBoxLayout()
+        help_btn = make_link_button("Help → Backup →")
+        help_btn.clicked.connect(on_goto_help)
+        help_row.addWidget(help_btn)
+        help_row.addStretch()
+        layout.addLayout(help_row)
+
     layout.addWidget(
         make_callout(
-            "Backups are taken directly from the live RTK deck — not from the "
-            "learned_kanji cache. Keep the RTK deck mapped correctly in the RTK tab "
-            "before creating a backup. After a restore, rename the new deck and "
-            "update Deck Mapping if you want to use it as your RTK deck.",
+            "Backups come from the live RTK deck. Map the deck correctly before creating. "
+            "After restore, rename and update Deck Mapping if you want to switch.",
             kind="info",
         )
     )
@@ -151,9 +158,8 @@ def make_backup_tab(
     restore_card, restore_cl = make_section_card("Restore")
     restore_cl.addWidget(
         make_callout(
-            "Restore creates a new deck (default name Backup_YYYY-MM-DD_HHMM). "
-            "Your current RTK deck and Deck Mapping are left untouched. "
-            "Rename the deck and point RTK mapping at it if you want to switch.",
+            "Creates a new deck (Backup_YYYY-MM-DD_HHMM). Current RTK deck and "
+            "mapping stay untouched. Remap under RTK if you want to switch.",
             kind="warning",
         )
     )

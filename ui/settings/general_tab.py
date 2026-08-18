@@ -18,6 +18,7 @@ from ..ui_styles import (
     make_section_card,
     make_instruction_label,
     make_primary_button,
+    make_link_button,
     TEXT_SECONDARY,
     TEXT_PRIMARY,
     ACCENT,
@@ -185,7 +186,10 @@ def _make_mining_list_card() -> tuple[QFrame, QVBoxLayout]:
 
 
 def make_general_tab(
-    config_holder: ConfigHolder, collection_service=None, save_config_fn=None
+    config_holder: ConfigHolder,
+    collection_service=None,
+    save_config_fn=None,
+    on_goto_help=None,
 ):
     config = config_holder.config
 
@@ -193,11 +197,18 @@ def make_general_tab(
 
     root_layout.addWidget(
         make_instruction_label(
-            "Global preferences and the JapaneseMining note type. "
-            "Create the note type once; afterwards you can add extra fields but "
-            "should not rename or delete the ones the add-on expects."
+            "Global preferences and the mining note type. Create it once; "
+            "you may add fields later — do not rename or delete the expected ones."
         )
     )
+
+    if on_goto_help:
+        help_row = QHBoxLayout()
+        help_btn = make_link_button("Help → Note Type →")
+        help_btn.clicked.connect(on_goto_help)
+        help_row.addWidget(help_btn)
+        help_row.addStretch()
+        root_layout.addLayout(help_row)
 
     # ── Interface card ──────────────────────────────────────────────────
     ui_card, ui_layout = make_section_card("Interface")
@@ -218,10 +229,8 @@ def make_general_tab(
     mining_card, mining_layout = make_section_card("JapaneseMining note type")
 
     help_text = QLabel(
-        "This is the primary note type used for mined vocabulary cards.\n"
-        "• Select an existing note type or type a new name.\n"
-        "• Click the button below to create it with all required fields.\n"
-        "• Extra fields are fine; do not delete or rename the expected ones."
+        "Primary note type for mined vocabulary. Select an existing type or "
+        "type a new name, then create it with all required fields."
     )
     help_text.setWordWrap(True)
     help_text.setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 12px;")

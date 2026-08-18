@@ -21,13 +21,13 @@ ACCENT_PRESSED = "#0d47a1"
 BADGE_BG = "#e8f0fe"
 BADGE_TEXT = "#1a73e8"
 
-# Callout palette (info / warning)
-INFO_BG = "#e8f0fe"
-INFO_BORDER = "#aecbfa"
-INFO_TEXT = "#174ea6"
-WARNING_BG = "#fef7e0"
-WARNING_BORDER = "#fdd663"
-WARNING_TEXT = "#7a5c00"
+# Callout palette (info / warning) — kept soft so they guide without shouting
+INFO_BG = "#f3f7fd"
+INFO_BORDER = "#d2e3fc"
+INFO_TEXT = "#1967d2"
+WARNING_BG = "#fffbf0"
+WARNING_BORDER = "#fde293"
+WARNING_TEXT = "#8a6d1d"
 
 # ── Reusable stylesheets ────────────────────────────────────────────────
 SECTION_CARD_SS = f"""

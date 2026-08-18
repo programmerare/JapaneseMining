@@ -40,59 +40,68 @@ def make_show_settings(
         tabs = QTabWidget()
         apply_fns = []
 
-        # Forward reference so RTK can jump to Help → RTK
         help_tab_widget = None
         help_tab_index = -1
 
-        def goto_rtk_help():
+        def goto_help(section: str):
             if help_tab_widget is not None and help_tab_index >= 0:
                 tabs.setCurrentIndex(help_tab_index)
-                help_tab_widget.goto_rtk()
+                help_tab_widget.goto(section)
 
         # --- build tabs ---
-        # General
         tab, title, apply_fn = make_general_tab(
-            config_holder, collection_service, save_config_fn
+            config_holder,
+            collection_service,
+            save_config_fn,
+            on_goto_help=lambda: goto_help("note_type"),
         )
         tabs.addTab(tab, title)
         apply_fns.append(apply_fn)
 
-        # RTK
         tab, title, apply_fn = make_rtk_tab(
             config_holder,
             collection_service,
             save_config_fn,
-            on_goto_rtk_help=goto_rtk_help,
+            on_goto_rtk_help=lambda: goto_help("rtk"),
         )
         tabs.addTab(tab, title)
         apply_fns.append(apply_fn)
 
-        # Translate
         tab, title, apply_fn = make_translate_tab(
-            config_holder, deepl_service, save_config_fn
+            config_holder,
+            deepl_service,
+            save_config_fn,
+            on_goto_help=lambda: goto_help("translate"),
         )
         tabs.addTab(tab, title)
         apply_fns.append(apply_fn)
 
-        # Jisho
-        tab, title, apply_fn = make_jisho_tab(config_holder, save_config_fn)
+        tab, title, apply_fn = make_jisho_tab(
+            config_holder,
+            save_config_fn,
+            on_goto_help=lambda: goto_help("jisho"),
+        )
         tabs.addTab(tab, title)
         apply_fns.append(apply_fn)
 
-        # HyperTTS
-        tab, title, apply_fn = make_hypertts_tab(config_holder, save_config_fn)
+        tab, title, apply_fn = make_hypertts_tab(
+            config_holder,
+            save_config_fn,
+            on_goto_help=lambda: goto_help("hypertts"),
+        )
         tabs.addTab(tab, title)
         apply_fns.append(apply_fn)
 
-        # Backup (optional until service is wired)
         if backup_service is not None:
             tab, title, apply_fn = make_backup_tab(
-                config_holder, backup_service, save_config_fn
+                config_holder,
+                backup_service,
+                save_config_fn,
+                on_goto_help=lambda: goto_help("backup"),
             )
             tabs.addTab(tab, title)
             apply_fns.append(apply_fn)
 
-        # Help (last)
         help_tab_widget, title, apply_fn = make_help_tab(config_holder, save_config_fn)
         help_tab_index = tabs.addTab(help_tab_widget, title)
         apply_fns.append(apply_fn)

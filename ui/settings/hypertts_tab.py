@@ -1,24 +1,38 @@
 from aqt.qt import (
     QCheckBox,
+    QHBoxLayout,
     QVBoxLayout,
     QWidget,
 )
 
 from ...config import ConfigHolder
-from ..ui_styles import make_section_card, make_instruction_label, make_scrollable_page
+from ..ui_styles import (
+    make_section_card,
+    make_instruction_label,
+    make_link_button,
+    make_scrollable_page,
+)
 
 
-def make_hypertts_tab(config_holder: ConfigHolder, save_config_fn=None):
+def make_hypertts_tab(config_holder: ConfigHolder, save_config_fn=None, on_goto_help=None):
     config = config_holder.config
 
     root, root_layout = make_scrollable_page()
 
     root_layout.addWidget(
         make_instruction_label(
-            "Enable integration with the HyperTTS add-on for automatic audio "
-            "generation. HyperTTS itself must be installed and configured separately."
+            "Automatic audio via HyperTTS. Install and configure HyperTTS itself first, "
+            "then enable the integration here."
         )
     )
+
+    if on_goto_help:
+        help_row = QHBoxLayout()
+        help_btn = make_link_button("Help → HyperTTS →")
+        help_btn.clicked.connect(on_goto_help)
+        help_row.addWidget(help_btn)
+        help_row.addStretch()
+        root_layout.addLayout(help_row)
 
     card, layout = make_section_card("HyperTTS")
     hypertts_use_checkbox = QCheckBox("Enable HyperTTS")

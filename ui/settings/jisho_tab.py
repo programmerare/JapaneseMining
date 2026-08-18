@@ -27,12 +27,13 @@ from ...config import (
     ConfigHolder,
 )
 from ..ui_styles import (
-    make_scrollable_page,
     make_section_card,
     make_instruction_label,
     make_primary_button,
     make_secondary_button,
+    make_link_button,
     make_separator,
+    make_scrollable_page,
     TEXT_SECONDARY,
     PRIMARY_BUTTON_SS,
 )
@@ -62,7 +63,7 @@ MULTI_WORD_COMPATIBILITY = {
 }
 
 
-def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
+def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None, on_goto_help=None):
     """
     Returns (tab_widget, title, apply_to_config_fn)
     The tab itself contains three sub-tabs: General / Mapping / Advanced
@@ -91,10 +92,18 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
 
     g_root.addWidget(
         make_instruction_label(
-            "Enable Jisho, choose the active profile (note type), and configure "
-            "search field, fill behaviour, multi-meaning / multi-word formats and shortcuts."
+            "Enable Jisho, pick a profile (note type), and set search field, "
+            "fill behaviour, formats, and shortcuts. Restart Anki after enabling."
         )
     )
+
+    if on_goto_help:
+        help_row = QHBoxLayout()
+        help_btn = make_link_button("Help → Jisho →")
+        help_btn.clicked.connect(on_goto_help)
+        help_row.addWidget(help_btn)
+        help_row.addStretch()
+        g_root.addLayout(help_row)
 
     # Enable card
     enable_card, enable_layout = make_section_card("Enable")
@@ -293,8 +302,6 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
 
     target_deck_cb = QComboBox()
     target_deck_cb.setEditable(True)
-    target_deck_cb.setMinimumWidth(360)
-    target_deck_cb.setMaximumWidth(360)
     target_deck_cb.addItem("")
     try:
         decks = mw.col.decks.all_names() if mw.col else []
@@ -305,21 +312,15 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
     form.addRow("Target deck", target_deck_cb)
 
     search_field_cb = QComboBox()
-    search_field_cb.setMinimumWidth(360)
-    search_field_cb.setMaximumWidth(360)
     form.addRow("Search field", search_field_cb)
 
     fill_mode_cb = QComboBox()
-    fill_mode_cb.setMinimumWidth(360)
-    fill_mode_cb.setMaximumWidth(360)
     fill_mode_cb.addItem("Replace content", "replace")
     fill_mode_cb.addItem("Append to content", "append")
     fill_mode_cb.setCurrentIndex(0 if config.fill_mode == "replace" else 1)
     form.addRow("Fill mode", fill_mode_cb)
 
     multi_meaning_cb = QComboBox()
-    multi_meaning_cb.setMinimumWidth(360)
-    multi_meaning_cb.setMaximumWidth(360)
     multi_meaning_cb.addItem("Pipe Merged", "pipe_merged")
     multi_meaning_cb.addItem("Numbered", "numbered")
     multi_meaning_cb.addItem("Semicolon Merged", "semicolon_merged")
@@ -328,8 +329,6 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
     form.addRow("Multi-meaning format", multi_meaning_cb)
 
     multi_word_cb = QComboBox()
-    multi_word_cb.setMinimumWidth(360)
-    multi_word_cb.setMaximumWidth(360)
     form.addRow("Multi-word format", multi_word_cb)
 
     def refresh_multi_word_options():
@@ -362,8 +361,6 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
             break
 
     quick_fill_mode_cb = QComboBox()
-    quick_fill_mode_cb.setMinimumWidth(360)
-    quick_fill_mode_cb.setMaximumWidth(360)
     quick_fill_mode_cb.addItem("All meanings", "all")
     quick_fill_mode_cb.addItem("First meaning", "first")
     quick_fill_mode_cb.setCurrentIndex(0 if config.quick_fill_mode == "all" else 1)
@@ -377,7 +374,6 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
     sc_form = QFormLayout()
     sc_form.setSpacing(10)
     sc_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
-    sc_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
 
     open_shortcut_edit = QKeySequenceEdit()
     open_shortcut_edit.setKeySequence(QKeySequence(config.jisho_shortcut))
@@ -403,17 +399,14 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
 
     m_root.addWidget(
         make_instruction_label(
-            "Map Jisho data fields to the fields of the current note type. "
-            "Only rows that have both a Jisho source and a target field are saved."
+            "Map Jisho sources to note fields. Only rows with both a source and a target are saved."
         )
     )
 
     mapping_scroll = QScrollArea()
     mapping_scroll.setWidgetResizable(True)
     mapping_scroll.setFrameShape(QFrame.Shape.NoFrame)
-    mapping_scroll.setStyleSheet(
-        "QScrollArea { background: transparent; border: none; }"
-    )
+    mapping_scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
     mapping_container = QWidget()
     mapping_rows_layout = QVBoxLayout(mapping_container)
     mapping_rows_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -495,11 +488,14 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None):
     # ==================================================================
     # 3. ADVANCED TAB
     # ==================================================================
-    advanced, a_root = make_scrollable_page()
+    advanced = QWidget()
+    a_root = QVBoxLayout(advanced)
+    a_root.setContentsMargins(16, 12, 16, 16)
+    a_root.setSpacing(14)
 
     a_root.addWidget(
         make_instruction_label(
-            "Less frequently changed options: button placement and small behaviour tweaks."
+            "Button placement and small behaviour tweaks."
         )
     )
 

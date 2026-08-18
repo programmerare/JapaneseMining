@@ -1,14 +1,13 @@
 """
 Help / Instructions tab for JapaneseMining.
 
-Contains educational content and workflow documentation.
-Sub-tabs keep scrolling manageable once screenshots are added.
+Sub-tabs keep scrolling manageable. Quick Start is intentionally short.
+Screenshots use make_image_placeholder until real assets are added.
 """
 
 from aqt.qt import (
     QWidget,
     QVBoxLayout,
-    QHBoxLayout,
     QLabel,
     QScrollArea,
     QFrame,
@@ -19,18 +18,18 @@ from aqt.qt import (
 from ..ui_styles import (
     make_section_card,
     make_instruction_label,
-    make_separator,
     make_image_placeholder,
-    SECTION_TITLE_SS,
-    TEXT_SECONDARY,
     TEXT_BODY,
     TEXT_PRIMARY,
 )
 
 
 def _body_label(text: str) -> QLabel:
+    """Body text; supports simple HTML (links, <b> for button names)."""
     lbl = QLabel(text)
     lbl.setWordWrap(True)
+    lbl.setTextFormat(Qt.TextFormat.RichText)
+    lbl.setOpenExternalLinks(True)
     lbl.setStyleSheet(f"color: {TEXT_BODY}; font-size: 13px; line-height: 1.45;")
     return lbl
 
@@ -38,6 +37,8 @@ def _body_label(text: str) -> QLabel:
 def _bullet(text: str) -> QLabel:
     lbl = QLabel(f"•  {text}")
     lbl.setWordWrap(True)
+    lbl.setTextFormat(Qt.TextFormat.RichText)
+    lbl.setOpenExternalLinks(True)
     lbl.setStyleSheet(f"color: {TEXT_BODY}; font-size: 13px; padding-left: 4px;")
     return lbl
 
@@ -62,7 +63,7 @@ def _make_scrollable(content_widget: QWidget) -> QScrollArea:
 
 # ── Sub-tab builders ─────────────────────────────────────────────────────
 
-def _build_overview() -> QWidget:
+def _build_quick_start() -> QWidget:
     page = QWidget()
     layout = QVBoxLayout(page)
     layout.setContentsMargins(16, 12, 16, 16)
@@ -70,39 +71,105 @@ def _build_overview() -> QWidget:
 
     layout.addWidget(
         make_instruction_label(
-            "High-level picture of how JapaneseMining fits into your daily study."
+            "Get productive in a few minutes. Details live in the other Help tabs."
         )
     )
 
-    card, cl = make_section_card("Recommended daily workflow")
+    card, cl = make_section_card("1. Create the mining note type")
     cl.addWidget(
         _body_label(
-            "JapaneseMining is designed around a simple loop: encounter → mine → "
-            "understand → review. The add-on removes most of the friction between "
-            "seeing a word and having a high-quality Anki card."
+            "Settings → General → <b>Create JapaneseMining note type</b>. "
+            "Keep the default name unless it already exists. Do not rename or delete "
+            "the fields the add-on creates."
         )
     )
-    cl.addWidget(_subheading("Typical flow"))
+    layout.addWidget(card)
+
+    card2, cl2 = make_section_card("2. Set up RTK (Heisig)")
+    cl2.addWidget(
+        _body_label(
+            "Settings → RTK → Setup &amp; Import. Beginners: leave “create all notes” "
+            "checked and press <b>Create Deck &amp; Note Type</b>. Already know some kanji: "
+            "uncheck it, press <b>Create</b>, then use Import (file or Heisig number up to N)."
+        )
+    )
+    cl2.addWidget(
+        _body_label(
+            "Deck Mapping is the source of truth for keywords and learned status. "
+            "After any deck change, run <b>Export Learned Kanji</b> from the Tools menu."
+        )
+    )
+    layout.addWidget(card2)
+
+    card3, cl3 = make_section_card("3. Optional integrations")
+    for item in [
+        "Jisho: Settings → Jisho → enable, map fields for your note type, <b>Save</b>, restart Anki.",
+        "DeepL: Settings → Translate → API key + profile (source/target fields). Shortcut defaults to Ctrl+T.",
+        "HyperTTS: install the HyperTTS add-on, create a preset, then enable it here.",
+    ]:
+        cl3.addWidget(_bullet(item))
+    layout.addWidget(card3)
+
+    card4, cl4 = make_section_card("4. Recommended mining workflow")
+    cl4.addWidget(
+        _body_label(
+            "In Add Cards, pin fields you want to keep (small pushpin next to the field) "
+            "so values survive after adding a card."
+        )
+    )
     for step in [
-        "You encounter a word (reading, immersion, textbook, etc.).",
-        "Open the JapaneseMining editor / Jisho quick-fill and look it up.",
-        "The add-on fills Word, Reading, Meaning, Part of Speech, JLPT, etc.",
-        "Optionally run DeepL for a natural example-sentence translation.",
-        "Optionally generate audio with HyperTTS.",
-        "Save the card. RTK kanji status is checked automatically.",
-        "Review as usual. Cards that become “known” are tracked for today’s progress.",
+        "Write a Japanese sentence into <b>Example Sentence</b>.",
+        "Translate it (DeepL button / shortcut) into <b>Translation</b>.",
+        "Token chips appear above the example sentence (Sudachi segmentation). "
+        "Click a token to load it into the <b>Word</b> field.",
+        "Fill remaining fields with Jisho (lookup / quick-fill).",
+        "Add the card. Kanji knowledge is updated automatically.",
+    ]:
+        cl4.addWidget(_bullet(step))
+    layout.addWidget(card4)
+
+    layout.addWidget(make_image_placeholder("[Screenshot: Settings → General + RTK]"))
+    layout.addStretch()
+    return _make_scrollable(page)
+
+
+def _build_overview() -> QWidget:
+    page = QWidget()
+    layout = QVBoxLayout(page)
+    layout.setContentsMargins(16, 12, 16, 16)
+    layout.setSpacing(14)
+
+    layout.addWidget(
+        make_instruction_label("How JapaneseMining fits into daily study.")
+    )
+
+    card, cl = make_section_card("Recommended mining workflow")
+    cl.addWidget(
+        _body_label(
+            "Encounter → mine → understand → review. A practical sequence in the editor:"
+        )
+    )
+    for step in [
+        "Pin fields you reuse (Anki pushpin next to the field) so they stay after adding.",
+        "Paste or type a Japanese sentence into <b>Example Sentence</b>.",
+        "Run DeepL so <b>Translation</b> is filled.",
+        "Word chips appear above the example (Sudachi). Click one to put it in <b>Word</b>.",
+        "Run Jisho to fill Reading, Meaning, Part of Speech, and related fields.",
+        "Optional: HyperTTS writes audio into <b>Audio</b> on add.",
+        "Add the card. RTK kanji status is checked automatically.",
     ]:
         cl.addWidget(_bullet(step))
     layout.addWidget(card)
 
-    card2, cl2 = make_section_card("What the add-on manages for you")
+    card2, cl2 = make_section_card("What the add-on manages")
     for item in [
-        "JapaneseMining note type with all required fields",
-        "Jisho lookup + field mapping per note type",
-        "RTK (Heisig) deck creation, import of known kanji, keyword lookup",
+        "JapaneseMining note type and required fields",
+        "Jisho lookup + per–note-type field mapping",
+        "RTK deck creation, known-kanji import, keyword lookup",
         "DeepL translation (optional)",
-        "HyperTTS audio generation (optional)",
-        "Today’s Progress view (words / kanji / cards that became known)",
+        "HyperTTS audio (optional)",
+        "Today’s Progress (words / kanji / cards that became known)",
+        "RTK deck backups (fields + scheduling)",
     ]:
         cl2.addWidget(_bullet(item))
     layout.addWidget(card2)
@@ -120,23 +187,16 @@ def _build_note_type() -> QWidget:
 
     layout.addWidget(
         make_instruction_label(
-            "Everything about the JapaneseMining note type — required fields, "
-            "what each field is used for, and how to create it safely."
+            "Required fields, what each is for, and safe creation."
         )
     )
 
     card, cl = make_section_card("Creating the note type")
     cl.addWidget(
         _body_label(
-            "Go to Settings → General and click “Create JapaneseMining note type”. "
-            "You can keep the default name or choose a unique name if the default "
-            "is already taken. The add-on will create every field it needs."
-        )
-    )
-    cl.addWidget(
-        _body_label(
+            "Settings → General → <b>Create JapaneseMining note type</b>. "
             "You may add extra fields later. Do not delete or rename the fields "
-            "the add-on expects — that will break mapping and RTK integration."
+            "the add-on expects — mapping and RTK integration will break."
         )
     )
     layout.addWidget(card)
@@ -145,16 +205,17 @@ def _build_note_type() -> QWidget:
     fields = [
         ("Word", "The expression / headword"),
         ("Reading", "Furigana / kana reading"),
-        ("Meaning", "English (or target-language) gloss"),
+        ("Meaning", "Definition or English meaning"),
         ("Example Sentence", "Example from Jisho or your own"),
-        ("Translation", "Translation of the example (DeepL or manual)"),
-        ("Part of Speech", "Noun, Ichidan verb, etc."),
+        ("Translation", "Translation of the example"),
+        ("Part of Speech", "Noun, Ichidan verb, …"),
         ("Audio", "Generated or manual audio"),
-        ("Kanji Keywords", "Heisig keywords for the kanji in the word"),
-        ("Kanji is known", "Flag used by the RTK integration"),
+        ("Kanji Keywords", "Heisig keywords for kanji in the word"),
+        ("Kanji is known", "Flag used by RTK integration"),
     ]
     for name, desc in fields:
         row = QLabel(f"<b>{name}</b>  —  {desc}")
+        row.setTextFormat(Qt.TextFormat.RichText)
         row.setStyleSheet(f"color: {TEXT_BODY}; font-size: 13px;")
         row.setWordWrap(True)
         cl2.addWidget(row)
@@ -167,44 +228,6 @@ def _build_note_type() -> QWidget:
     return _make_scrollable(page)
 
 
-def _build_tags_decks() -> QWidget:
-    page = QWidget()
-    layout = QVBoxLayout(page)
-    layout.setContentsMargins(16, 12, 16, 16)
-    layout.setSpacing(14)
-
-    layout.addWidget(
-        make_instruction_label(
-            "Recommended conventions for decks and tags so the add-on and your "
-            "reviews stay organised."
-        )
-    )
-
-    card, cl = make_section_card("Decks")
-    cl.addWidget(
-        _body_label(
-            "A common setup is one main vocabulary deck for mined cards and a "
-            "separate RTK deck for Heisig kanji cards. The RTK deck is created "
-            "automatically by the Setup & Import tab if you want."
-        )
-    )
-    layout.addWidget(card)
-
-    card2, cl2 = make_section_card("Tags (suggestions)")
-    for t in [
-        "source::immersion / source::textbook / source::jisho",
-        "jlpt::n5 … jlpt::n1 (filled automatically when available)",
-        "rtk::known / rtk::learning (managed by the RTK features)",
-        "audio::hypertts (optional, for filtering)",
-    ]:
-        cl2.addWidget(_bullet(t))
-    layout.addWidget(card2)
-
-    layout.addWidget(make_image_placeholder("[Screenshot: Example deck & tag structure]"))
-    layout.addStretch()
-    return _make_scrollable(page)
-
-
 def _build_jisho() -> QWidget:
     page = QWidget()
     layout = QVBoxLayout(page)
@@ -213,36 +236,34 @@ def _build_jisho() -> QWidget:
 
     layout.addWidget(
         make_instruction_label(
-            "How to configure Jisho lookup, field mappings, and the multi-meaning / "
-            "multi-word formats."
+            "Profiles, field mapping, and multi-meaning / multi-word formats."
         )
     )
 
     card, cl = make_section_card("Profiles")
     cl.addWidget(
         _body_label(
-            "Each note type can have its own Jisho profile (search field, mappings, "
-            "fill mode, etc.). Switch profiles with the Profile dropdown in the "
-            "Jisho → General tab."
+            "Each note type has its own Jisho profile (search field, mappings, "
+            "fill mode). Switch profiles with the Profile dropdown. After enabling "
+            "Jisho, restart Anki."
         )
     )
     layout.addWidget(card)
 
     card2, cl2 = make_section_card("Mapping")
-    cl.addWidget(
+    cl2.addWidget(
         _body_label(
-            "Map Jisho data fields (Word, Reading, Meanings, Part of Speech, …) "
-            "to the fields of your note type. Only mapped fields are written."
+            "Map Jisho sources (Word, Reading, Meanings, …) to your note fields. "
+            "Only rows with both a source and a target are saved."
         )
     )
     layout.addWidget(card2)
 
-    card3, cl3 = make_section_card("Multi-meaning & multi-word formats")
+    card3, cl3 = make_section_card("Formats")
     cl3.addWidget(
         _body_label(
-            "When a search returns several senses or several headwords you can "
-            "choose how they are joined (pipe, semicolon, numbered, tagged, …). "
-            "Compatibility between the two format settings is enforced in the UI."
+            "Multi-meaning and multi-word formats control how several senses or "
+            "headwords are joined. The UI only offers compatible pairs."
         )
     )
     layout.addWidget(card3)
@@ -253,7 +274,6 @@ def _build_jisho() -> QWidget:
 
 
 def _build_rtk_help() -> QWidget:
-    """Educational content about Remembering the Kanji."""
     page = QWidget()
     layout = QVBoxLayout(page)
     layout.setContentsMargins(16, 12, 16, 16)
@@ -261,220 +281,162 @@ def _build_rtk_help() -> QWidget:
 
     layout.addWidget(
         make_instruction_label(
-            "How Heisig’s Remembering the Kanji method works and how this add-on "
-            "supports it. This is the educational companion to the RTK settings tab."
+            "Heisig’s method and how this add-on supports it."
         )
     )
 
-    # Core method
     card, cl = make_section_card("The keyword method")
     cl.addWidget(
         _body_label(
-            "Heisig assigns every kanji a unique English keyword. You learn to write "
-            "the kanji from the keyword (and later the keyword from the kanji) by "
-            "creating a vivid story that links the keyword to the kanji’s primitives."
-        )
-    )
-    cl.addWidget(
-        _body_label(
-            "The goal is not to learn readings or vocabulary first — it is to make "
-            "the characters themselves memorable so that later vocabulary sticks "
-            "far more easily."
+            "Each kanji gets a unique English keyword. You learn the character via "
+            "a vivid story that links the keyword to its primitives. Goal: make the "
+            "shapes memorable so vocabulary sticks later."
         )
     )
     layout.addWidget(card)
 
-    # Primitives
     card2, cl2 = make_section_card("Primitives")
     cl2.addWidget(
         _body_label(
-            "Almost every kanji is built from simpler building blocks called "
-            "primitives (or radicals in a looser sense). Heisig gives many of these "
-            "primitives their own names and stories as well."
-        )
-    )
-    cl2.addWidget(_subheading("Why primitives matter"))
-    cl2.addWidget(
-        _body_label(
-            "Once you know the primitives, a new kanji is no longer a random "
-            "collection of strokes — it is a combination of pieces you already "
-            "recognise. This is the real power of the method."
+            "Kanji are built from simpler pieces (primitives). Once you know them, "
+            "a new character is a combination of familiar parts — not random strokes."
         )
     )
     cl2.addWidget(
-        make_image_placeholder("[Diagram: example kanji broken into primitives]")
+        make_image_placeholder(
+            "[Diagram: example kanji broken into primitives]", min_height=120
+        )
     )
     layout.addWidget(card2)
 
-    # Stories
-    card3, cl3 = make_section_card("Stories & memory")
+    card3, cl3 = make_section_card("Stories")
     cl3.addWidget(
         _body_label(
-            "A good story is short, visual, and emotionally charged. It should "
-            "force the primitives to interact in a way that can only produce "
-            "that particular keyword. Bizarre or humorous images stick best."
+            "Short, visual, emotional. Force the primitives to interact so only "
+            "that keyword fits. Bizarre or funny images stick best."
         )
     )
     layout.addWidget(card3)
 
-    # Confusing pairs – skeleton
-    card4, cl4 = make_section_card("Commonly confused kanji & keywords")
-    cl4.addWidget(
-        _body_label(
-            "Some keywords and shapes are easy to mix up. Below is a starter list "
-            "you can expand over time. The add-on can later surface these "
-            "automatically when relevant."
-        )
-    )
-    confusions = [
-        ("快 (exhilarate) vs 決 (decide)", "Both contain the water primitive; stories must clearly separate the feelings."),
-        ("未 (not yet) vs 末 (extremity)", "Very similar shapes — pay attention to the longer stroke."),
-        ("土 (soil) vs 士 (gentleman)", "Almost identical; the relative length of the horizontal strokes is the difference."),
-        ("千 (thousand) vs 干 (dry)", "Again a single-stroke difference that is easy to miss under speed."),
-    ]
-    for pair, note in confusions:
-        cl4.addWidget(_subheading(pair))
-        cl4.addWidget(_body_label(note))
-    cl4.addWidget(
-        _body_label(
-            "Tip: when two kanji feel similar, deliberately invent stories that "
-            "contrast them instead of treating them in isolation."
-        )
-    )
-    layout.addWidget(card4)
-
-    # How the add-on helps
     card5, cl5 = make_section_card("How JapaneseMining helps")
     for item in [
-        "Create a full RTK deck + note type with one click (≈2200 core Heisig kanji, 6th ed).",
-        "Import known kanji: creates the full ~2200 set, parks the known subset "
-        "(suspend or schedule), leaves the rest as new.",
-        "When you mine a word, look up Heisig keywords for its kanji.",
-        "Track which kanji became known today in the Today’s Progress window.",
+        "One-click RTK deck + note type (2200 Heisig 6th-ed kanji).",
+        "Import known kanji (file or number up to N): full set exists; known subset parked.",
+        "Keyword lookup when you mine a word.",
+        "Today’s Progress tracks kanji that became known.",
+        "Backups snapshot fields, tags, and scheduling (including FSRS when available).",
     ]:
         cl5.addWidget(_bullet(item))
     layout.addWidget(card5)
 
-    # Tags
     card_tags, cl_tags = make_section_card("Tags the add-on uses")
-    cl_tags.addWidget(
-        _body_label(
-            "Every RTK note the add-on creates or touches gets a consistent tag "
-            "namespace so you can search and filter in the browser."
-        )
-    )
     for tag, meaning in [
-        (
-            "JapaneseMining::RTK",
-            "Added to every RTK note the add-on manages. Search: tag:JapaneseMining::RTK",
-        ),
-        (
-            "Heisig",
-            "Bulk-created from the Heisig 6th-edition list (Create all notes / Import).",
-        ),
-        (
-            "Imported-Known",
-            "This kanji was marked known via Import (file or Heisig number). "
-            "Usually suspended or far-scheduled so it does not flood reviews.",
-        ),
-        (
-            "Self-Added",
-            "Added automatically when you mine a word that contains an unknown kanji "
-            "(Add Unknown Kanji flow).",
-        ),
+        ("JapaneseMining::RTK", "Every RTK note the add-on manages."),
+        ("Heisig", "Bulk-created from the 6th-edition list."),
+        ("Imported-Known", "Marked known via Import (usually suspended or far-scheduled)."),
+        ("Self-Added", "Added when you mine a word with an unknown kanji."),
     ]:
         cl_tags.addWidget(_subheading(tag))
         cl_tags.addWidget(_body_label(meaning))
     layout.addWidget(card_tags)
 
-    # Source of truth
     card_sot, cl_sot = make_section_card("Source of truth: the RTK deck")
     cl_sot.addWidget(
         _body_label(
-            "learned_kanji.csv is a cache derived from the configured RTK deck. "
-            "That deck is the source of truth."
+            "The mapped RTK deck is the source of truth for which kanji are learned. "
+            "Studied (not new) → learned; suspended after Import → treated as known "
+            "until you review; pure new → not learned. After studying an imported card, "
+            "run <b>Export Learned Kanji</b> so progress reflects real reviews."
         )
     )
-    cl_sot.addWidget(_subheading("How export decides Learned / Knowledge"))
     cl_sot.addWidget(
         _body_label(
-            "• Card has been studied (not new) → Learned, Knowledge from Anki/FSRS "
-            "(real review history).\n"
-            "• Card is suspended (e.g. after Import) → Learned, Knowledge = 1.0 "
-            "until you study it.\n"
-            "• Card is pure new (not suspended) → not learned."
-        )
-    )
-    cl_sot.addWidget(_subheading("After you study an imported card"))
-    cl_sot.addWidget(
-        _body_label(
-            "Unsusspend (if needed) and review it. The next Export Learned Kanji "
-            "writes the real Anki knowledge score — the deck always wins over the "
-            "previous CSV value."
-        )
-    )
-    cl_sot.addWidget(_subheading("Switching decks"))
-    cl_sot.addWidget(
-        _body_label(
-            "If you map a different RTK deck and run Export, the CSV is rebuilt "
-            "entirely from that deck. The previous deck’s data is not kept."
+            "If you switch decks and run Export, learned status is rebuilt from that deck only."
         )
     )
     layout.addWidget(card_sot)
 
-    # What to do depending on your situation
-    card6, cl6 = make_section_card("What should I click? (by situation)")
-    cl6.addWidget(_subheading("1. Beginner — no RTK deck yet"))
+    card6, cl6 = make_section_card("What should I click?")
+    cl6.addWidget(_subheading("Beginner — no RTK deck"))
     cl6.addWidget(
         _body_label(
-            "Open Settings → RTK → Setup & Import. Keep “create notes for all Heisig "
-            "kanji” checked and press Create. You get a deck, a note type with the "
-            "standard fields, and ~2200 notes ordered by Heisig 6th-edition number."
+            "RTK → Setup &amp; Import. Keep “create all notes” checked → "
+            "<b>Create Deck &amp; Note Type</b>."
         )
     )
-    cl6.addWidget(_subheading("2. Not a beginner — no RTK deck yet"))
+    cl6.addWidget(_subheading("Some kanji already known — no deck yet"))
     cl6.addWidget(
         _body_label(
-            "Create the deck + note type (all-notes optional). Then use Import "
-            "(file or Heisig number up to N, 6th ed only). Import ensures all "
-            "~2200 notes exist, marks the known subset as learned (suspend or "
-            "schedule), and leaves the rest as new cards for you to study."
+            "Create (optionally without all notes), then Import (file or Heisig up to N)."
         )
     )
-    cl6.addWidget(_subheading("3. I already have an RTK deck"))
+    cl6.addWidget(_subheading("I already have an RTK deck"))
     cl6.addWidget(
         _body_label(
-            "Go to Deck Mapping. Point the add-on at your deck and note type. "
-            "Kanji field and Keyword field are required. Mapping changes apply "
-            "immediately to Setup & Import — you do not need to click Save first. "
-            "Create only adds missing notes and fills empty fields. "
-            "Recommended: the add-on’s own note type for full field support."
-        )
-    )
-    cl6.addWidget(_subheading("Important: Import on a deck that already has notes"))
-    cl6.addWidget(
-        _body_label(
-            "Import will suspend or re-schedule cards for every kanji in the "
-            "imported set — including notes that already existed in that deck. "
-            "Field content is never overwritten, but review queues for those cards "
-            "will change. Do not run Import if you want to keep the current "
-            "scheduling of those kanji. Prefer Import when building a deck or when "
-            "you intentionally want those cards parked as known."
-        )
-    )
-    cl6.addWidget(_subheading("Minimum fields"))
-    cl6.addWidget(
-        _body_label(
-            "Any note type the add-on can drive must expose a Kanji field and a "
-            "Keyword field (via mapping or those exact names). Everything else is "
-            "best-effort fill when the field exists and is empty."
+            "Deck Mapping: point at your deck and note type. Kanji + Keyword required. "
+            "Create only adds missing notes / fills empty fields. "
+            "Avoid Import if you must keep existing scheduling for those kanji."
         )
     )
     layout.addWidget(card6)
 
+    layout.addWidget(make_image_placeholder("[Screenshot: RTK Setup & Import tab]"))
+    layout.addStretch()
+    return _make_scrollable(page)
+
+
+def _build_translate() -> QWidget:
+    page = QWidget()
+    layout = QVBoxLayout(page)
+    layout.setContentsMargins(16, 12, 16, 16)
+    layout.setSpacing(14)
+
     layout.addWidget(
-        make_image_placeholder("[Screenshot: RTK Setup & Import tab]")
+        make_instruction_label("DeepL account, URLs, and per–note-type profiles.")
     )
+
+    card, cl = make_section_card("Account")
+    cl.addWidget(
+        _body_label(
+            "Create or manage a DeepL account at "
+            '<a href="https://www.deepl.com/en">https://www.deepl.com/en</a>. '
+            "Enable DeepL in Settings → Translate, paste your API key, and set the URL."
+        )
+    )
+    cl.addWidget(_subheading("API URLs"))
+    cl.addWidget(
+        _body_label(
+            "• Free: <code>https://api-free.deepl.com</code><br>"
+            "• Pro: <code>https://api.deepl.com</code>"
+        )
+    )
+    cl.addWidget(
+        _body_label(
+            "Match the URL to your key type. The shortcut is global (default Ctrl+T)."
+        )
+    )
+    layout.addWidget(card)
+
+    card2, cl2 = make_section_card("Profiles")
+    cl2.addWidget(
+        _body_label(
+            "Each note type can have its own source field, target field, and languages. "
+            "In the editor the add-on picks the profile that matches the current note "
+            "automatically — the dropdown in Settings only chooses which profile you edit."
+        )
+    )
+    layout.addWidget(card2)
+
+    card3, cl3 = make_section_card("Usage")
+    cl3.addWidget(
+        _body_label(
+            "Character count and limit appear in the Translate tab when the key is valid. "
+            "Free tier has a monthly character cap."
+        )
+    )
+    layout.addWidget(card3)
+
+    layout.addWidget(make_image_placeholder("[Screenshot: Translate settings]"))
     layout.addStretch()
     return _make_scrollable(page)
 
@@ -487,55 +449,53 @@ def _build_hypertts() -> QWidget:
 
     layout.addWidget(
         make_instruction_label(
-            "How to enable and use HyperTTS for automatic audio generation."
+            "Automatic audio via the HyperTTS add-on."
         )
     )
 
-    card, cl = make_section_card("Setup")
+    card, cl = make_section_card("Install &amp; setup")
     cl.addWidget(
         _body_label(
-            "1. Install the HyperTTS add-on from AnkiWeb if you have not already.\n"
-            "2. Configure a voice / preset inside HyperTTS itself.\n"
-            "3. In JapaneseMining → HyperTTS, enable the integration.\n"
-            "4. When you save a card, audio can be generated according to your "
-            "HyperTTS presets."
+            "1. Install HyperTTS from AnkiWeb: "
+            '<a href="https://ankiweb.net/shared/info/111623432">'
+            "https://ankiweb.net/shared/info/111623432</a>"
+        )
+    )
+    cl.addWidget(
+        _body_label(
+            "2. Configure Advanced mode and presets (guide): "
+            '<a href="https://www.vocab.ai/tips/hypertts-advanced-mode">'
+            "https://www.vocab.ai/tips/hypertts-advanced-mode</a>"
+        )
+    )
+    cl.addWidget(
+        _body_label(
+            "3. Create a preset for each note type you use with <b>Advanced mode</b> enabled."
+        )
+    )
+    cl.addWidget(
+        _body_label(
+            "4. In that preset, map the source field HyperTTS reads from to "
+            "<b>Reading</b>, and the target field where audio is written to <b>Audio</b>."
+        )
+    )
+    cl.addWidget(
+        _body_label(
+            "5. In JapaneseMining → HyperTTS, enable the integration, then <b>Save</b>."
         )
     )
     layout.addWidget(card)
 
-    layout.addWidget(make_image_placeholder("[Screenshot: HyperTTS settings]"))
-    layout.addStretch()
-    return _make_scrollable(page)
-
-
-def _build_troubleshooting() -> QWidget:
-    page = QWidget()
-    layout = QVBoxLayout(page)
-    layout.setContentsMargins(16, 12, 16, 16)
-    layout.setSpacing(14)
-
-    layout.addWidget(
-        make_instruction_label(
-            "Quick fixes for the most common issues."
+    card2, cl2 = make_section_card("When audio is generated")
+    cl2.addWidget(
+        _body_label(
+            "On Add Cards, JapaneseMining can trigger HyperTTS according to your presets "
+            "so the <b>Audio</b> field is filled automatically."
         )
     )
-
-    card, cl = make_section_card("Jisho does nothing")
-    cl.addWidget(_bullet("Confirm “Enable Jisho” is checked and restart Anki."))
-    cl.addWidget(_bullet("Check that the active profile’s Search field matches a field that actually contains the word."))
-    cl.addWidget(_bullet("Verify the field mappings are not empty."))
-    layout.addWidget(card)
-
-    card2, cl2 = make_section_card("RTK keywords missing")
-    cl2.addWidget(_bullet("Make sure the RTK deck & note type are configured in the Deck Mapping tab."))
-    cl2.addWidget(_bullet("Run an import (file or Heisig number) so the known-kanji cache is populated."))
     layout.addWidget(card2)
 
-    card3, cl3 = make_section_card("DeepL / character limit")
-    cl3.addWidget(_bullet("Check the character usage shown in the Translate tab."))
-    cl3.addWidget(_bullet("Confirm the API key and URL are correct."))
-    layout.addWidget(card3)
-
+    layout.addWidget(make_image_placeholder("[Screenshot: HyperTTS settings]"))
     layout.addStretch()
     return _make_scrollable(page)
 
@@ -548,24 +508,16 @@ def _build_backup_help() -> QWidget:
 
     layout.addWidget(
         make_instruction_label(
-            "How RTK backups work, what they contain, and how to restore safely."
+            "RTK backups: what they store and how restore works."
         )
     )
 
     card, cl = make_section_card("What a backup is")
     cl.addWidget(
         _body_label(
-            "A backup is a precise snapshot of the configured RTK deck: every note’s "
-            "field values, tags, and per-card scheduling state (type, queue, due, "
-            "interval, ease, reps, lapses, coloured flags, and FSRS stability/"
-            "difficulty when Anki exposes them)."
-        )
-    )
-    cl.addWidget(
-        _body_label(
-            "Backups are taken from the live RTK deck only — never from the "
-            "learned_kanji cache. The cache stays a thin derived view "
-            "(kanji / keyword / learned / knowledge)."
+            "Snapshot of the mapped RTK deck: field values, tags, and per-card "
+            "scheduling (type, queue, due, interval, ease, reps, lapses, flags, "
+            "and FSRS state when Anki exposes it). Taken from the live deck only."
         )
     )
     layout.addWidget(card)
@@ -573,57 +525,95 @@ def _build_backup_help() -> QWidget:
     card2, cl2 = make_section_card("Where files live")
     cl2.addWidget(
         _body_label(
-            "Backups are stored under the add-on profile folder:\n"
-            "user_files/profiles/<profile_id>/backups/\n"
-            "Up to 50 backups are kept; older ones are pruned automatically."
+            "Stored under the add-on profile folder "
+            "(user_files/profiles/&lt;profile_id&gt;/backups/). Up to 50 backups; "
+            "older ones are pruned. A daily backup is attempted when the collection "
+            "loads if none exists for the current UTC day."
         )
     )
     layout.addWidget(card2)
 
-    card3, cl3 = make_section_card("Create")
+    card3, cl3 = make_section_card("Restore")
     cl3.addWidget(
         _body_label(
-            "Open Settings → Backup and press “Create backup now”. A daily backup "
-            "is also attempted automatically when Anki loads the collection (if none "
-            "exists for the current UTC day and RTK is configured)."
+            "Always creates a <b>new</b> deck (Backup_YYYY-MM-DD_HHMM). Your current RTK "
+            "deck and Deck Mapping are never modified. Rename the new deck and "
+            "update RTK → Deck Mapping if you want to switch, then run "
+            "<b>Export Learned Kanji</b>."
+        )
+    )
+    cl3.addWidget(
+        _body_label(
+            "If the original note type still has the same fields, it is reused; "
+            "otherwise a new note type is created with the exact backup fields."
         )
     )
     layout.addWidget(card3)
 
-    card4, cl4 = make_section_card("Restore")
+    card4, cl4 = make_section_card("Limitations")
     cl4.addWidget(
         _body_label(
-            "Select a backup and restore. This always creates a new deck "
-            "(default name Backup_YYYY-MM-DD_HHMM). Your current RTK deck is never "
-            "modified."
-        )
-    )
-    cl4.addWidget(_subheading("Note type handling"))
-    cl4.addWidget(
-        _body_label(
-            "If the original note type still exists with the exact same field list, "
-            "it is reused. Otherwise a new note type is created with a unique name "
-            "and the exact fields from the backup. Field values always come from "
-            "the snapshot."
-        )
-    )
-    cl4.addWidget(_subheading("Using a restored deck as RTK"))
-    cl4.addWidget(
-        _body_label(
-            "Restore never changes Deck Mapping. If you want the restored deck to "
-            "become your RTK deck, rename it as you like, then set Deck Mapping "
-            "under Settings → RTK and run Export Learned Kanji."
+            "FSRS is restored as precisely as the Anki API allows. After a major "
+            "Anki upgrade, spot-check a few cards before relying on a large restore."
         )
     )
     layout.addWidget(card4)
 
-    card5, cl5 = make_section_card("Limitations")
+    layout.addStretch()
+    return _make_scrollable(page)
+
+
+def _build_troubleshooting() -> QWidget:
+    page = QWidget()
+    layout = QVBoxLayout(page)
+    layout.setContentsMargins(16, 12, 16, 16)
+    layout.setSpacing(14)
+
+    layout.addWidget(make_instruction_label("Quick fixes for common issues."))
+
+    card, cl = make_section_card("Jisho does nothing")
+    cl.addWidget(_bullet("Enable Jisho is checked and Anki was restarted."))
+    cl.addWidget(
+        _bullet("Active profile’s Search field matches a field that has the word.")
+    )
+    cl.addWidget(_bullet("Mappings are not empty."))
+    layout.addWidget(card)
+
+    card2, cl2 = make_section_card("RTK keywords missing")
+    cl2.addWidget(_bullet("Deck Mapping points at the correct deck and note type."))
+    cl2.addWidget(_bullet("Kanji field and Keyword field are set."))
+    cl2.addWidget(
+        _bullet("Run <b>Export Learned Kanji</b> after mapping or import changes.")
+    )
+    layout.addWidget(card2)
+
+    card3, cl3 = make_section_card("DeepL / character limit")
+    cl3.addWidget(
+        _bullet(
+            "API key and URL match (free: api-free.deepl.com, pro: api.deepl.com)."
+        )
+    )
+    cl3.addWidget(_bullet("Check character usage on the Translate tab."))
+    cl3.addWidget(
+        _bullet("Profile has source and target fields for this note type.")
+    )
+    layout.addWidget(card3)
+
+    card4, cl4 = make_section_card("HyperTTS audio missing")
+    cl4.addWidget(_bullet("HyperTTS add-on installed and a preset exists for the note type."))
+    cl4.addWidget(
+        _bullet(
+            "Preset maps source → <b>Reading</b>, target → <b>Audio</b> (Advanced mode)."
+        )
+    )
+    cl4.addWidget(_bullet("JapaneseMining → HyperTTS is enabled."))
+    layout.addWidget(card4)
+
+    card5, cl5 = make_section_card("Backup / restore")
+    cl5.addWidget(_bullet("RTK deck must be mapped before <b>Create backup now</b>."))
     cl5.addWidget(
-        _body_label(
-            "FSRS state is restored as precisely as the Anki Python API allows. "
-            "Classic scheduling fields are always written; memory_state / custom_data "
-            "are applied when the running Anki version supports them. After a major "
-            "Anki upgrade, verify a few cards before relying on a large restore."
+        _bullet(
+            "Restore never overwrites the live deck — remap if you want to switch."
         )
     )
     layout.addWidget(card5)
@@ -634,38 +624,67 @@ def _build_backup_help() -> QWidget:
 
 # ── Public factory ───────────────────────────────────────────────────────
 
+HELP_SECTIONS = (
+    "quick_start",
+    "overview",
+    "note_type",
+    "jisho",
+    "rtk",
+    "translate",
+    "hypertts",
+    "backup",
+    "troubleshooting",
+)
+
+
 def make_help_tab(config_holder=None, save_config_fn=None):
     """
     Returns (tab_widget, title, apply_to_config_fn).
 
-    apply_to_config is a no-op because Help is read-only.
-    The returned widget exposes .goto_rtk() so the RTK settings tab
-    can jump here.
+    The widget exposes:
+      .goto(section: str)  — jump to a named Help sub-tab
+      .goto_rtk()          — alias for RTK (back-compat)
+      .sub_tabs            — the QTabWidget
     """
     outer = QWidget()
     outer_layout = QVBoxLayout(outer)
     outer_layout.setContentsMargins(0, 0, 0, 0)
 
     sub_tabs = QTabWidget()
+    # Keep labels readable; scroll the tab bar instead of eliding text
+    sub_tabs.setUsesScrollButtons(True)
+    tab_bar = sub_tabs.tabBar()
+    tab_bar.setUsesScrollButtons(True)
+    tab_bar.setElideMode(Qt.TextElideMode.ElideNone)
+    tab_bar.setExpanding(False)
     outer_layout.addWidget(sub_tabs)
 
-    # Order matters for the jump helper
-    sub_tabs.addTab(_build_overview(), "Overview")
-    sub_tabs.addTab(_build_note_type(), "Note Type")
-    sub_tabs.addTab(_build_tags_decks(), "Tags & Decks")
-    sub_tabs.addTab(_build_jisho(), "Jisho")
-    rtk_index = sub_tabs.count()
-    sub_tabs.addTab(_build_rtk_help(), "Remembering the Kanji")
-    sub_tabs.addTab(_build_hypertts(), "HyperTTS")
-    sub_tabs.addTab(_build_backup_help(), "Backup")
-    sub_tabs.addTab(_build_troubleshooting(), "Troubleshooting")
+    builders = [
+        ("quick_start", "Quick Start", _build_quick_start),
+        ("overview", "Overview", _build_overview),
+        ("note_type", "Note Type", _build_note_type),
+        ("jisho", "Jisho", _build_jisho),
+        ("rtk", "Remembering the Kanji", _build_rtk_help),
+        ("translate", "Translate", _build_translate),
+        ("hypertts", "HyperTTS", _build_hypertts),
+        ("backup", "Backup", _build_backup_help),
+        ("troubleshooting", "Troubleshooting", _build_troubleshooting),
+    ]
 
-    def goto_rtk():
-        sub_tabs.setCurrentIndex(rtk_index)
+    section_index: dict[str, int] = {}
+    for key, title, builder in builders:
+        section_index[key] = sub_tabs.count()
+        sub_tabs.addTab(builder(), title)
 
-    outer.goto_rtk = goto_rtk
-    # Also expose the sub-tab widget so the parent dialog can switch to Help itself
+    def goto(section: str) -> None:
+        idx = section_index.get(section)
+        if idx is not None:
+            sub_tabs.setCurrentIndex(idx)
+
+    outer.goto = goto
+    outer.goto_rtk = lambda: goto("rtk")
     outer.sub_tabs = sub_tabs
+    outer.section_index = section_index
 
     def apply_to_config(_cfg):
         pass  # read-only
