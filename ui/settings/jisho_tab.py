@@ -92,8 +92,9 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None, on_goto_hel
 
     g_root.addWidget(
         make_instruction_label(
-            "Enable Jisho, pick a profile (note type), and set search field, "
-            "fill behaviour, formats, and shortcuts. Restart Anki after enabling."
+            "Each profile is tied to one existing note type. In the editor the "
+            "matching profile is chosen automatically from the note’s note type. "
+            "Restart Anki after enabling Jisho."
         )
     )
 
@@ -146,19 +147,40 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None, on_goto_hel
     profile_row.addWidget(add_profile_btn)
     profile_row.addWidget(delete_profile_btn)
     profile_layout.addLayout(profile_row)
+
+    profile_note = QLabel(
+        "The profile is selected automatically in the editor from the note’s "
+        "note type. Changing the selection here only edits that profile. "
+        "Add only picks from existing note types."
+    )
+    profile_note.setWordWrap(True)
+    profile_note.setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 12px;")
+    profile_layout.addWidget(profile_note)
+
     g_root.addWidget(profile_card)
 
     def add_profile():
         try:
-            models = mw.col.models.all_names() if mw.col else []
+            models = sorted(mw.col.models.all_names()) if mw.col else []
         except Exception:
             models = []
+
+        # Only offer note types that do not already have a profile
+        available = [m for m in models if m not in state["profiles"]]
+        if not available:
+            QMessageBox.information(
+                general,
+                "No note types available",
+                "Every existing note type already has a Jisho profile, "
+                "or no note types exist in this collection.",
+            )
+            return
 
         dlg = QInputDialog(general)
         dlg.setWindowTitle("Add Jisho Profile")
         dlg.setLabelText("Note type:")
-        dlg.setComboBoxItems(sorted(models))
-        dlg.setComboBoxEditable(True)
+        dlg.setComboBoxItems(available)
+        dlg.setComboBoxEditable(False)
         if dlg.exec() != QInputDialog.DialogCode.Accepted:
             return
 
@@ -169,7 +191,7 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None, on_goto_hel
             QMessageBox.warning(
                 general,
                 "Profile exists",
-                f"A profile for '{note_type}' already exists.",
+                f"A profile for “{note_type}” already exists.",
             )
             return
 
@@ -301,8 +323,6 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None, on_goto_hel
     form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
 
     target_deck_cb = QComboBox()
-    target_deck_cb.setMinimumWidth(340)
-    target_deck_cb.setMaximumWidth(340)
     target_deck_cb.setEditable(True)
     target_deck_cb.addItem("")
     try:
@@ -314,21 +334,15 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None, on_goto_hel
     form.addRow("Target deck", target_deck_cb)
 
     search_field_cb = QComboBox()
-    search_field_cb.setMinimumWidth(340)
-    search_field_cb.setMaximumWidth(340)
     form.addRow("Search field", search_field_cb)
 
     fill_mode_cb = QComboBox()
-    fill_mode_cb.setMinimumWidth(340)
-    fill_mode_cb.setMaximumWidth(340)
     fill_mode_cb.addItem("Replace content", "replace")
     fill_mode_cb.addItem("Append to content", "append")
     fill_mode_cb.setCurrentIndex(0 if config.fill_mode == "replace" else 1)
     form.addRow("Fill mode", fill_mode_cb)
 
     multi_meaning_cb = QComboBox()
-    multi_meaning_cb.setMinimumWidth(340)
-    multi_meaning_cb.setMaximumWidth(340)
     multi_meaning_cb.addItem("Pipe Merged", "pipe_merged")
     multi_meaning_cb.addItem("Numbered", "numbered")
     multi_meaning_cb.addItem("Semicolon Merged", "semicolon_merged")
@@ -337,8 +351,6 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None, on_goto_hel
     form.addRow("Multi-meaning format", multi_meaning_cb)
 
     multi_word_cb = QComboBox()
-    multi_word_cb.setMinimumWidth(340)
-    multi_word_cb.setMaximumWidth(340)
     form.addRow("Multi-word format", multi_word_cb)
 
     def refresh_multi_word_options():
@@ -371,8 +383,6 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None, on_goto_hel
             break
 
     quick_fill_mode_cb = QComboBox()
-    quick_fill_mode_cb.setMinimumWidth(340)
-    quick_fill_mode_cb.setMaximumWidth(340)
     quick_fill_mode_cb.addItem("All meanings", "all")
     quick_fill_mode_cb.addItem("First meaning", "first")
     quick_fill_mode_cb.setCurrentIndex(0 if config.quick_fill_mode == "all" else 1)
@@ -571,6 +581,9 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None, on_goto_hel
         cfg.jisho_profiles = deepcopy(state["profiles"])
         cfg.active_jisho_profile = state["active"]
 
+        # Legacy flat fields: still written so AJC's current flat runtime
+        # config keeps working. Runtime resolution for Jisho should prefer
+        # jisho_profiles[note_type] via JishoService.resolve_profile.
         active_p = state["profiles"].get(state["active"], default_jisho_profile())
         cfg.card_type = state["active"]
         cfg.target_deck = active_p.get("target_deck", "")

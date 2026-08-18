@@ -252,9 +252,11 @@ def _build_jisho() -> QWidget:
     card, cl = make_section_card("Profiles")
     cl.addWidget(
         _body_label(
-            "Each note type has its own Jisho profile (search field, mappings, "
-            "fill mode). Switch profiles with the Profile dropdown. After enabling "
-            "Jisho, restart Anki."
+            "Each profile is keyed by an existing note type (search field, mappings, "
+            "fill mode). In the editor the add-on picks the profile that matches the "
+            "current note automatically — the dropdown in Settings only chooses which "
+            "profile you edit. Add only lists note types that do not already have a "
+            "profile. After enabling Jisho, restart Anki."
         )
     )
     layout.addWidget(card)
@@ -592,7 +594,13 @@ def _build_troubleshooting() -> QWidget:
     card, cl = make_section_card("Jisho does nothing")
     cl.addWidget(_bullet("Enable Jisho is checked and Anki was restarted."))
     cl.addWidget(
-        _bullet("Active profile’s Search field matches a field that has the word.")
+        _bullet(
+            "A Jisho profile exists for this note’s note type "
+            "(Settings → Jisho → Profile)."
+        )
+    )
+    cl.addWidget(
+        _bullet("That profile’s Search field matches a field that has the word.")
     )
     cl.addWidget(_bullet("Mappings are not empty."))
     layout.addWidget(card)

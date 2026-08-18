@@ -144,8 +144,9 @@ def make_translate_tab(
 
     root_layout.addWidget(
         make_instruction_label(
-            "Each note type can have its own source/target fields and languages. "
-            "In the editor the matching profile is chosen automatically."
+            "Each profile is tied to one existing note type (source/target fields "
+            "and languages). In the editor the matching profile is chosen "
+            "automatically from the note’s note type."
         )
     )
 
@@ -230,7 +231,8 @@ def make_translate_tab(
 
     note = QLabel(
         "The profile is selected automatically in the editor from the note’s "
-        "note type. Changing the selection here only edits that profile."
+        "note type. Changing the selection here only edits that profile. "
+        "Add only picks from existing note types."
     )
     note.setWordWrap(True)
     note.setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 12px;")
@@ -345,11 +347,21 @@ def make_translate_tab(
 
     def add_profile():
         models = _note_type_names()
+        available = [m for m in models if m not in state["profiles"]]
+        if not available:
+            QMessageBox.information(
+                root,
+                "No note types available",
+                "Every existing note type already has a Translate profile, "
+                "or no note types exist in this collection.",
+            )
+            return
+
         dlg = QInputDialog(root)
         dlg.setWindowTitle("Add Translate Profile")
         dlg.setLabelText("Note type:")
-        dlg.setComboBoxItems(models)
-        dlg.setComboBoxEditable(True)
+        dlg.setComboBoxItems(available)
+        dlg.setComboBoxEditable(False)
         if dlg.exec() != QInputDialog.DialogCode.Accepted:
             return
 
