@@ -334,8 +334,15 @@ class BackupService:
             raise JapaneseMiningError("No collection open.")
 
         # ----- 1. Deck -----
+        # Default name uses the backup's creation time (not restore time).
         if not deck_name:
-            stamp = datetime.now().strftime("%Y-%m-%d_%H%M")
+            stamp = ""
+            try:
+                created = (doc.meta.created_at or "").replace("Z", "+00:00")
+                dt = datetime.fromisoformat(created)
+                stamp = dt.astimezone().strftime("%Y-%m-%d_%H%M")
+            except Exception:
+                stamp = datetime.now().strftime("%Y-%m-%d_%H%M")
             deck_name = f"Backup_{stamp}"
         deck_id = col.decks.id(deck_name)
 

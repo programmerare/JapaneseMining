@@ -235,13 +235,10 @@ def make_backup_tab(
         if not path:
             return
 
-        stamp = datetime.now().strftime("%Y-%m-%d_%H%M")
-        default_deck = f"Backup_{stamp}"
-
         msg = (
             f"Restore this backup into a new deck?\n\n"
-            f"Deck name: {default_deck}\n"
             f"Source file: {Path(path).name}\n\n"
+            "The new deck will be named Backup_<backup-created-at>.\n"
             "The current RTK deck and settings will not be modified."
         )
 
@@ -257,13 +254,12 @@ def make_backup_tab(
 
         restore_btn.setEnabled(False)
         try:
-            result = backup_service.restore_to_new_deck(
-                path,
-                deck_name=default_deck,
-            )
+            # Deck name is derived inside the service from meta.created_at
+            result = backup_service.restore_to_new_deck(path)
             n = getattr(result, "kanji_added_to_rtk", 0) or 0
             showInfo(
-                f"Restored {n} notes into deck “{default_deck}”.\n\n"
+                f"Restored {n} notes into a new deck "
+                f"(named from the backup’s creation time).\n\n"
                 "Your RTK mapping is unchanged. Rename the deck and update "
                 "Settings → RTK → Deck Mapping if you want to use it.",
                 parent=mw,
