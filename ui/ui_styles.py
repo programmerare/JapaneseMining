@@ -138,9 +138,11 @@ def make_section_card(title: str | None = None) -> tuple[QFrame, QVBoxLayout]:
 
 
 def make_instruction_label(text: str) -> QLabel:
-    """Brief instruction shown at the top of every settings tab."""
+    """Brief instruction shown at the top of every settings tab. Supports simple HTML."""
     label = QLabel(text)
     label.setWordWrap(True)
+    label.setTextFormat(Qt.TextFormat.RichText)
+    label.setOpenExternalLinks(True)
     label.setStyleSheet(INSTRUCTION_SS)
     return label
 
@@ -150,6 +152,7 @@ def make_callout(text: str, *, kind: str = "info") -> QFrame:
     Modern inline callout for guidance or warnings.
 
     kind: "info" | "warning"
+    Supports simple HTML (e.g. <b>Create</b> for action names).
     """
     if kind == "warning":
         bg, border, color, prefix = WARNING_BG, WARNING_BORDER, WARNING_TEXT, "⚠ "
@@ -173,6 +176,8 @@ def make_callout(text: str, *, kind: str = "info") -> QFrame:
 
     label = QLabel(prefix + text)
     label.setWordWrap(True)
+    label.setTextFormat(Qt.TextFormat.RichText)
+    label.setOpenExternalLinks(True)
     label.setStyleSheet(
         f"color: {color}; font-size: 12.5px; line-height: 1.45; background: transparent;"
     )

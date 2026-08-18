@@ -114,13 +114,14 @@ def make_rtk_tab(
     mapping_root.addWidget(
         make_instruction_label(
             "Map the deck and note type for Heisig (RTK) cards. Changes apply "
-            "immediately to Setup & Import (no Save needed). Kanji and Keyword required."
+            "immediately to Setup &amp; Import (no <b>Save</b> needed). "
+            "Kanji and Keyword required."
         )
     )
     mapping_root.addWidget(
         make_callout(
             "Mapped deck is the source of truth for learned kanji status. "
-            "After switching decks, run Export Learned Kanji.",
+            "After switching decks, run <b>Export Learned Kanji</b>.",
             kind="info",
         )
     )
@@ -310,8 +311,8 @@ def make_rtk_tab(
 
     setup_root.addWidget(
         make_instruction_label(
-            "Create sets up deck + note type. Import fills the Heisig set and parks "
-            "known kanji. Deck Mapping above is the live source for Import (no Save first)."
+            "<b>Create</b> sets up deck + note type. <b>Import</b> fills the Heisig set and parks "
+            "known kanji. Deck Mapping above is the live source for Import (no <b>Save</b> first)."
         )
     )
 
@@ -320,14 +321,14 @@ def make_rtk_tab(
 
     create_layout.addWidget(
         make_callout(
-            "Beginner → leave “create all notes” on. Already know some → uncheck, then Import. "
+            "Beginner → leave “create all notes” on. Already know some → uncheck, then <b>Import</b>. "
             "Prefer the add-on’s own note type for full field support.",
             kind="info",
         )
     )
     create_layout.addWidget(
         make_callout(
-            "Create never deletes notes or overwrites non-empty fields — only adds missing "
+            "<b>Create</b> never deletes notes or overwrites non-empty fields — only adds missing "
             "notes and fills empty fields.",
             kind="info",
         )
@@ -352,7 +353,7 @@ def make_rtk_tab(
     create_form.addRow("Note type name", create_note_type_edit)
 
     create_all_notes_cb = QCheckBox(
-        "Also create notes for all Heisig kanji (2200, 6th ed). Skips duplicates; fills empty fields."
+        "Also create notes for all Heisig kanji (≈2200, 6th ed). Skips duplicates; fills empty fields."
     )
     create_all_notes_cb.setChecked(True)
     create_form.addRow("", create_all_notes_cb)
@@ -437,7 +438,7 @@ def make_rtk_tab(
 
     import_layout.addWidget(
         make_callout(
-            "Ensures all 2200 Heisig 6th-ed notes exist; marks the imported subset as known; "
+            "<b>Import</b> ensures all 2200 Heisig 6th-ed notes exist; marks the imported subset as known; "
             "fills empty Keyword / number / stroke fields when possible. "
             "Tags: JapaneseMining::RTK, Heisig, Imported-Known.",
             kind="info",
@@ -447,7 +448,7 @@ def make_rtk_tab(
         make_callout(
             "If those kanji already exist in the RTK deck, their cards are suspended or "
             "re-scheduled (option below). Fields are never overwritten — but review queues change. "
-            "Skip Import if you must keep current scheduling for those cards.",
+            "Skip <b>Import</b> if you must keep current scheduling for those cards.",
             kind="warning",
         )
     )

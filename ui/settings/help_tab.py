@@ -1,17 +1,20 @@
 """
 Help / Instructions tab for JapaneseMining.
 
-Sub-tabs keep scrolling manageable. Quick Start is intentionally short.
-Screenshots use make_image_placeholder until real assets are added.
+Uses a left nav list + stacked pages instead of a crowded sub-tab bar.
+Quick Start stays short. Screenshots use make_image_placeholder until assets exist.
 """
 
 from aqt.qt import (
     QWidget,
     QVBoxLayout,
+    QHBoxLayout,
     QLabel,
     QScrollArea,
     QFrame,
-    QTabWidget,
+    QListWidget,
+    QListWidgetItem,
+    QStackedWidget,
     Qt,
 )
 
@@ -21,11 +24,14 @@ from ..ui_styles import (
     make_image_placeholder,
     TEXT_BODY,
     TEXT_PRIMARY,
+    ACCENT,
+    BORDER,
+    BG_CARD,
 )
 
 
 def _body_label(text: str) -> QLabel:
-    """Body text; supports simple HTML (links, <b> for button names)."""
+    """Body text; supports simple HTML (links, <b> for action names)."""
     lbl = QLabel(text)
     lbl.setWordWrap(True)
     lbl.setTextFormat(Qt.TextFormat.RichText)
@@ -61,7 +67,7 @@ def _make_scrollable(content_widget: QWidget) -> QScrollArea:
     return scroll
 
 
-# ── Sub-tab builders ─────────────────────────────────────────────────────
+# ── Page builders ────────────────────────────────────────────────────────
 
 def _build_quick_start() -> QWidget:
     page = QWidget()
@@ -71,7 +77,7 @@ def _build_quick_start() -> QWidget:
 
     layout.addWidget(
         make_instruction_label(
-            "Get productive in a few minutes. Details live in the other Help tabs."
+            "Get productive in a few minutes. Details live in the other Help pages."
         )
     )
 
@@ -90,7 +96,8 @@ def _build_quick_start() -> QWidget:
         _body_label(
             "Settings → RTK → Setup &amp; Import. Beginners: leave “create all notes” "
             "checked and press <b>Create Deck &amp; Note Type</b>. Already know some kanji: "
-            "uncheck it, press <b>Create</b>, then use Import (file or Heisig number up to N)."
+            "uncheck it, press <b>Create Deck &amp; Note Type</b>, then use Import "
+            "(file or Heisig number up to N)."
         )
     )
     cl2.addWidget(
@@ -105,7 +112,8 @@ def _build_quick_start() -> QWidget:
     for item in [
         "Jisho: Settings → Jisho → enable, map fields for your note type, <b>Save</b>, restart Anki.",
         "DeepL: Settings → Translate → API key + profile (source/target fields). Shortcut defaults to Ctrl+T.",
-        "HyperTTS: install the HyperTTS add-on, create a preset, then enable it here.",
+        "HyperTTS: install the add-on, create an <b>Advanced mode</b> preset for your note type "
+        "(source <b>Reading</b> → target <b>Audio</b>), then enable it in Settings → HyperTTS.",
     ]:
         cl3.addWidget(_bullet(item))
     layout.addWidget(card3)
@@ -113,8 +121,8 @@ def _build_quick_start() -> QWidget:
     card4, cl4 = make_section_card("4. Recommended mining workflow")
     cl4.addWidget(
         _body_label(
-            "In Add Cards, pin fields you want to keep (small pushpin next to the field) "
-            "so values survive after adding a card."
+            "In Add Cards, <b>pin Example Sentence</b> and <b>Translation</b> "
+            "(small pushpin next to each field) so the sentence survives after you add a card."
         )
     )
     for step in [
@@ -150,12 +158,13 @@ def _build_overview() -> QWidget:
         )
     )
     for step in [
-        "Pin fields you reuse (Anki pushpin next to the field) so they stay after adding.",
+        "Pin <b>Example Sentence</b> and <b>Translation</b> (Anki pushpin) so they stay after adding.",
         "Paste or type a Japanese sentence into <b>Example Sentence</b>.",
         "Run DeepL so <b>Translation</b> is filled.",
         "Word chips appear above the example (Sudachi). Click one to put it in <b>Word</b>.",
         "Run Jisho to fill Reading, Meaning, Part of Speech, and related fields.",
-        "Optional: HyperTTS writes audio into <b>Audio</b> on add.",
+        "Optional: HyperTTS writes audio into <b>Audio</b> on add "
+        "(or batch later — see HyperTTS Help).",
         "Add the card. RTK kanji status is checked automatically.",
     ]:
         cl.addWidget(_bullet(step))
@@ -470,7 +479,8 @@ def _build_hypertts() -> QWidget:
     )
     cl.addWidget(
         _body_label(
-            "3. Create a preset for each note type you use with <b>Advanced mode</b> enabled."
+            "3. Create a preset for each note type you use with <b>Advanced mode</b> enabled. "
+            "This preset is required — without it, JapaneseMining cannot generate audio."
         )
     )
     cl.addWidget(
@@ -486,11 +496,19 @@ def _build_hypertts() -> QWidget:
     )
     layout.addWidget(card)
 
-    card2, cl2 = make_section_card("When audio is generated")
+    card2, cl2 = make_section_card("On Add Card vs batch")
     cl2.addWidget(
         _body_label(
-            "On Add Cards, JapaneseMining can trigger HyperTTS according to your presets "
-            "so the <b>Audio</b> field is filled automatically."
+            "Generating audio when you press <b>Add</b> can take a couple of seconds "
+            "and feel slow if you mine many cards in a row. If that bothers you, "
+            "turn HyperTTS <b>off</b> in JapaneseMining Settings and add audio later in batch."
+        )
+    )
+    cl2.addWidget(
+        _body_label(
+            "Batch guide (select notes in the browser, then run your preset from the menu): "
+            '<a href="https://www.vocab.ai/tutorials/hypertts-collection-audio">'
+            "https://www.vocab.ai/tutorials/hypertts-collection-audio</a>"
         )
     )
     layout.addWidget(card2)
@@ -600,13 +618,22 @@ def _build_troubleshooting() -> QWidget:
     layout.addWidget(card3)
 
     card4, cl4 = make_section_card("HyperTTS audio missing")
-    cl4.addWidget(_bullet("HyperTTS add-on installed and a preset exists for the note type."))
+    cl4.addWidget(
+        _bullet("HyperTTS add-on installed and a preset exists for the note type.")
+    )
     cl4.addWidget(
         _bullet(
             "Preset maps source → <b>Reading</b>, target → <b>Audio</b> (Advanced mode)."
         )
     )
     cl4.addWidget(_bullet("JapaneseMining → HyperTTS is enabled."))
+    cl4.addWidget(
+        _bullet(
+            "If Add is slow, disable HyperTTS here and batch audio later "
+            '(see <a href="https://www.vocab.ai/tutorials/hypertts-collection-audio">'
+            "collection audio tutorial</a>)."
+        )
+    )
     layout.addWidget(card4)
 
     card5, cl5 = make_section_card("Backup / restore")
@@ -636,28 +663,55 @@ HELP_SECTIONS = (
     "troubleshooting",
 )
 
+_NAV_STYLE = f"""
+QListWidget {{
+    background: {BG_CARD};
+    border: 1px solid {BORDER};
+    border-radius: 8px;
+    padding: 6px 4px;
+    outline: none;
+}}
+QListWidget::item {{
+    padding: 8px 12px;
+    border-radius: 6px;
+    color: {TEXT_PRIMARY};
+    font-size: 13px;
+}}
+QListWidget::item:selected {{
+    background: #e8f0fe;
+    color: {ACCENT};
+    font-weight: 600;
+}}
+QListWidget::item:hover:!selected {{
+    background: #f1f3f4;
+}}
+"""
+
 
 def make_help_tab(config_holder=None, save_config_fn=None):
     """
     Returns (tab_widget, title, apply_to_config_fn).
 
-    The widget exposes:
-      .goto(section: str)  — jump to a named Help sub-tab
-      .goto_rtk()          — alias for RTK (back-compat)
-      .sub_tabs            — the QTabWidget
+    Left nav list + stacked content (no sub-tab bar).
+    Exposes:
+      .goto(section: str)
+      .goto_rtk()
+      .section_index
     """
     outer = QWidget()
-    outer_layout = QVBoxLayout(outer)
-    outer_layout.setContentsMargins(0, 0, 0, 0)
+    outer_layout = QHBoxLayout(outer)
+    outer_layout.setContentsMargins(8, 8, 8, 8)
+    outer_layout.setSpacing(10)
 
-    sub_tabs = QTabWidget()
-    # Keep labels readable; scroll the tab bar instead of eliding text
-    sub_tabs.setUsesScrollButtons(True)
-    tab_bar = sub_tabs.tabBar()
-    tab_bar.setUsesScrollButtons(True)
-    tab_bar.setElideMode(Qt.TextElideMode.ElideNone)
-    tab_bar.setExpanding(False)
-    outer_layout.addWidget(sub_tabs)
+    nav = QListWidget()
+    nav.setFixedWidth(200)
+    nav.setStyleSheet(_NAV_STYLE)
+    nav.setSpacing(2)
+    nav.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+    outer_layout.addWidget(nav)
+
+    stack = QStackedWidget()
+    outer_layout.addWidget(stack, 1)
 
     builders = [
         ("quick_start", "Quick Start", _build_quick_start),
@@ -673,18 +727,29 @@ def make_help_tab(config_holder=None, save_config_fn=None):
 
     section_index: dict[str, int] = {}
     for key, title, builder in builders:
-        section_index[key] = sub_tabs.count()
-        sub_tabs.addTab(builder(), title)
+        section_index[key] = stack.count()
+        item = QListWidgetItem(title)
+        item.setData(Qt.ItemDataRole.UserRole, key)
+        nav.addItem(item)
+        stack.addWidget(builder())
+
+    def on_nav_changed(row: int) -> None:
+        if row >= 0:
+            stack.setCurrentIndex(row)
+
+    nav.currentRowChanged.connect(on_nav_changed)
+    nav.setCurrentRow(0)
 
     def goto(section: str) -> None:
         idx = section_index.get(section)
         if idx is not None:
-            sub_tabs.setCurrentIndex(idx)
+            nav.setCurrentRow(idx)
 
     outer.goto = goto
     outer.goto_rtk = lambda: goto("rtk")
-    outer.sub_tabs = sub_tabs
     outer.section_index = section_index
+    outer.nav = nav
+    outer.stack = stack
 
     def apply_to_config(_cfg):
         pass  # read-only

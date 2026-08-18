@@ -73,7 +73,7 @@ def make_backup_tab(
     layout.addWidget(
         make_instruction_label(
             "Snapshot the mapped RTK deck (fields, tags, scheduling / FSRS). "
-            "Restore always creates a new deck — the live RTK deck is never overwritten."
+            "<b>Restore</b> always creates a new deck — the live RTK deck is never overwritten."
         )
     )
 
@@ -158,7 +158,7 @@ def make_backup_tab(
     restore_card, restore_cl = make_section_card("Restore")
     restore_cl.addWidget(
         make_callout(
-            "Creates a new deck (Backup_YYYY-MM-DD_HHMM). Current RTK deck and "
+            "<b>Restore</b> creates a new deck (Backup_YYYY-MM-DD_HHMM). Current RTK deck and "
             "mapping stay untouched. Remap under RTK if you want to switch.",
             kind="warning",
         )
