@@ -90,17 +90,6 @@ class KanjiDataService:
         self.load_todays_kanji()
         self.load_todays_known_cards()
 
-        # load_* may set _current_day from the CSV (possibly yesterday) with
-        # empty filtered lists. Force a clean "today" state either way.
-        if self._current_day != today:
-            self._current_day = today
-            self._todays_words = []
-            self._todays_kanji = []
-            self._todays_known_cards = []
-            self._seen_words.clear()
-            self._seen_kanji.clear()
-            self._seen_known_cards.clear()
-
     def get_heatmap_data(
         self,
     ) -> tuple[list[str], list[str], int, int, list[str], dict[str, float]]:
@@ -199,7 +188,6 @@ class KanjiDataService:
 
     def load_todays_words(self) -> None:
         """Load words learned today from the CSV file."""
-        self._current_day = None
         today = str(date.today())
         items: list[tuple[str, str, str]] = []
         file_path = self._user_data_path(self._TODAYS_WORDS_FILE)
@@ -209,11 +197,7 @@ class KanjiDataService:
                 reader = csv.reader(f)
                 next(reader, None)  # header
                 for row in reader:
-                    if len(row) < 4:
-                        continue
-                    if self._current_day is None:
-                        self._current_day = row[0]
-                    if self._current_day == today:
+                    if len(row) >= 4 and row[0] == today:
                         items.append((row[1], row[2], row[3]))
         except FileNotFoundError:
             pass
@@ -221,7 +205,6 @@ class KanjiDataService:
         self._seen_words = {(w, r) for w, r, _ in items}
 
     def load_todays_kanji(self) -> None:
-        self._current_day = None
         """Load kanji learned today from CSV."""
         today = str(date.today())
         items: list[tuple[str, str]] = []
@@ -231,11 +214,7 @@ class KanjiDataService:
                 reader = csv.reader(f)
                 next(reader, None)  # header
                 for row in reader:
-                    if len(row) < 2:
-                        continue
-                    if self._current_day is None:
-                        self._current_day = row[0]
-                    if self._current_day == today:
+                    if len(row) >= 2 and row[0] == today:
                         items.append((row[1], row[2] if len(row) > 2 else ""))
         except FileNotFoundError:
             pass
@@ -244,7 +223,6 @@ class KanjiDataService:
 
     def load_todays_known_cards(self) -> None:
         """Load cards that became known today from CSV."""
-        self._current_day = None
         today = str(date.today())
         items: list[tuple[str, str, str]] = []
         file_path = self._user_data_path(self._TODAYS_KNOWN_CARDS_FILE)
@@ -253,11 +231,7 @@ class KanjiDataService:
                 reader = csv.reader(f)
                 next(reader, None)
                 for row in reader:
-                    if len(row) < 4:
-                        continue
-                    if self._current_day is None:
-                        self._current_day = row[0]
-                    if self._current_day == today:
+                    if len(row) >= 4 and row[0] == today:
                         items.append((row[1], row[2], row[3]))
         except FileNotFoundError:
             pass
@@ -266,7 +240,6 @@ class KanjiDataService:
 
     def load_flagged_kanji(self) -> None:
         """Load flagged kanji from CSV. Columns: Heisig Number, Kanji, Keyword."""
-        self._current_day = None
         items: list[tuple[str, str, str]] = []
         file_path = self._user_data_path(self._FLAGGED_KANJI_FILE)
         try:
