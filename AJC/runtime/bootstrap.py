@@ -37,8 +37,6 @@ def initialize_ajc(cfg) -> None:
     if _INITIALIZED:
         return
 
-    logger.info("Anki Jisho Connect loaded")
-
     if hasattr(cfg, "__dataclass_fields__"):
         from .config_holder import set_runtime_config
         from ...jisho_adapter import to_ajc_runtime_config
