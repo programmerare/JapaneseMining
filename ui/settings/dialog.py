@@ -125,6 +125,9 @@ def make_show_settings(
                 return
 
             if config.use_jisho:
+                # Refresh AJC fallback snapshot after Settings save.
+                # Runtime lookups still resolve live via set_config_resolver
+                # (Design B) from the current note's note type.
                 from ...jisho_adapter import to_ajc_runtime_config
                 from ...AJC.runtime.config_holder import set_runtime_config
 

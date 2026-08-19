@@ -1,15 +1,22 @@
 # -*- coding: utf-8 -*-
-"""Jisho API client: Requests and background worker."""
+"""Jisho API client: Requests and background worker.
 
-import json
-from copy import deepcopy
-import requests
+Place this file at: AJC/runtime/jisho_client.py
+(or merge the load_config / load_full_config changes into your existing file).
+
+Design B: load_config() resolves from JapaneseMining's jisho_profiles using
+the current editor note's note type — no Anki restart required for profile switches.
+"""
+
+from __future__ import annotations
+
 import urllib.parse
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
+import requests
 from aqt.qt import QObject, pyqtSignal, pyqtSlot
 
-from .config_holder import get_runtime_config, set_runtime_config
+from .config_holder import resolve_runtime_config, set_runtime_config
 from .logger import logger
 
 LEGACY_REMOVED_KEYS = (
@@ -35,19 +42,43 @@ PROFILE_KEYS = (
 )
 
 
+def _current_note():
+    """Best-effort: note in the active editor window, if any."""
+    try:
+        from aqt import mw
+
+        win = mw.app.activeWindow() if mw and mw.app else None
+        editor = getattr(win, "editor", None) if win is not None else None
+        note = getattr(editor, "note", None) if editor is not None else None
+        if note is not None:
+            return note
+    except Exception:
+        pass
+    return None
+
+
 def load_full_config() -> Dict[str, Any]:
-    return get_runtime_config()
+    """Same as load_config — kept for AJC callers that use the full name."""
+    return load_config()
 
 
 def load_config() -> Dict[str, Any]:
-    return get_runtime_config()
+    """
+    Return the flat config for the current context.
+
+    Uses the JapaneseMining resolver (note type → jisho_profiles entry)
+    when installed; otherwise the fallback snapshot.
+    """
+    return resolve_runtime_config(_current_note())
 
 
 def save_full_config(config: Dict[str, Any]) -> None:
+    """Update fallback snapshot only (JM owns durable persistence)."""
     set_runtime_config(config)
 
 
-def save_config(config: Dict[str, Any]):
+def save_config(config: Dict[str, Any]) -> None:
+    """Update fallback snapshot only (JM owns durable persistence)."""
     set_runtime_config(config)
 
 
@@ -72,7 +103,7 @@ def fetch_dictionary_entries(term: str) -> List[Dict[str, Any]]:
 
 class JishoFetchWorker(QObject):
     """Background worker thread for dictionary requests."""
-    
+
     finished = pyqtSignal(list)
     error = pyqtSignal(str)
 
