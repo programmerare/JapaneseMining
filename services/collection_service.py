@@ -900,8 +900,8 @@ class CollectionService:
                 all_known = False
 
             if not keywords_present or force_update_keywords:
-                kanji_keyword = kanji_entry.get("Keyword", "") if kanji_entry else ""
-                if kanji_keyword and kanji_keyword not in keywords:
+                kanji_keyword = kanji_entry.get("Keyword") or "not known" if kanji_entry else "not known"
+                if kanji_keyword not in keywords:
                     keywords.append(f"{ch}: {kanji_keyword}")
 
             if not meanings_present or force_update_meanings:
