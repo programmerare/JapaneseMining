@@ -1,7 +1,7 @@
 from anki.notes import Note
 from aqt import gui_hooks, mw
 from aqt.editor import Editor
-from aqt.qt import QAction, QMenu
+from aqt.qt import QTimer
 from aqt.utils import showWarning
 from concurrent.futures import ThreadPoolExecutor
 
@@ -26,8 +26,12 @@ from .ui.update_indicator import setup_update_indicator
 _executor = ThreadPoolExecutor(max_workers=2)
 
 _current_editor: Editor | None = None
+_focused_field_index: str | None = None
 
-_warned_missing_meanings = False
+
+# ---------------------------------------------------------------------------
+# Editor helpers
+# ---------------------------------------------------------------------------
 
 
 def _set_current_editor(editor: Editor) -> None:
@@ -40,7 +44,6 @@ def _get_current_editor():
 
 
 def _get_live_add_cards_editor() -> Editor | None:
-    # AddCards window keeps a reference to its editor
     from aqt.addcards import AddCards
 
     for widget in mw.app.topLevelWidgets():
@@ -49,9 +52,6 @@ def _get_live_add_cards_editor() -> Editor | None:
             if editor is not None and getattr(editor, "web", None) is not None:
                 return editor
     return None
-
-
-_focused_field_index: str | None = None
 
 
 def _set_focused_field(note, index):
@@ -63,12 +63,17 @@ def _get_focused_field_index():
     return _focused_field_index
 
 
+# ---------------------------------------------------------------------------
+# Setup
+# ---------------------------------------------------------------------------
+
+
 def setup_addon():
-    """Set up the JapaneseMining add-on, including services, hooks, and menu actions."""
-    print("Setting up new JapaneseMining add-on...")
+    """Set up the JapaneseMining add-on: services, hooks, menu, timers."""
+    print("Setting up JapaneseMining add-on...")
+
     config_holder = ConfigHolder(load_config())
 
-    # Create services
     kanji_data_service = KanjiDataService(config_holder)
     collection_service = CollectionService(config_holder, kanji_data_service)
     deepl_service = DeeplService(config_holder)
@@ -76,12 +81,13 @@ def setup_addon():
     hypertts_service = HyperTTSService(config_holder)
     backup_service = BackupService(config_holder)
 
-    # --- data loading in background (must run after collection is ready) ---
+    # --- collection bootstrap (disk work off the UI thread) ---
     def on_collection_loaded(col):
-        config_holder.reload()  # double load on config but it's okay
+        # Main thread: anything other services / UI may touch immediately.
+        config_holder.reload()
         jisho_service.initialize()
 
-        def load():
+        def load_disk():
             try:
                 ensure_reference_files(mw.col.media.dir())
             except FileNotFoundError as e:
@@ -94,54 +100,25 @@ def setup_addon():
                 )
                 return
 
-            kanji_data_service.load_learned_kanji()
-            try:
-                kanji_data_service.load_kanji_meanings()
-            except JapaneseMiningError as e:
-                global _warned_missing_meanings
-                if not _warned_missing_meanings:
-                    _warned_missing_meanings = True
-                    mw.taskman.run_on_main(
-                        lambda e=e: showWarning(
-                            e.full_message(),
-                            parent=mw,
-                            title="JapaneseMining",
-                        )
-                    )
-            kanji_data_service.load_todays_words()
-            kanji_data_service.load_todays_kanji()
-            kanji_data_service.load_todays_known_cards()
-            kanji_data_service.load_flagged_kanji()
+            # Always full reload — must not day-gate (profile switch same day).
+            kanji_data_service.load_profile_data()
 
-            # Single day-boundary pass: roll caches if CSVs are from a
-            # previous day, then attempt at-most-once daily RTK backup.
-            try:
-                kanji_data_service.ensure_today()
-            except Exception:
-                pass
             try:
                 backup_service.maybe_create_daily_backup()
             except Exception:
                 pass
 
-            # Clear the update needed flag after loading (including profile
-            # switch) so the indicator is not shown unnecessarily.
             kanji_data_service.clear_update_needed()
 
-        _executor.submit(load)
+        _executor.submit(load_disk)
 
-    # --- update indicator ---
-    setup_update_indicator(kanji_data_service)
+    def _safe_daily_backup():
+        try:
+            backup_service.maybe_create_daily_backup()
+        except Exception:
+            pass
 
-    # --- HOOKS ---
-    gui_hooks.collection_did_load.append(on_collection_loaded)
-
-    # --- editor tracking ---
-    gui_hooks.editor_did_init.append(_set_current_editor)
-
-    # --- focused field tracking ---
-    gui_hooks.editor_did_focus_field.append(_set_focused_field)
-
+    # --- note / editor callbacks ---
     def on_note_added(note: Note):
         editor = _get_live_add_cards_editor() or _get_current_editor()
         try:
@@ -169,27 +146,38 @@ def setup_addon():
                 title="JapaneseMining",
             )
 
+    set_translate_btn = make_translate_btn_setup(deepl_service, config_holder)
+    segment_sentence = make_segment_sentence(config_holder, _get_focused_field_index)
+
+    # --- hooks (grouped by concern) ---
+    setup_update_indicator(kanji_data_service)
+
+    gui_hooks.collection_did_load.append(on_collection_loaded)
+
+    gui_hooks.editor_did_init.append(_set_current_editor)
+    gui_hooks.editor_did_init.append(inject_editor_css)
+    gui_hooks.editor_did_init_buttons.append(set_translate_btn)
+    gui_hooks.editor_did_focus_field.append(_set_focused_field)
+    gui_hooks.editor_did_fire_typing_timer.append(segment_sentence)
+
     gui_hooks.add_cards_did_add_note.append(on_note_added)
     gui_hooks.add_cards_will_add_note.append(on_will_add_note)
 
-    gui_hooks.editor_did_init.append(inject_editor_css)
-
-    set_translate_btn = make_translate_btn_setup(deepl_service, config_holder)
-    gui_hooks.editor_did_init_buttons.append(set_translate_btn)
-
-    segment_sentence = make_segment_sentence(config_holder, _get_focused_field_index)
-    gui_hooks.editor_did_fire_typing_timer.append(segment_sentence)
-
     gui_hooks.reviewer_did_answer_card.append(kanji_data_service.handle_card_answered)
 
-    # --- Setup menu actions ---
+    # --- menu ---
     show_settings = make_show_settings(
         config_holder, save_config, collection_service, deepl_service, backup_service
     )
-
     setup_menu(
         config_holder,
         collection_service,
         kanji_data_service,
         show_settings,
     )
+
+    # --- hourly daily-backup probe (idempotent; also runs on collection load) ---
+    backup_timer = QTimer(mw)
+    backup_timer.setInterval(60 * 60 * 1000)
+    backup_timer.timeout.connect(lambda: _executor.submit(_safe_daily_backup))
+    backup_timer.start()
