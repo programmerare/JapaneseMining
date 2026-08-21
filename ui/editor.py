@@ -150,8 +150,17 @@ def make_segment_sentence(config_holder: ConfigHolder, get_focused_field_index):
     def segment_sentence(note):
         """Segment the Example Sentence field of a note and display the tokens in a preview area."""
         config = config_holder.config
-        if not note or note.note_type()["name"] != config.mining_note_type:
-            return
+
+        if note is None:
+            return None
+        try:
+            name = note.note_type()["name"]
+        except Exception:
+            return None
+        profiles = config.translate_profiles or {}
+        profile = profiles.get(name)
+        if not isinstance(profile, dict):
+            return None
 
         if "Example Sentence" not in note:
             return
