@@ -5,7 +5,24 @@ This is the single source of truth for colors, spacing and component styles.
 Keep it in sync with todays_words.py.
 """
 
-from aqt.qt import QFrame, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, Qt, QWidget, QScrollArea, QSizePolicy
+from aqt.qt import (
+    QApplication,
+    QFrame,
+    QLabel,
+    QVBoxLayout,
+    QHBoxLayout,
+    QPushButton,
+    Qt,
+    QWidget,
+    QScrollArea,
+    QSizePolicy,
+    QPixmap,
+)
+from pathlib import Path
+
+# ── Assets paths ─────────────────────────────────────────────────────────
+_PACKAGE_DIR = Path(__file__).resolve().parent
+_ASSETS_DIR = _PACKAGE_DIR / "assets"
 
 # ── Palette ──────────────────────────────────────────────────────────────
 BG_CARD = "#fafafa"
@@ -161,15 +178,13 @@ def make_callout(text: str, *, kind: str = "info") -> QFrame:
 
     frame = QFrame()
     frame.setObjectName("callout")
-    frame.setStyleSheet(
-        f"""
+    frame.setStyleSheet(f"""
         QFrame#callout {{
             background: {bg};
             border: 1px solid {border};
             border-radius: 8px;
         }}
-        """
-    )
+        """)
     layout = QVBoxLayout(frame)
     layout.setContentsMargins(12, 10, 12, 10)
     layout.setSpacing(0)
@@ -237,6 +252,59 @@ def make_separator() -> QFrame:
     sep.setFixedHeight(1)
     sep.setStyleSheet(f"background: {SEPARATOR};")
     return sep
+
+
+def make_help_image(
+    filename: str,
+    *,
+    max_width: int = 620,          # logical pixels you want on screen
+    caption: str | None = None,
+    min_height: int = 120,
+) -> QFrame | QLabel:
+    path = _ASSETS_DIR / filename
+    if not path.is_file():
+        return make_image_placeholder(
+            caption or f"[Missing: {filename}]", min_height=min_height
+        )
+
+    pix = QPixmap(str(path))
+    if pix.isNull():
+        return make_image_placeholder(
+            caption or f"[Broken: {filename}]", min_height=min_height
+        )
+
+    # Real device pixel ratio of the screen Anki is on
+    screen = QApplication.primaryScreen()
+    dpr = screen.devicePixelRatio() if screen else 1.0
+
+    # Target size in *physical* pixels
+    target_physical_w = int(max_width * dpr)
+
+    # Only ever scale DOWN (your 1864 px source is perfect for this)
+    if pix.width() > target_physical_w:
+        pix = pix.scaledToWidth(
+            target_physical_w,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+
+    # Tell Qt “these pixels are already at device density”
+    pix.setDevicePixelRatio(dpr)
+
+    label = QLabel()
+    label.setPixmap(pix)
+    label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    label.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+
+    # Optional: keep the subtle card look
+    label.setStyleSheet(f"""
+        QLabel {{
+            border: 1px solid {BORDER};
+            border-radius: 8px;
+            background: white;
+            padding: 4px;
+        }}
+    """)
+    return label
 
 
 def make_image_placeholder(caption: str, min_height: int = 140) -> QFrame:
