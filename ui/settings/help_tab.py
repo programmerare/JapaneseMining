@@ -144,7 +144,7 @@ def _build_quick_start() -> QWidget:
         cl4.addWidget(_bullet(step))
     layout.addWidget(card4)
 
-    layout.addWidget(
+    cl4.addWidget(
         make_help_image(
             "mining_note.png",
             caption="Mining note in the editor",
@@ -243,6 +243,13 @@ def _build_overview() -> QWidget:
             "<b>Export Learned Kanji</b> without leaving the window."
         )
     )
+    cl_hm.addWidget(
+        make_help_image(
+            "kanji_heatmap.png",
+            caption="Kanji Heat Map",
+            max_width=450,
+        )
+    )
     layout.addWidget(card_hm)
 
     # ── Difficult Kanji ─────────────────────────────────────────────────
@@ -268,6 +275,13 @@ def _build_overview() -> QWidget:
             "A fixed reference of look-alike kanji that are easy to confuse."
         )
     )
+    cl_dk.addWidget(
+        make_help_image(
+            "difficult_kanji.png",
+            caption="Difficult Kanji",
+            max_width=450,
+        )
+    )
     layout.addWidget(card_dk)
 
     # ── Today's Progress ────────────────────────────────────────────────
@@ -287,6 +301,13 @@ def _build_overview() -> QWidget:
         _body_label(
             "Counts update as you study and mine. Empty sections show a short placeholder "
             "instead of a blank card."
+        )
+    )
+    cl_tp.addWidget(
+        make_help_image(
+            "todays_progress.png",
+            caption="Today’s Progress",
+            max_width=450,
         )
     )
     layout.addWidget(card_tp)
@@ -347,6 +368,27 @@ def _build_note_type() -> QWidget:
             "Those actions refresh the learned-kanji cache that drives the dots and keywords."
         )
     )
+    cl_know.addWidget(
+        make_help_image(
+            "note_usually_kanji_small.png",
+            caption="Usually Kanji",
+            max_width=150,
+        )
+    )
+    cl_know.addWidget(
+        make_help_image(
+            "note_kanji_known_small.png",
+            caption="Kanji Known",
+            max_width=150,
+        )
+    )
+    cl_know.addWidget(
+        make_help_image(
+            "note_kanji_meanings_small.png",
+            caption="Kanji Meanings",
+            max_width=150,
+        )
+    )
     layout.addWidget(card_know)
 
     # ── Fields by who uses them ─────────────────────────────────────────
@@ -376,6 +418,13 @@ def _build_note_type() -> QWidget:
         row.setStyleSheet(f"color: {TEXT_BODY}; font-size: 13px;")
         row.setWordWrap(True)
         cl_user.addWidget(row)
+    cl_user.addWidget(
+        make_help_image(
+            "user_fields.png",
+            caption="Fields you fill (user)",
+            max_width=450,
+        )
+    )
     layout.addWidget(card_user)
 
     card_jisho, cl_jisho = make_section_card("Fields filled by Jisho")
@@ -502,25 +551,58 @@ def _build_note_type() -> QWidget:
         _body_label(
             "In short: prefer <b>Soft Update Everything</b>. Use a Force Update only "
             "when you intentionally changed RTK keywords (or want meanings refreshed) "
-            "and need that change reflected on existing mining cards."
+            "and need that change reflected on existing mining cards.<br>"
+        )
+    )
+    cl_upd.addWidget(
+        make_help_image(
+            "menu.png",
+            caption="Update functions in the Tools menu",
+            max_width=450,
+        )
+    )
+    cl_upd.addWidget(
+        _body_label(
+            "A reminder to update after studying is shown in the deck browser, unless disabled under Settings → General."
+        )
+    )
+    cl_upd.addWidget(
+        make_help_image(
+            "update_reminder.png",
+            caption="Update reminder",
+            max_width=450,
         )
     )
     layout.addWidget(card_upd)
 
-    layout.addWidget(
+    card_note_type, cl_note_type = make_section_card("Note type — front / back")
+    cl_note_type.addWidget(
+        _body_label(
+            "The front of the card shows the example sentence and the word you mined, "
+            "as well as whether the word is usually written in kanji or kana, and whether you know all the kanji in it."
+        )
+    )
+    cl_note_type.addWidget(
         make_help_image(
             "note_front.png",
             caption="Note type — front",
             max_width=450,
         )
     )
-    layout.addWidget(
+    cl_note_type.addWidget(
+        _body_label(
+            "The back of the card shows the translation, your kanji keywords from the RTK deck, any "
+            "notes and mnemonics you added, additional information from Jisho, and plays the audio if present."
+        )
+    )
+    cl_note_type.addWidget(
         make_help_image(
             "note_back.png",
             caption="Note type — back",
             max_width=450,
         )
     )
+    layout.addWidget(card_note_type)
     layout.addStretch()
     return _make_scrollable(page)
 
@@ -536,6 +618,17 @@ def _build_jisho() -> QWidget:
             "Profiles, field mapping, and multi-meaning / multi-word formats."
         )
     )
+
+    card, cl = make_section_card("Jisho integration")
+    cl.addWidget(
+        _body_label(
+            "Jisho support inside JapaneseMining is based on code from the separate add-on "
+            '<a href="https://ankiweb.net/shared/info/376619270">Anki Jisho Connect</a> (MIT license). '
+            "If you already have that add-on installed and prefer to use it on its own, "
+            "turn <b>Enable Jisho</b> off in Settings → Jisho, then restart Anki. Leaving both enabled can conflict."
+        )
+    )
+    layout.addWidget(card)
 
     card, cl = make_section_card("Profiles")
     cl.addWidget(
@@ -556,6 +649,13 @@ def _build_jisho() -> QWidget:
             "Only rows with both a source and a target are saved."
         )
     )
+    cl2.addWidget(
+        make_help_image(
+            "jisho_mappings.png",
+            caption="Jisho field mapping",
+            max_width=450,
+        )
+    )
     layout.addWidget(card2)
 
     card3, cl3 = make_section_card("Formats")
@@ -567,13 +667,6 @@ def _build_jisho() -> QWidget:
     )
     layout.addWidget(card3)
 
-    layout.addWidget(
-        make_help_image(
-            "jisho_mappings.png",
-            caption="Jisho mappings",
-            max_width=450,
-        )
-    )
     layout.addStretch()
     return _make_scrollable(page)
 
@@ -697,15 +790,15 @@ def _build_rtk_help() -> QWidget:
             "Avoid Import if you must keep existing scheduling for those kanji."
         )
     )
-    layout.addWidget(card6)
-
-    layout.addWidget(
+    cl6.addWidget(
         make_help_image(
             "rtk_setup_import.png",
             caption="RTK Setup & Import tab",
             max_width=450,
         )
     )
+    layout.addWidget(card6)
+
     layout.addStretch()
     return _make_scrollable(page)
 
@@ -740,6 +833,13 @@ def _build_translate() -> QWidget:
             "Match the URL to your key type. The shortcut is global (default Ctrl+T)."
         )
     )
+    cl.addWidget(
+        make_help_image(
+            "translate_settings.png",
+            caption="DeepL settings",
+            max_width=450,
+        )
+    )
     layout.addWidget(card)
 
     card2, cl2 = make_section_card("Profiles")
@@ -761,13 +861,6 @@ def _build_translate() -> QWidget:
     )
     layout.addWidget(card3)
 
-    layout.addWidget(
-        make_help_image(
-            "translate_settings.png",
-            caption="DeepL settings",
-            max_width=450,
-        )
-    )
     layout.addStretch()
     return _make_scrollable(page)
 
