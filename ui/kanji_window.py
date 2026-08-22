@@ -55,6 +55,14 @@ COMMON_CONFUSING = [
         ],
     },
     {
+        "label": "Husband vs lose vs dart",
+        "items": [
+            ("夫", "husband"),
+            ("失", "lose"),
+            ("矢", "dart"),
+        ],
+    },
+    {
         "label": "Gentleman vs soil",
         "items": [
             ("士", "gentleman"),
@@ -89,6 +97,43 @@ COMMON_CONFUSING = [
             ("犬", "dog"),
         ],
     },
+    {
+        "label": "Chestnut vs horse chestnut",
+        "items": [
+            ("栗", "chestnut"),
+            ("栃", "horse chestnut"),
+        ],
+    },
+    {
+        "label": "Drown vs drowning",
+        "items": [
+            ("溺", "drown"),
+            ("没", "drowning"),
+        ],
+    },
+    {
+        "label": "Trees",
+        "items": [
+            ("桃", "peache tree"),
+            ("桂", "Japanese Judas-tree"),
+            ("桐", "paulownia tree"),
+            ("柿", "persimmon tree"),
+            ("松", "pine tree"),
+            ("梓", "catalpa tree"),
+            ("楠", "camphor tree"),
+            ("桜", "cherry tree"),
+        ],
+    },
+    {
+        "label": "Threads",
+        "items": [
+            ("紡", "spinning"),
+            ("繰", "winding"),
+            ("網", "netting"),
+            ("織", "weave"),
+            ("絡", "entwine"),
+        ],
+    }
 ]
 
 
