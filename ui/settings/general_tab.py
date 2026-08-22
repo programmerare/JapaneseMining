@@ -217,7 +217,7 @@ def make_general_tab(
     show_tooltips_checkbox.setChecked(config.show_tooltip)
     ui_layout.addWidget(show_tooltips_checkbox)
 
-    show_update_needed_checkbox = QCheckBox("Show update needed indicator")
+    show_update_needed_checkbox = QCheckBox("Show update needed reminder")
     show_update_needed_checkbox.setChecked(
         getattr(config, "show_update_needed", True)
     )
