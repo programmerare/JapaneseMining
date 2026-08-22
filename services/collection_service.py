@@ -2290,6 +2290,10 @@ RTK_BACK_HTML = r"""
       <span class="kanji-font stroke-order">{{Kanji}}</span>
     </div>
 
+    {{#Meanings}}
+    <div class="meanings">{{Meanings}}</div>
+    {{/Meanings}}
+
   </section>
 
   <!-- Alternative Kanji -->
@@ -2466,6 +2470,20 @@ hr#answer {
   line-height: 1;
 }
 
+/* Dictionary meanings — supportive only */
+.meanings {
+  margin: 0.55em auto 0;
+  max-width: 28em;
+
+  font-size: 0.68em;
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+
+  color: #8a8a8a;
+  text-align: center;
+}
+
 .kanji-font {
   display: inline-block;
 
@@ -2631,6 +2649,11 @@ hr#answer {
   .font-labels {
     font-size: 0.42em;
   }
+
+  .meanings {
+    font-size: 0.64em;
+    max-width: 22em;
+  }
 }
 
 
@@ -2705,5 +2728,9 @@ hr#answer {
 
 .nightMode .meta-value {
   color: #ccc;
+}
+
+.nightMode .meanings {
+  color: #8e8e8e;
 }
 """
