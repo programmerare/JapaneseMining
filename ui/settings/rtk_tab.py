@@ -30,6 +30,8 @@ from ..ui_styles import (
     make_link_button,
     make_separator,
     make_callout,
+    TEXT_BODY,
+    TEXT_PRIMARY,
     TEXT_SECONDARY,
 )
 
@@ -311,32 +313,20 @@ def make_rtk_tab(
 
     setup_root.addWidget(
         make_instruction_label(
-            "<b>Create</b> sets up deck + note type. <b>Import</b> fills the Heisig set and parks "
-            "known kanji. Deck Mapping above is the live source for Import (no <b>Save</b> first)."
+            "<b>Create</b> sets up deck + note type (never deletes notes or overwrites "
+            "non-empty fields). <b>Import</b> fills the Heisig set and parks known kanji. "
+            "Deck Mapping is the live source for both. "
+            "Beginner: leave “create all notes” on. Already know some: uncheck, then Import."
         )
     )
 
     # ----- Create section -----
     create_card, create_layout = make_section_card("Create RTK Deck & Note Type")
 
-    create_layout.addWidget(
-        make_callout(
-            "Beginner → leave “create all notes” on. Already know some → uncheck, then <b>Import</b>. "
-            "Prefer the add-on’s own note type for full field support.",
-            kind="info",
-        )
-    )
-    create_layout.addWidget(
-        make_callout(
-            "<b>Create</b> never deletes notes or overwrites non-empty fields — only adds missing "
-            "notes and fills empty fields.",
-            kind="info",
-        )
-    )
-
     create_form = QFormLayout()
     create_form.setSpacing(8)
     create_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+    create_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
 
     random_suffix = "".join(random.choices(string.ascii_letters + string.digits, k=8))
     _initial_deck = (getattr(config, "rtk_deck", "") or "").strip() or f"RTK_{random_suffix}"
@@ -352,13 +342,13 @@ def make_rtk_tab(
     create_note_type_edit.setMinimumWidth(300)
     create_form.addRow("Note type name", create_note_type_edit)
 
+    create_layout.addLayout(create_form)
+
     create_all_notes_cb = QCheckBox(
-        "Also create notes for all Heisig kanji (≈2200, 6th ed). Skips duplicates; fills empty fields."
+        "Also create notes for all Heisig kanji (2200, 6th ed). Skips duplicates; fills empty fields."
     )
     create_all_notes_cb.setChecked(True)
-    create_form.addRow("", create_all_notes_cb)
-
-    create_layout.addLayout(create_form)
+    create_layout.addWidget(create_all_notes_cb)
 
     create_btn = make_primary_button("Create Deck & Note Type")
     create_layout.addWidget(create_btn, alignment=Qt.AlignmentFlag.AlignLeft)
@@ -434,48 +424,30 @@ def make_rtk_tab(
     setup_root.addWidget(create_card)
 
     # ----- Import section -----
+    # Flow: short note → how to park cards → how to run import.
+    # Everything left-aligned to match Deck Mapping and Create.
     import_card, import_layout = make_section_card("Import Known Kanji")
 
     import_layout.addWidget(
         make_callout(
-            "<b>Import</b> ensures all 2200 Heisig 6th-ed notes exist; marks the imported subset as known; "
-            "fills empty Keyword / number / stroke fields when possible. "
-            "Tags: JapaneseMining::RTK, Heisig, Imported-Known.",
-            kind="info",
-        )
-    )
-    import_layout.addWidget(
-        make_callout(
-            "If those kanji already exist in the RTK deck, their cards are suspended or "
-            "re-scheduled (option below). Fields are never overwritten — but review queues change. "
-            "Skip <b>Import</b> if you must keep current scheduling for those cards.",
+            "Builds the full Heisig 6th-ed set if needed, marks the imported subset known, "
+            "and fills empty Keyword / number / stroke fields. "
+            "Existing cards are suspended or re-scheduled — field values are never overwritten. "
+            "Skip Import if you must keep current scheduling for those cards.",
             kind="warning",
         )
     )
 
-    file_btn = make_secondary_button("Choose file…")
-    import_layout.addWidget(file_btn, alignment=Qt.AlignmentFlag.AlignLeft)
-
-    heisig_row = QHBoxLayout()
-    heisig_row.addWidget(QLabel("Heisig number up to:"))
-    heisig_spin = QSpinBox()
-    heisig_spin.setRange(1, 2200)
-    heisig_spin.setValue(2200)
-    heisig_row.addWidget(heisig_spin)
-    heisig_apply_btn = make_secondary_button("Apply")
-    heisig_row.addWidget(heisig_apply_btn)
-    heisig_row.addStretch()
-    import_layout.addLayout(heisig_row)
-
-    import_layout.addWidget(make_separator())
+    # How known cards are parked (shared by both import actions)
+    park_label = QLabel("How known cards are parked")
+    park_label.setStyleSheet(
+        f"font-size: 13px; font-weight: 700; color: {TEXT_PRIMARY}; margin-top: 2px;"
+    )
+    import_layout.addWidget(park_label)
 
     fill_keywords_cb = QCheckBox("Fill missing keywords from Heisig data")
     fill_keywords_cb.setChecked(True)
     import_layout.addWidget(fill_keywords_cb)
-
-    sched_label = QLabel("When creating / updating RTK cards for known kanji:")
-    sched_label.setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 12px;")
-    import_layout.addWidget(sched_label)
 
     suspend_radio = QRadioButton("Suspend the cards")
     suspend_radio.setChecked(True)
@@ -484,13 +456,16 @@ def make_rtk_tab(
     schedule_radio = QRadioButton("Schedule as review cards with due dates between")
     import_layout.addWidget(schedule_radio)
 
-    range_row = QHBoxLayout()
     min_days_spin = QSpinBox()
     min_days_spin.setRange(1, 2200)
     min_days_spin.setValue(30)
     max_days_spin = QSpinBox()
     max_days_spin.setRange(1, 2200)
     max_days_spin.setValue(700)
+
+    range_row = QHBoxLayout()
+    range_row.setContentsMargins(22, 0, 0, 0)  # indent under the radio
+    range_row.setSpacing(6)
     range_row.addWidget(min_days_spin)
     range_row.addWidget(QLabel("and"))
     range_row.addWidget(max_days_spin)
@@ -509,6 +484,64 @@ def make_rtk_tab(
 
     schedule_radio.toggled.connect(_update_range_enabled)
     _update_range_enabled()
+
+    import_layout.addWidget(make_separator())
+
+    # Import actions — form-style rows, left-aligned
+    run_label = QLabel("Run import")
+    run_label.setStyleSheet(
+        f"font-size: 13px; font-weight: 700; color: {TEXT_PRIMARY};"
+    )
+    import_layout.addWidget(run_label)
+
+    run_hint = QLabel(
+        "Both actions use the parking options above."
+    )
+    run_hint.setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 12px;")
+    run_hint.setWordWrap(True)
+    import_layout.addWidget(run_hint)
+
+    # File import row
+    file_row = QHBoxLayout()
+    file_row.setSpacing(10)
+    file_row_label = QLabel("From file")
+    file_row_label.setMinimumWidth(100)
+    file_row_label.setStyleSheet(f"color: {TEXT_BODY}; font-size: 13px;")
+    file_btn = make_secondary_button("Choose file…")
+    file_row.addWidget(file_row_label)
+    file_row.addWidget(file_btn)
+    file_row.addStretch()
+    import_layout.addLayout(file_row)
+
+    file_format_hint = QLabel(
+        "Accepted formats: <b>.txt</b> — one kanji per line;<br>"
+        "<b>.csv</b> — one kanji and keyword per row (kanji,keyword)."
+    )
+    file_format_hint.setWordWrap(True)
+    file_format_hint.setTextFormat(Qt.TextFormat.RichText)
+    file_format_hint.setStyleSheet(
+        f"color: {TEXT_SECONDARY}; font-size: 12px; padding-left: 100px;"
+    )
+    import_layout.addWidget(file_format_hint)
+
+    # Heisig number row
+
+    # Heisig number row
+    heisig_row = QHBoxLayout()
+    heisig_row.setSpacing(10)
+    heisig_row_label = QLabel("Heisig up to")
+    heisig_row_label.setMinimumWidth(100)
+    heisig_row_label.setStyleSheet(f"color: {TEXT_BODY}; font-size: 13px;")
+    heisig_spin = QSpinBox()
+    heisig_spin.setRange(1, 2200)
+    heisig_spin.setValue(2200)
+    heisig_spin.setMinimumWidth(90)
+    heisig_apply_btn = make_secondary_button("Apply")
+    heisig_row.addWidget(heisig_row_label)
+    heisig_row.addWidget(heisig_spin)
+    heisig_row.addWidget(heisig_apply_btn)
+    heisig_row.addStretch()
+    import_layout.addLayout(heisig_row)
 
     def _schedule_opts() -> dict:
         return {

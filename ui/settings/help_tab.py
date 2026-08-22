@@ -200,6 +200,25 @@ def _build_overview() -> QWidget:
         cl2.addWidget(_bullet(item))
     layout.addWidget(card2)
 
+    card_prof, cl_prof = make_section_card("Anki profiles")
+    cl_prof.addWidget(
+        _body_label(
+            "JapaneseMining stores its settings per <b>Anki profile</b>. "
+            "Switching profiles in Anki loads that profile’s own configuration "
+            "(Jisho, Translate, RTK mapping, HyperTTS enable, backups path, …). "
+            "You do not share one global settings file across profiles."
+        )
+    )
+    cl_prof.addWidget(
+        _body_label(
+            "HyperTTS is also profile-aware: its presets live inside each Anki profile. "
+            "A preset you create in one profile does <b>not</b> transfer to another — "
+            "create (or recreate) the Advanced-mode preset in every profile where you "
+            "want automatic audio."
+        )
+    )
+    layout.addWidget(card_prof)
+
     # ── Heat Map ────────────────────────────────────────────────────────
     card_hm, cl_hm = make_section_card("Kanji Heat Map")
     cl_hm.addWidget(
@@ -246,7 +265,7 @@ def _build_overview() -> QWidget:
     cl_dk.addWidget(_subheading("Commonly confused pairs"))
     cl_dk.addWidget(
         _body_label(
-            "A fixed reference of look-alike kanji or kanji with similar meanings that are easy to confuse."
+            "A fixed reference of look-alike kanji that are easy to confuse."
         )
     )
     layout.addWidget(card_dk)
@@ -266,7 +285,8 @@ def _build_overview() -> QWidget:
         cl_tp.addWidget(_bullet(item))
     cl_tp.addWidget(
         _body_label(
-            "Counts update as you study."
+            "Counts update as you study and mine. Empty sections show a short placeholder "
+            "instead of a blank card."
         )
     )
     layout.addWidget(card_tp)
@@ -371,7 +391,7 @@ def _build_note_type() -> QWidget:
         ("Meaning", "Definition or English meaning."),
         ("Part of Speech", "Noun, Ichidan verb, …"),
         ("Other Forms", "Other writings or conjugations."),
-        ("Tags", "Colloquial, …"),
+        ("Tags", "Come from Jisho only — the add-on does not write into this field."),
         ("Info", "Extra dictionary info."),
         ("See also", "Related terms."),
         ("JLPT Level", "N5, N4, …"),
@@ -447,8 +467,9 @@ def _build_note_type() -> QWidget:
     card_upd, cl_upd = make_section_card("Update functions (Tools menu)")
     cl_upd.addWidget(
         _body_label(
-            "All four actions refresh kanji knowledge on your mining cards. "
-            "They differ only in whether existing keywords and meanings are overwritten."
+            "All four actions refresh kanji knowledge on your mining cards "
+            "(and export the learned-kanji cache). They differ only in whether "
+            "existing keywords and meanings are overwritten."
         )
     )
     for name, desc in [
@@ -462,12 +483,12 @@ def _build_note_type() -> QWidget:
             "Force Update Keywords",
             "Same as Soft Update, but always overwrites <b>Kanji Keywords</b>. "
             "Needed if you changed keywords in the RTK deck and want mining cards "
-            "to pick up the new values.",
+            "to pick up the new values. Usually not required.",
         ),
         (
             "Force Update Meanings",
             "Same as Soft Update, but always overwrites <b>Kanji Meanings</b> "
-            "(dictionary meanings used for hover). Usually not required.",
+            "(dictionary meanings used for hover).",
         ),
         (
             "Force Update Everything",
@@ -759,7 +780,7 @@ def _build_hypertts() -> QWidget:
 
     layout.addWidget(make_instruction_label("Automatic audio via the HyperTTS add-on."))
 
-    card, cl = make_section_card("Install &amp; setup")
+    card, cl = make_section_card("Install & setup")
     cl.addWidget(
         _body_label(
             "1. Install HyperTTS from AnkiWeb: "
@@ -792,6 +813,27 @@ def _build_hypertts() -> QWidget:
         )
     )
     layout.addWidget(card)
+
+    card_voice, cl_voice = make_section_card("Recommended voice (Japanese)")
+    cl_voice.addWidget(
+        _body_label(
+            "For Japanese audio, a solid free option inside HyperTTS is "
+            "<b>Naver Papago</b>. Pick it when you build the Advanced-mode preset "
+            "if you want natural-sounding speech without a paid TTS plan."
+        )
+    )
+    layout.addWidget(card_voice)
+
+    card_prof, cl_prof = make_section_card("Anki profiles")
+    cl_prof.addWidget(
+        _body_label(
+            "HyperTTS settings and presets are stored per Anki profile. "
+            "Presets do <b>not</b> transfer when you switch profiles — create the "
+            "Advanced-mode preset again in each profile where you enable JapaneseMining "
+            "audio."
+        )
+    )
+    layout.addWidget(card_prof)
 
     card2, cl2 = make_section_card("On Add Card vs batch")
     cl2.addWidget(
