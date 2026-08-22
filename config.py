@@ -99,6 +99,7 @@ class Config:
     rtk_kanji_field: str = ""
     rtk_alternative_kanji_field: str = ""
     rtk_keyword_field: str = ""
+    rtk_meanings_field: str = ""
     rtk_heisig_number_field: str = ""
     rtk_stroke_count_field: str = ""
 

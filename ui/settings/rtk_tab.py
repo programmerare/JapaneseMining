@@ -174,6 +174,11 @@ def make_rtk_tab(
     rtk_alternative_kanji_field_cb.setMaximumWidth(340)
     form.addRow("Alternative kanji field", rtk_alternative_kanji_field_cb)
 
+    rtk_meanings_field_cb = QComboBox()
+    rtk_meanings_field_cb.setMinimumWidth(340)
+    rtk_meanings_field_cb.setMaximumWidth(340)
+    form.addRow("Meanings field", rtk_meanings_field_cb)
+
     rtk_heisig_number_field_cb = QComboBox()
     rtk_heisig_number_field_cb.setMinimumWidth(340)
     rtk_heisig_number_field_cb.setMaximumWidth(340)
@@ -204,6 +209,10 @@ def make_rtk_tab(
         (
             rtk_stroke_count_field_cb,
             getattr(config, "rtk_stroke_count_field", "") or "",
+        ),
+        (
+            rtk_meanings_field_cb,
+            getattr(config, "rtk_meanings_field", "") or "",
         ),
     ]
 
@@ -249,6 +258,7 @@ def make_rtk_tab(
             rtk_kanji_field_cb,
             rtk_keyword_field_cb,
             rtk_alternative_kanji_field_cb,
+            rtk_meanings_field_cb,
             rtk_heisig_number_field_cb,
             rtk_stroke_count_field_cb,
         )
@@ -269,6 +279,7 @@ def make_rtk_tab(
                 (rtk_kanji_field_cb, "rtk_kanji_field"),
                 (rtk_keyword_field_cb, "rtk_keyword_field"),
                 (rtk_alternative_kanji_field_cb, "rtk_alternative_kanji_field"),
+                (rtk_meanings_field_cb, "rtk_meanings_field"),
                 (rtk_heisig_number_field_cb, "rtk_heisig_number_field"),
                 (rtk_stroke_count_field_cb, "rtk_stroke_count_field"),
             ):
@@ -303,6 +314,7 @@ def make_rtk_tab(
         cfg.rtk_alternative_kanji_field = (
             rtk_alternative_kanji_field_cb.currentText().strip()
         )
+        cfg.rtk_meanings_field = rtk_meanings_field_cb.currentText().strip()
         cfg.rtk_heisig_number_field = rtk_heisig_number_field_cb.currentText().strip()
         cfg.rtk_stroke_count_field = rtk_stroke_count_field_cb.currentText().strip()
 
@@ -369,6 +381,7 @@ def make_rtk_tab(
         rtk_kanji_field_cb,
         rtk_keyword_field_cb,
         rtk_alternative_kanji_field_cb,
+        rtk_meanings_field_cb,
         rtk_heisig_number_field_cb,
         rtk_stroke_count_field_cb,
     ):
@@ -409,6 +422,7 @@ def make_rtk_tab(
                 (rtk_kanji_field_cb, cfg.rtk_kanji_field),
                 (rtk_keyword_field_cb, cfg.rtk_keyword_field),
                 (rtk_alternative_kanji_field_cb, cfg.rtk_alternative_kanji_field),
+                (rtk_meanings_field_cb, cfg.rtk_meanings_field),
                 (rtk_heisig_number_field_cb, cfg.rtk_heisig_number_field),
                 (rtk_stroke_count_field_cb, cfg.rtk_stroke_count_field),
             ):
@@ -609,6 +623,7 @@ def make_rtk_tab(
             rtk_alternative_kanji_field_cb.currentText().strip()
         )
         cfg.rtk_keyword_field = rtk_keyword_field_cb.currentText().strip()
+        cfg.rtk_meanings_field = rtk_meanings_field_cb.currentText().strip()
         cfg.rtk_heisig_number_field = rtk_heisig_number_field_cb.currentText().strip()
         cfg.rtk_stroke_count_field = rtk_stroke_count_field_cb.currentText().strip()
 
@@ -616,5 +631,7 @@ def make_rtk_tab(
     outer.load_mapping_from_config = load_mapping_from_config
     outer.rtk_deck_cb = rtk_deck_cb
     outer.rtk_note_type_cb = rtk_note_type_cb
-
+    outer.rtk_meanings_field_cb = rtk_meanings_field_cb
+    outer.rtk_heisig_number_field_cb = rtk_heisig_number_field_cb
+    outer.rtk_stroke_count_field_cb = rtk_stroke_count_field_cb
     return outer, "RTK", apply_to_config

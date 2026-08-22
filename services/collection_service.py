@@ -96,6 +96,9 @@ class CollectionService:
         col = mw.col
         deck_id = col.decks.id(self._config.rtk_deck)
 
+        if self._find_rtk_note_in_deck(kanji, deck_name=self._config.rtk_deck, note_type=self._config.rtk_note_type) is not None:
+            return False
+
         note = self._create_rtk_note(
             kanji=kanji,
             tags=tags or ["Self-Added"],
@@ -126,6 +129,7 @@ class CollectionService:
             heisig_kanjis = {
                 row["kanji"]: row for row in csv.DictReader(f) if row.get("kanji")
             }
+
 
         added = 0
         for kanji in self._find_unknown_kanji():
@@ -461,6 +465,7 @@ class CollectionService:
             "Alternative Kanji",
             "Keyword",
             "Story",
+            "Meanings",
             "Heisig Number",
             "Stroke Count",
         )
@@ -474,7 +479,10 @@ class CollectionService:
                 field["font"] = "Arial"
                 mm.add_field(model, field)
 
-            model["sortf"] = 4  # Heisig Number
+            try:
+                model["sortf"] = STANDARD_FIELDS.index("Heisig Number") # Sort by Heisig Number
+            except ValueError:
+                model["sortf"] = 0
 
             t = mm.new_template("KeywordToKanji")
             t["qfmt"] = RTK_FRONT_HTML
@@ -519,6 +527,7 @@ class CollectionService:
             self._config.rtk_kanji_field = "Kanji"
             self._config.rtk_alternative_kanji_field = "Alternative Kanji"
             self._config.rtk_keyword_field = "Keyword"
+            self._config.rtk_meanings_field = "Meanings"
             self._config.rtk_heisig_number_field = "Heisig Number"
             self._config.rtk_stroke_count_field = "Stroke Count"
         else:
@@ -538,6 +547,11 @@ class CollectionService:
                 and "Alternative Kanji" in existing_fields
             ):
                 self._config.rtk_alternative_kanji_field = "Alternative Kanji"
+            if (
+                not (self._config.rtk_meanings_field or "").strip()
+                and "Meanings" in existing_fields
+            ):
+                self._config.rtk_meanings_field = "Meanings"
             if (
                 not (self._config.rtk_heisig_number_field or "").strip()
                 and "Heisig Number" in existing_fields
@@ -597,12 +611,15 @@ class CollectionService:
 
             for row in sorted_rows:
                 kanji = row["kanji"]
-                note = self._create_rtk_note(
-                    kanji=kanji,
-                    tags=["Heisig"],
-                    heisig_kanjis=kanji_rows,
-                )
-                if note is not None:
+                existing = self._find_rtk_note_in_deck(kanji, deck_name=deck_name, note_type=note_type_name)
+                if existing is None:
+                    note = self._create_rtk_note(
+                        kanji=kanji,
+                        tags=["Heisig"],
+                        heisig_kanjis=kanji_rows,
+                    )
+                    if note is None:
+                        continue
                     col.add_note(note, deck_id)
                     try:
                         heisig_num = int((row.get("id_6th_ed") or "0").strip() or "0")
@@ -614,16 +631,9 @@ class CollectionService:
                             col.update_card(card)
                     notes_created += 1
                 else:
-                    # Already exists — fill any empty Heisig fields
-                    note_ids = col.find_notes(
-                        f'note:"{note_type_name}" '
-                        f"{self._config.rtk_kanji_field}:{kanji}"
-                    )
-                    if note_ids:
-                        existing_note = col.get_note(note_ids[0])
-                        if self._fill_note_from_heisig_row(existing_note, row):
-                            col.update_note(existing_note)
-                            notes_filled += 1
+                    if self._fill_note_from_heisig_row(existing, row):
+                        col.update_note(existing)
+                        notes_filled += 1
 
         col.save()
 
@@ -793,6 +803,7 @@ class CollectionService:
         col = mw.col
         kanji_field = self._config.rtk_kanji_field
         alt_kanji_field = self._config.rtk_alternative_kanji_field
+        meanings_field = self._config.rtk_meanings_field
 
         tags = tags or []
         model = col.models.by_name(self._config.rtk_note_type)
@@ -807,6 +818,9 @@ class CollectionService:
             note[kanji_field] = kanji
         if alt_kanji and alt_kanji_field and alt_kanji_field in note:
             note[alt_kanji_field] = alt_kanji
+        if meanings_field and meanings_field in note:
+            meanings = self._kanji_data.get_kanji_meanings(kanji) or []
+            note[meanings_field] = " · ".join(m for m in meanings if m)
 
         # Standard tag namespace so users can search reliably
         base_tags = ["JapaneseMining::RTK"]
@@ -831,6 +845,7 @@ class CollectionService:
         keyword_field = self._config.rtk_keyword_field
         heisig_field = self._config.rtk_heisig_number_field
         stroke_field = self._config.rtk_stroke_count_field
+        meanings_field = self._config.rtk_meanings_field
 
         if (
             keyword_field
@@ -860,6 +875,17 @@ class CollectionService:
             strokes = (row.get("stroke_count") or "").strip()
             if strokes:
                 note[stroke_field] = strokes
+                changed = True
+
+        if (
+            meanings_field
+            and meanings_field in note
+            and not (note[meanings_field] or "").strip()
+        ):
+            meanings = self._kanji_data.get_kanji_meanings(self._heisig_kanji(row)) or []
+            joined = " · ".join(m for m in meanings if m)
+            if joined:
+                note[meanings_field] = joined
                 changed = True
 
         return changed
@@ -1117,6 +1143,9 @@ class CollectionService:
                 return val
         return ""
 
+    def _heisig_kanji(self, row: dict) -> str:
+        return (row.get("kanji") or "").strip()
+
     def _apply_known_kanji(
         self,
         entries: list[tuple[str, str]],
@@ -1298,6 +1327,39 @@ class CollectionService:
         self.export_learned_kanji()
 
         return len(known_set), cards_touched
+
+    def _find_rtk_note_in_deck(
+        self,
+        kanji: str,
+        *,
+        deck_name: str | None = None,
+        note_type: str | None = None,
+    ) -> Note | None:
+        """
+        Return the first RTK note for `kanji` that lives in the given deck.
+        Scoped to deck — never treats the same kanji in another deck as a duplicate.
+        """
+        col = mw.col
+        deck = (deck_name or self._config.rtk_deck or "").strip()
+        nt = (note_type or self._config.rtk_note_type or "").strip()
+        kanji_field = (self._config.rtk_kanji_field or "").strip()
+        alt_field = (self._config.rtk_alternative_kanji_field or "").strip()
+
+        if not deck or not nt or not kanji_field or not kanji:
+            return None
+
+        # Primary field
+        note_ids = col.find_notes(
+            f'deck:"{deck}" note:"{nt}" {kanji_field}:{kanji}'
+        )
+        # Fallback: Alternative Kanji
+        if not note_ids and alt_field:
+            note_ids = col.find_notes(
+                f'deck:"{deck}" note:"{nt}" "{alt_field}:{kanji}"'
+            )
+        if not note_ids:
+            return None
+        return col.get_note(note_ids[0])
 
     def _parse_kanji_file(self, path: Path) -> list[tuple[str, str]]:
         """
