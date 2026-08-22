@@ -99,8 +99,7 @@ def _build_quick_start() -> QWidget:
         "Settings → RTK → Setup &amp; Import.",
         "No RTK deck and beginner: leave “create all notes” checked and press "
         "<b>Create Deck &amp; Note Type</b>.",
-        "No RTK deck but you already know some kanji: uncheck “create all notes”, "
-        "press <b>Create Deck &amp; Note Type</b>, then use Import (file or Heisig number up to N).",
+        "No RTK deck but you already know some kanji: Use Import (file or Heisig number up to N).",
         "Already have an RTK deck: Settings → RTK → Deck Mapping. Select the note type "
         "and set the deck mappings.",
     ]:
