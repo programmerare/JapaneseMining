@@ -17,6 +17,7 @@ from aqt.qt import (
     QLineEdit,
     QFrame,
     QFontMetrics,
+    QSizePolicy,
     Qt,
 )
 from aqt.utils import tooltip, showWarning
@@ -47,6 +48,29 @@ except ImportError:  # pragma: no cover
 # ── Shared helpers (Difficult Kanji) ─────────────────────────────────────
 
 COMMON_CONFUSING = [
+    {
+        "label": "Trees",
+        "items": [
+            ("桃", "peach tree"),
+            ("桂", "Japanese Judas-tree"),
+            ("桐", "paulownia tree"),
+            ("柿", "persimmon tree"),
+            ("松", "pine tree"),
+            ("梓", "catalpa tree"),
+            ("楠", "camphor tree"),
+            ("桜", "cherry tree"),
+        ],
+    },
+    {
+        "label": "Threads",
+        "items": [
+            ("紡", "spinning"),
+            ("繰", "winding"),
+            ("網", "netting"),
+            ("織", "weave"),
+            ("絡", "entwine"),
+        ],
+    },
     {
         "label": "Direction of the short stroke",
         "items": [
@@ -111,30 +135,17 @@ COMMON_CONFUSING = [
             ("没", "drowning"),
         ],
     },
-    {
-        "label": "Trees",
-        "items": [
-            ("桃", "peache tree"),
-            ("桂", "Japanese Judas-tree"),
-            ("桐", "paulownia tree"),
-            ("柿", "persimmon tree"),
-            ("松", "pine tree"),
-            ("梓", "catalpa tree"),
-            ("楠", "camphor tree"),
-            ("桜", "cherry tree"),
-        ],
-    },
-    {
-        "label": "Threads",
-        "items": [
-            ("紡", "spinning"),
-            ("繰", "winding"),
-            ("網", "netting"),
-            ("織", "weave"),
-            ("絡", "entwine"),
-        ],
-    }
 ]
+
+# Tile width used by _kanji_tile — keep in sync for card width estimates
+_TILE_WIDTH = 72
+_TILE_GAP = 4
+# Max tiles per row inside a group card (Trees/Threads wrap to a 2nd row)
+_GROUP_MAX_PER_ROW = 10
+# Available content width inside the Difficult tab scroll area (approx)
+_FLOW_AVAILABLE_WIDTH = 680
+_CARD_H_PAD = 24  # left+right padding inside a group card
+_CARD_GAP = 10    # gap between group cards in a flow row
 
 
 def _kanji_tile(kanji: str, keyword: str, tooltip_text: str = "") -> QWidget:
@@ -143,10 +154,8 @@ def _kanji_tile(kanji: str, keyword: str, tooltip_text: str = "") -> QWidget:
     Fixed width for even columns. Long keywords are truncated with "…";
     the full keyword (and Heisig number when provided) is always in the tooltip.
     """
-    TILE_WIDTH = 72
-
     tile = QWidget()
-    tile.setFixedWidth(TILE_WIDTH)
+    tile.setFixedWidth(_TILE_WIDTH)
 
     # Tooltip: keyword + optional Heisig / extra context
     tip_parts = [p for p in (keyword, tooltip_text) if p]
@@ -175,7 +184,7 @@ def _kanji_tile(kanji: str, keyword: str, tooltip_text: str = "") -> QWidget:
     kw.setFont(font)
     metrics = QFontMetrics(font)
     kw.setText(
-        metrics.elidedText(full_keyword, Qt.TextElideMode.ElideRight, TILE_WIDTH - 8)
+        metrics.elidedText(full_keyword, Qt.TextElideMode.ElideRight, _TILE_WIDTH - 8)
     )
     layout.addWidget(kw)
 
@@ -201,16 +210,94 @@ def _empty_state(message: str) -> QLabel:
     return lbl
 
 
-def _flow_row(widgets: list[QWidget], max_per_row: int = 6) -> list[QHBoxLayout]:
+def _flow_row(
+    widgets: list[QWidget], max_per_row: int = 6, *, trailing_stretch: bool = True
+) -> list[QHBoxLayout]:
     rows = []
     for i in range(0, len(widgets), max_per_row):
         row = QHBoxLayout()
-        row.setSpacing(4)
+        row.setSpacing(_TILE_GAP)
         for w in widgets[i : i + max_per_row]:
             row.addWidget(w)
-        row.addStretch()
+        if trailing_stretch:
+            row.addStretch()
         rows.append(row)
     return rows
+
+
+def _estimate_group_card_width(n_items: int) -> int:
+    """Estimate pixel width of a confusing-group card from its item count."""
+    cols = min(n_items, _GROUP_MAX_PER_ROW)
+    tiles_w = cols * _TILE_WIDTH + max(0, cols - 1) * _TILE_GAP
+    return _CARD_H_PAD + tiles_w
+
+
+def _confusing_group_card(group: dict) -> QFrame:
+    """One compact card for a commonly-confused group (title + 1–2 tile rows)."""
+    card = QFrame()
+    card.setObjectName("confusingGroupCard")
+    card.setStyleSheet(f"""
+        QFrame#confusingGroupCard {{
+            background: {BG_CARD};
+            border: 1px solid {BORDER};
+            border-radius: 8px;
+        }}
+    """)
+    # Prefer natural size; flow layout will size-hint from this
+    card.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+
+    layout = QVBoxLayout(card)
+    layout.setContentsMargins(12, 10, 12, 10)
+    layout.setSpacing(6)
+
+    title = QLabel(group["label"])
+    title.setWordWrap(True)
+    title.setStyleSheet(
+        f"color: {TEXT_BODY}; font-size: 12px; font-weight: 600; padding: 0;"
+    )
+    layout.addWidget(title)
+
+    tiles = [_kanji_tile(kanji, keyword) for kanji, keyword in group["items"]]
+    for row_layout in _flow_row(
+        tiles, max_per_row=_GROUP_MAX_PER_ROW, trailing_stretch=False
+    ):
+        layout.addLayout(row_layout)
+
+    # Lock width so flow packing is stable
+    card.setFixedWidth(_estimate_group_card_width(len(group["items"])))
+    return card
+
+
+def _flow_group_cards(cards: list[QWidget], available_width: int = _FLOW_AVAILABLE_WIDTH) -> QVBoxLayout:
+    """Pack variable-width cards into horizontal rows that wrap when they no longer fit."""
+    outer = QVBoxLayout()
+    outer.setContentsMargins(0, 0, 0, 0)
+    outer.setSpacing(_CARD_GAP)
+
+    if not cards:
+        return outer
+
+    current_row = QHBoxLayout()
+    current_row.setSpacing(_CARD_GAP)
+    current_row.setContentsMargins(0, 0, 0, 0)
+    used = 0
+
+    for card in cards:
+        w = card.width() if card.width() > 0 else card.sizeHint().width()
+        # Start a new row if this card does not fit (and the row already has something)
+        if used > 0 and used + _CARD_GAP + w > available_width:
+            current_row.addStretch()
+            outer.addLayout(current_row)
+            current_row = QHBoxLayout()
+            current_row.setSpacing(_CARD_GAP)
+            current_row.setContentsMargins(0, 0, 0, 0)
+            used = 0
+        current_row.addWidget(card)
+        used += w if used == 0 else (_CARD_GAP + w)
+
+    current_row.addStretch()
+    outer.addLayout(current_row)
+    return outer
 
 
 def _clear_layout(layout: QVBoxLayout) -> None:
@@ -569,15 +656,18 @@ def _build_difficult_tab(kanji_data_service, *, auto_refresh: bool = True) -> QW
 
     page_layout.addWidget(flagged_card)
 
-    # Commonly confused
-    common_card, common_layout = make_section_card("Commonly Confused Kanji")
-    for group in COMMON_CONFUSING:
-        common_layout.addWidget(_group_label(group["label"]))
-        tiles = [_kanji_tile(kanji, keyword) for kanji, keyword in group["items"]]
-        for row_layout in _flow_row(tiles, max_per_row=8):
-            common_layout.addLayout(row_layout)
+    # Commonly confused — each group is its own compact card; cards flow
+    # side-by-side when they fit, otherwise wrap to the next row.
+    section_header = QLabel("Commonly Confused Kanji")
+    section_header.setStyleSheet(
+        f"font-size: 14px; font-weight: 700; color: {TEXT_PRIMARY}; "
+        f"letter-spacing: 0.2px; padding: 4px 0 0 0;"
+    )
+    page_layout.addWidget(section_header)
 
-    page_layout.addWidget(common_card)
+    group_cards = [_confusing_group_card(group) for group in COMMON_CONFUSING]
+    page_layout.addLayout(_flow_group_cards(group_cards))
+
     page_layout.addStretch()
     return page
 
