@@ -819,8 +819,6 @@ class CollectionService:
             if row:
                 self._fill_note_from_heisig_row(note, row)
 
-        if note.dupeOrEmpty():
-            return None
         return note
 
     def _fill_note_from_heisig_row(self, note: Note, row: dict) -> bool:
