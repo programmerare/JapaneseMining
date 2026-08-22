@@ -323,6 +323,8 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None, on_goto_hel
     form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
 
     target_deck_cb = QComboBox()
+    target_deck_cb.setMinimumWidth(360)
+    target_deck_cb.setMaximumWidth(360)
     target_deck_cb.setEditable(True)
     target_deck_cb.addItem("")
     try:
@@ -334,15 +336,21 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None, on_goto_hel
     form.addRow("Target deck", target_deck_cb)
 
     search_field_cb = QComboBox()
+    search_field_cb.setMinimumWidth(360)
+    search_field_cb.setMaximumWidth(360)
     form.addRow("Search field", search_field_cb)
 
     fill_mode_cb = QComboBox()
+    fill_mode_cb.setMinimumWidth(360)
+    fill_mode_cb.setMaximumWidth(360)
     fill_mode_cb.addItem("Replace content", "replace")
     fill_mode_cb.addItem("Append to content", "append")
     fill_mode_cb.setCurrentIndex(0 if config.fill_mode == "replace" else 1)
     form.addRow("Fill mode", fill_mode_cb)
 
     multi_meaning_cb = QComboBox()
+    multi_meaning_cb.setMinimumWidth(360)
+    multi_meaning_cb.setMaximumWidth(360)
     multi_meaning_cb.addItem("Pipe Merged", "pipe_merged")
     multi_meaning_cb.addItem("Numbered", "numbered")
     multi_meaning_cb.addItem("Semicolon Merged", "semicolon_merged")
@@ -351,6 +359,8 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None, on_goto_hel
     form.addRow("Multi-meaning format", multi_meaning_cb)
 
     multi_word_cb = QComboBox()
+    multi_word_cb.setMinimumWidth(360)
+    multi_word_cb.setMaximumWidth(360)
     form.addRow("Multi-word format", multi_word_cb)
 
     def refresh_multi_word_options():
@@ -383,6 +393,8 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None, on_goto_hel
             break
 
     quick_fill_mode_cb = QComboBox()
+    quick_fill_mode_cb.setMinimumWidth(360)
+    quick_fill_mode_cb.setMaximumWidth(360)
     quick_fill_mode_cb.addItem("All meanings", "all")
     quick_fill_mode_cb.addItem("First meaning", "first")
     quick_fill_mode_cb.setCurrentIndex(0 if config.quick_fill_mode == "all" else 1)
