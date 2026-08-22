@@ -70,8 +70,6 @@ def _get_focused_field_index():
 
 def setup_addon():
     """Set up the JapaneseMining add-on: services, hooks, menu, timers."""
-    print("Setting up JapaneseMining add-on...")
-
     config_holder = ConfigHolder(load_config())
 
     kanji_data_service = KanjiDataService(config_holder)
