@@ -3,7 +3,7 @@ import aqt
 from aqt.editor import Editor
 
 from ..domain.errors import JapaneseMiningError
-from ..config import ConfigHolder
+from ..config import ConfigHolder, is_valid_mining_note_type
 
 
 class HyperTTSService:
@@ -30,12 +30,8 @@ class HyperTTSService:
             return None
         if problem is not None or note is None:
             return None
-        if note.note_type()["name"] != self._config.mining_note_type:
-            raise JapaneseMiningError(
-                f"This note is not a “{self._config.mining_note_type}” note.",
-                details="HyperTTS only runs on the configured JapaneseMining note type.\n"
-                "Change the note type or disable HyperTTS in the add-on settings.",
-            )
+        if not is_valid_mining_note_type(note.note_type()["name"], self._config):
+            return None
         if editor is None or getattr(editor, "web", None) is None:
             return None
 

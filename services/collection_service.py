@@ -4,7 +4,7 @@ import csv
 import math
 from pathlib import Path
 
-from ..config import ConfigHolder, REQUIRED_MINING_FIELDS
+from ..config import ConfigHolder, REQUIRED_MINING_FIELDS, is_valid_mining_note_type
 from .kanji_data_service import KanjiDataService
 from ..domain.kanji import is_kanji
 from ..domain.errors import JapaneseMiningError
@@ -141,11 +141,8 @@ class CollectionService:
     def ensure_rtk_kanji_for_note(self, note: Note) -> int:
         if note is None:
             return 0
-        if note.note_type()["name"] != self._config.mining_note_type:
-            raise JapaneseMiningError(
-                f"The note is not a {self._config.mining_note_type} note. Please check your settings.",
-                details="Open Settings -> JapaneseMining and set the correct note type.",
-            )
+        if not is_valid_mining_note_type(note.note_type()["name"], self._config):
+            return 0
 
         word = note["Word"] if "Word" in note else ""
         added = 0
@@ -326,7 +323,7 @@ class CollectionService:
         if note is None:
             return 0, 0
 
-        if note.note_type()["name"] != self._config.mining_note_type:
+        if not is_valid_mining_note_type(note.note_type()["name"], self._config):
             return 0, 0
 
         newly_known_count, updated_count = self._update_kanji_knowledge(
@@ -418,6 +415,9 @@ class CollectionService:
                     f'required fields: {", ".join(missing)}. '
                     "Choose a different name or add the missing fields manually."
                 )
+
+        if note_type_name not in self._config.mining_note_types:
+            self._config.mining_note_types.append(note_type_name)
 
         if set_as_default:
             self._config.mining_note_type = note_type_name
