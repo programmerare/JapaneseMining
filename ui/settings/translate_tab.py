@@ -232,7 +232,7 @@ def make_translate_tab(
     note = QLabel(
         "The profile is selected automatically in the editor from the note’s "
         "note type. Changing the selection here only edits that profile. "
-        "Add only picks from existing note types."
+        "<b>Add</b> only picks from existing note types."
     )
     note.setWordWrap(True)
     note.setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 12px;")
