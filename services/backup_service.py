@@ -367,10 +367,6 @@ class BackupService:
             if "JapaneseMining::BackupRestore" not in note.tags:
                 note.tags.append("JapaneseMining::BackupRestore")
 
-            if note.dupeOrEmpty():
-                # Skip pure duplicates; still try to locate existing note if needed
-                continue
-
             col.add_note(note, deck_id)
             created += 1
 
