@@ -423,8 +423,6 @@ class CollectionService:
             self._config.mining_note_type = note_type_name
             # Caller is responsible for persisting config if needed
 
-        col.save()
-
         if created:
             return True, f"Created note type “{note_type_name}”."
         return True, f"Re-used existing note type “{note_type_name}”."
@@ -634,8 +632,6 @@ class CollectionService:
                     if self._fill_note_from_heisig_row(existing, row):
                         col.update_note(existing)
                         notes_filled += 1
-
-        col.save()
 
         parts = []
         if created_model:
@@ -1322,7 +1318,6 @@ class CollectionService:
                         card.due = col.sched.today + days
                     col.update_card(card)
 
-        col.save()
 
         # 3. Deck is source of truth — rebuild CSV from card state
         self.export_learned_kanji()
