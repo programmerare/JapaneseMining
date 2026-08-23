@@ -1248,12 +1248,12 @@ class CollectionService:
         cards_touched = 0
         notes_created = 0
 
-        def _find_existing_note(kanji: str):
-            note_ids = col.find_notes(f'note:"{note_type}" {kanji_field}:{kanji}')
+        def _find_existing_note_in_deck(kanji: str, deck_name: str, note_type: str) -> Note | None:
+            note_ids = col.find_notes(f'deck:"{deck_name}" note:"{note_type}" "{kanji_field}:""{kanji}"')
             if not note_ids:
                 alt = self._config.rtk_alternative_kanji_field
                 if alt:
-                    note_ids = col.find_notes(f'note:"{note_type}" "{alt}:{kanji}"')
+                    note_ids = col.find_notes(f'note:"{note_type}" "{alt}:""{kanji}"')
             if not note_ids:
                 return None
             return col.get_note(note_ids[0])
@@ -1273,12 +1273,15 @@ class CollectionService:
             if is_known:
                 tags.append("Imported-Known")
 
-            note = self._create_rtk_note(
-                kanji=kanji,
-                tags=tags,
-                heisig_kanjis=heisig_rows,
-            )
-            if note is not None:
+            existing = self._find_rtk_note_in_deck(kanji, deck_name=self._config.rtk_deck, note_type=self._config.rtk_note_type)
+            if existing is None:
+                note = self._create_rtk_note(
+                    kanji=kanji,
+                    tags=tags,
+                    heisig_kanjis=heisig_rows,
+                )
+                if note is None:
+                    continue
                 # Prefer explicit keyword from the import file when provided
                 if is_known and known_keywords.get(kanji):
                     kw_field = self._config.rtk_keyword_field
@@ -1291,7 +1294,8 @@ class CollectionService:
                 col.add_note(note, deck_id)
                 notes_created += 1
             else:
-                note = _find_existing_note(kanji)
+                # fill empty fields
+                note = _find_existing_note_in_deck(kanji, self._config.rtk_deck, self._config.rtk_note_type)
                 if note is None:
                     continue
                 if self._fill_note_from_heisig_row(note, row):
@@ -1350,12 +1354,12 @@ class CollectionService:
 
         # Primary field
         note_ids = col.find_notes(
-            f'deck:"{deck}" note:"{nt}" {kanji_field}:{kanji}'
+            f'deck:"{deck}" note:"{nt}" "{kanji_field}:""{kanji}"'
         )
         # Fallback: Alternative Kanji
         if not note_ids and alt_field:
             note_ids = col.find_notes(
-                f'deck:"{deck}" note:"{nt}" "{alt_field}:{kanji}"'
+                f'deck:"{deck}" note:"{nt}" "{alt_field}:""{kanji}"'
             )
         if not note_ids:
             return None
