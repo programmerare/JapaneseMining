@@ -401,9 +401,12 @@ class BackupService:
 
         Returns the path if a backup was created, else None.
         """
+        print("Checking for daily backup…")
         today_local = datetime.now().strftime("%Y-%m-%d")
         profile_key = self._profile_key()
+        print(f"last daily backup by profile: {self._last_daily_backup_by_profile.get(profile_key)}")
         if self._last_daily_backup_by_profile.get(profile_key) == today_local:
+            print(f"Daily backup already checked today; skipping. Date: {today_local}")
             return None
 
         # File already present for this local day (prefix uses UTC stamp —
@@ -414,29 +417,24 @@ class BackupService:
             name = p.name
             if f"{_BACKUP_PREFIX}{today_utc_prefix}" in name:
                 self._last_daily_backup_by_profile[profile_key] = today_local
+                print(f"Daily backup file already exists; skipping. Date: {today_local}")
                 return None
-            try:
-                mtime_day = datetime.fromtimestamp(p.stat().st_mtime).strftime(
-                    "%Y-%m-%d"
-                )
-                if mtime_day == today_local:
-                    self._last_daily_backup_by_profile[profile_key] = today_local
-                    return None
-            except OSError:
-                pass
 
         try:
             if not self._rtk_configured():
                 self._last_daily_backup_by_profile[profile_key] = today_local
+                print(f"RTK is not configured; skipping daily backup. Date: {today_local}")
                 return None
             path = self.create_backup()
             self._last_daily_backup_by_profile[profile_key] = today_local
+            print(f"Daily backup created: {path}")
             return path
         except JapaneseMiningError:
             # Do not stamp the day on config errors — user may fix RTK mapping
             # and we should retry later the same day.
             return None
         except Exception:
+            print("An error occurred while creating daily backup.")
             return None
 
     def _profile_key(self) -> str:
