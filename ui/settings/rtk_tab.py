@@ -1,5 +1,7 @@
 from aqt.utils import tooltip, showInfo, showWarning
 from aqt import mw
+from anki.collection import OpChanges
+from aqt.operations import CollectionOp
 from aqt.qt import (
     QCheckBox,
     QComboBox,
@@ -21,6 +23,7 @@ import string
 
 from ...config import ConfigHolder
 from ...domain.errors import JapaneseMiningError
+from ...domain.results import CreateAndImportResult
 from ..ui_styles import (
     make_scrollable_page,
     make_section_card,
@@ -341,11 +344,12 @@ def make_rtk_tab(
     create_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
 
     random_suffix = "".join(random.choices(string.ascii_letters + string.digits, k=8))
-    _initial_deck = (getattr(config, "rtk_deck", "") or "").strip() or f"RTK_{random_suffix}"
+    _initial_deck = (
+        getattr(config, "rtk_deck", "") or ""
+    ).strip() or f"RTK_{random_suffix}"
     _initial_nt = (
-        (getattr(config, "rtk_note_type", "") or "").strip()
-        or f"Remembering the Kanji_{random_suffix}"
-    )
+        getattr(config, "rtk_note_type", "") or ""
+    ).strip() or f"Remembering the Kanji_{random_suffix}"
     create_deck_edit = QLineEdit(_initial_deck)
     create_deck_edit.setMinimumWidth(300)
     create_form.addRow("Deck name", create_deck_edit)
@@ -395,8 +399,9 @@ def make_rtk_tab(
         create_all = create_all_notes_cb.isChecked()
 
         if not deck_name or not note_type_name:
-            tooltip("Please enter both a deck name and a note type name.")
-            return
+            raise JapaneseMiningError(
+                "Please enter both a deck name and a note type name."
+            )
 
         try:
             success, message = collection_service.create_rtk_deck_and_note_type(
@@ -406,8 +411,7 @@ def make_rtk_tab(
             )
 
             if not success:
-                showInfo(message)
-                return
+                raise JapaneseMiningError(message)
 
             if save_config_fn:
                 save_config_fn(collection_service._config)
@@ -429,12 +433,12 @@ def make_rtk_tab(
                 if value:
                     _set_combo_value(combo, value, fields, preserve_missing=True)
 
-            tooltip(message)
             tabs.setCurrentIndex(0)
+            return CreateAndImportResult(kanji_imported=0, notes_created=0, message=message)
         except JapaneseMiningError as e:
-            showWarning(e.full_message(), parent=outer, title="JapaneseMining")
+            raise e
 
-    create_btn.clicked.connect(on_create_clicked)
+    create_btn.clicked.connect(lambda: _run_import_op(on_create_clicked, show_tooltip=True))
     setup_root.addWidget(create_card)
 
     # ----- Import section -----
@@ -508,9 +512,7 @@ def make_rtk_tab(
     )
     import_layout.addWidget(run_label)
 
-    run_hint = QLabel(
-        "Both actions use the parking options above."
-    )
+    run_hint = QLabel("Both actions use the parking options above.")
     run_hint.setStyleSheet(f"color: {TEXT_SECONDARY}; font-size: 12px;")
     run_hint.setWordWrap(True)
     import_layout.addWidget(run_hint)
@@ -565,7 +567,30 @@ def make_rtk_tab(
             "schedule_max_days": max_days_spin.value(),
         }
 
-    def on_file_import() -> None:
+    def _run_import_op(op_callable, *, show_tooltip: bool = True) -> None:
+        """op_callable() must not touch Qt widgets or dialogs."""
+        def op(col):
+            return op_callable()
+
+        CollectionOp(parent=mw, op=op).success(
+            lambda result: _on_success(result, show_tooltip)
+        ).failure(lambda exc: _on_failure(exc)).run_in_background()
+
+    def _on_success(result: CreateAndImportResult, show_tooltip: bool) -> None:
+        if not show_tooltip or not result.message:
+            return
+        message = result.message
+        tooltip(message, period=6000, parent=mw)
+
+    def _on_failure(exc: Exception) -> None:
+        if isinstance(exc, JapaneseMiningError):
+            showWarning(exc.full_message(), parent=mw, title="JapaneseMining")
+        else:
+            showWarning(
+                f"Unexpected error:\n\n{exc}", parent=mw, title="JapaneseMining"
+            )
+
+    def on_file_import_clicked() -> CreateAndImportResult:
         from aqt.qt import QFileDialog
 
         # Apply mapping live so Import uses the deck chosen on the Mapping tab
@@ -577,29 +602,32 @@ def make_rtk_tab(
             "Text / CSV (*.txt *.csv);;All files (*)",
         )
         if not path:
-            return
-        try:
-            marked, touched = collection_service.import_known_kanji_from_file(
+            return CreateAndImportResult()
+
+        def op(col):
+            marked, created = collection_service.import_known_kanji_from_file(
                 path, **_schedule_opts()
             )
-        except JapaneseMiningError as e:
-            showWarning(e.full_message(), parent=outer, title="JapaneseMining")
-            return
-        tooltip(f"Marked {marked} kanji as known. Touched {touched} card(s).")
+            return CreateAndImportResult(kanji_imported=marked, notes_created=created)
 
-    def on_heisig_import() -> None:
+        CollectionOp(parent=mw, op=op).success(
+            lambda result: _on_success(result, show_tooltip=True)
+        ).failure(_on_failure).run_in_background()
+
+    def on_heisig_import() -> CreateAndImportResult:
         push_mapping_to_config()
         try:
-            marked, touched = collection_service.import_known_kanji_up_to_heisig(
+            marked, created = collection_service.import_known_kanji_up_to_heisig(
                 heisig_spin.value(), **_schedule_opts()
             )
         except JapaneseMiningError as e:
-            showWarning(e.full_message(), parent=outer, title="JapaneseMining")
-            return
-        tooltip(f"Marked {marked} kanji as known. Touched {touched} card(s).")
+            raise e
+        return CreateAndImportResult(kanji_imported=marked, notes_created=created)
 
-    file_btn.clicked.connect(on_file_import)
-    heisig_apply_btn.clicked.connect(on_heisig_import)
+    file_btn.clicked.connect(on_file_import_clicked)
+    heisig_apply_btn.clicked.connect(
+        lambda: _run_import_op(on_heisig_import, show_tooltip=True)
+    )
 
     setup_root.addWidget(import_card)
     setup_root.addStretch()
