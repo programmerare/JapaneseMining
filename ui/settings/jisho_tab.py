@@ -161,7 +161,7 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None, on_goto_hel
 
     def add_profile():
         try:
-            models = sorted(mw.col.models.all_names()) if mw.col else []
+            models = sorted(m.name for m in mw.col.models.all_names_and_ids()) if mw.col else []
         except Exception:
             models = []
 
@@ -328,7 +328,7 @@ def make_jisho_tab(config_holder: ConfigHolder, save_config_fn=None, on_goto_hel
     target_deck_cb.setEditable(True)
     target_deck_cb.addItem("")
     try:
-        decks = mw.col.decks.all_names() if mw.col else []
+        decks = [d.name for d in mw.col.decks.all_names_and_ids()] if mw.col else []
         target_deck_cb.addItems(sorted(decks))
     except Exception:
         pass
