@@ -403,40 +403,37 @@ def make_rtk_tab(
                 "Please enter both a deck name and a note type name."
             )
 
-        try:
-            success, message = collection_service.create_rtk_deck_and_note_type(
-                deck_name=deck_name,
-                note_type_name=note_type_name,
-                create_all_notes=create_all,
-            )
+        success, message = collection_service.create_rtk_deck_and_note_type(
+            deck_name=deck_name,
+            note_type_name=note_type_name,
+            create_all_notes=create_all,
+        )
 
-            if not success:
-                raise JapaneseMiningError(message)
+        if not success:
+            raise JapaneseMiningError(message)
 
-            if save_config_fn:
-                save_config_fn(collection_service._config)
+        if save_config_fn:
+            save_config_fn(collection_service._config)
 
-            cfg = collection_service._config
-            _set_combo_value(rtk_deck_cb, cfg.rtk_deck, _deck_names())
-            _set_combo_value(rtk_note_type_cb, cfg.rtk_note_type, _note_type_names())
-            refresh_rtk_fields(cfg.rtk_note_type, preserve_missing=True)
-            # Reflect whatever mappings create_rtk_deck_and_note_type decided
-            fields = _field_names(cfg.rtk_note_type)
-            for combo, value in (
-                (rtk_kanji_field_cb, cfg.rtk_kanji_field),
-                (rtk_keyword_field_cb, cfg.rtk_keyword_field),
-                (rtk_alternative_kanji_field_cb, cfg.rtk_alternative_kanji_field),
-                (rtk_meanings_field_cb, cfg.rtk_meanings_field),
-                (rtk_heisig_number_field_cb, cfg.rtk_heisig_number_field),
-                (rtk_stroke_count_field_cb, cfg.rtk_stroke_count_field),
-            ):
-                if value:
-                    _set_combo_value(combo, value, fields, preserve_missing=True)
+        cfg = collection_service._config
+        _set_combo_value(rtk_deck_cb, cfg.rtk_deck, _deck_names())
+        _set_combo_value(rtk_note_type_cb, cfg.rtk_note_type, _note_type_names())
+        refresh_rtk_fields(cfg.rtk_note_type, preserve_missing=True)
+        # Reflect whatever mappings create_rtk_deck_and_note_type decided
+        fields = _field_names(cfg.rtk_note_type)
+        for combo, value in (
+            (rtk_kanji_field_cb, cfg.rtk_kanji_field),
+            (rtk_keyword_field_cb, cfg.rtk_keyword_field),
+            (rtk_alternative_kanji_field_cb, cfg.rtk_alternative_kanji_field),
+            (rtk_meanings_field_cb, cfg.rtk_meanings_field),
+            (rtk_heisig_number_field_cb, cfg.rtk_heisig_number_field),
+            (rtk_stroke_count_field_cb, cfg.rtk_stroke_count_field),
+        ):
+            if value:
+                _set_combo_value(combo, value, fields, preserve_missing=True)
 
-            tabs.setCurrentIndex(0)
-            return CreateAndImportResult(kanji_imported=0, notes_created=0, message=message)
-        except JapaneseMiningError as e:
-            raise e
+        tabs.setCurrentIndex(0)
+        return CreateAndImportResult(kanji_imported=0, notes_created=0, message=message)
 
     create_btn.clicked.connect(lambda: _run_import_op(on_create_clicked, show_tooltip=True))
     setup_root.addWidget(create_card)
@@ -616,12 +613,9 @@ def make_rtk_tab(
 
     def on_heisig_import() -> CreateAndImportResult:
         push_mapping_to_config()
-        try:
-            marked, created = collection_service.import_known_kanji_up_to_heisig(
-                heisig_spin.value(), **_schedule_opts()
-            )
-        except JapaneseMiningError as e:
-            raise e
+        marked, created = collection_service.import_known_kanji_up_to_heisig(
+            heisig_spin.value(), **_schedule_opts()
+        )
         return CreateAndImportResult(kanji_imported=marked, notes_created=created)
 
     file_btn.clicked.connect(on_file_import_clicked)
