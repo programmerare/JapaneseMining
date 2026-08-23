@@ -298,8 +298,7 @@ def _build_overview() -> QWidget:
         cl_tp.addWidget(_bullet(item))
     cl_tp.addWidget(
         _body_label(
-            "Counts update as you study and mine. Empty sections show a short placeholder "
-            "instead of a blank card."
+            "Counts update as you study and mine."
         )
     )
     cl_tp.addWidget(
@@ -536,7 +535,7 @@ def _build_note_type() -> QWidget:
         (
             "Force Update Meanings",
             "Same as Soft Update, but always overwrites <b>Kanji Meanings</b> "
-            "(dictionary meanings used for hover).",
+            "(dictionary meanings used for hover). Usually not required.",
         ),
         (
             "Force Update Everything",
