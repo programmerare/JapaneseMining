@@ -93,6 +93,7 @@ class Config:
     # --- GENERAL ---
     show_tooltip: bool = True
     show_update_needed: bool = True
+    mining_note_types: list[str] = field(default_factory=list)
     mining_note_type: str = "JapaneseMining"
     rtk_deck: str = ""
     rtk_note_type: str = ""
@@ -153,6 +154,14 @@ class ConfigHolder:
         self.config = load_config()
         return self.config
 
+
+# ---------------------------------------------------------------------------
+# Validation
+# ---------------------------------------------------------------------------
+
+def is_valid_mining_note_type(note_type: str, config: Config) -> bool:
+    """Check if the given note type is a valid JapaneseMining note type."""
+    return note_type in config.mining_note_types
 
 # ---------------------------------------------------------------------------
 # Profile-aware paths
