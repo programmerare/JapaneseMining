@@ -1244,8 +1244,6 @@ class CollectionService:
         col = mw.col
         deck_id = col.decks.id(self._config.rtk_deck)
         kanji_field = self._config.rtk_kanji_field
-        note_type = self._config.rtk_note_type
-        cards_touched = 0
         notes_created = 0
 
         def _find_existing_note_in_deck(kanji: str, deck_name: str, note_type: str) -> Note | None:
@@ -1323,14 +1321,13 @@ class CollectionService:
                         card.factor = 2500
                         card.due = col.sched.today + days
                     col.update_card(card)
-                    cards_touched += 1
 
         col.save()
 
         # 3. Deck is source of truth — rebuild CSV from card state
         self.export_learned_kanji()
 
-        return len(known_set), cards_touched
+        return len(known_set), notes_created
 
     def _find_rtk_note_in_deck(
         self,
