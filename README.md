@@ -39,9 +39,9 @@ Mine words from real sentences, keep track of which kanji you already know (via 
 
 ## Requirements
 
-- Anki 2.1.50+ (recommended: recent 23.x / 24.x)
-- Internet for Jisho and DeepL (and HyperTTS if used)
-- A DeepL API key if you want automatic translation (free tier works)
+- **Anki**: Tested on **25.09.4**. Should work on recent Anki versions (25.x / 26.x). Older versions are untested.
+- Internet connection for Jisho, DeepL, and HyperTTS (if used).
+- A DeepL API key if you want automatic translation (the free tier works).
 
 Optional but recommended:
 
@@ -53,7 +53,7 @@ Optional but recommended:
 ## Quick Start
 
 1. Install the add-on and restart Anki.
-2. **Tools → JapaneseMining → Settings → General**  
+2. **JapaneseMining → Settings → General**  
    Create the JapaneseMining note type (keep the default field names).
 3. **Settings → RTK**  
    - New to RTK → create the deck + note type.  
@@ -71,7 +71,7 @@ Full walkthrough lives in **Settings → Help → Quick Start**.
 
 ## Configuration
 
-All settings live under **Tools → JapaneseMining → Settings**.
+All settings live under **JapaneseMining → Settings**.
 
 | Tab        | Purpose                                              |
 |------------|------------------------------------------------------|
@@ -87,21 +87,19 @@ Config is stored per Anki profile. The add-on is careful about surviving note-ty
 
 ---
 
-## Menu actions (Tools → JapaneseMining)
+## Menu actions (JapaneseMining)
 
-- Show Today’s Words
+- Show Today’s Progress
+- Show Kanji (heatmap + difficult kanji)
 - Settings
 - Soft / Force Update (keywords, meanings, everything)
-- Add Unknown Kanji
-- Export Learned Kanji
-- Show Kanji (heatmap + difficult kanji)
 
 ---
 
 ## Privacy & data
 
 - DeepL and Jisho calls go over the network (your API key for DeepL).
-- Learned-kanji cache and today’s-words file live in the media folder / profile data.
+- Learned-kanji cache and today’s-progress files live within the add-on.
 - No analytics, no telemetry, no “buy me a coffee” prompts.
 
 ---
@@ -110,15 +108,31 @@ Config is stored per Anki profile. The add-on is careful about surviving note-ty
 
 This is the first public version. Expect rough edges.
 
-- Advertising and discovery for Anki add-ons is hard; feedback will probably be scarce at the beginning.
 - Some edge cases around note-type changes, suspended cards, and multi-profile setups may still surface.
 - HyperTTS and certain Jisho fill modes benefit from a bit of manual tuning per note type.
 
-Please open an issue (or message) with:
+**Always back up your Anki collection** before installing or updating any add-on.
 
-- Anki version
+---
+
+## Bug reports & contact
+
+Found a bug or have feedback? Please get in touch.
+
+When reporting a problem, include:
+
+- Anki version (Help → About)
+- JapaneseMining version
 - Steps to reproduce
-- What you expected vs what happened
+- What you expected vs what actually happened
+- Any error message or screenshot if available
+
+**Contact options**:
+
+- GitHub Issues: `https://github.com/programmerare/JapaneseMining/issues`
+- AnkiWeb support URL (set when you upload the add-on)
+
+I read every report. Even short ones help.
 
 ---
 
@@ -126,13 +140,11 @@ Please open an issue (or message) with:
 
 This project follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`).
 
-See the section below in the repository / release notes for what each number means.
+- **MAJOR** – breaking changes  
+- **MINOR** – new features (backward-compatible)  
+- **PATCH** – bug fixes only  
 
----
-
-## License
-
-(Add your chosen license here — MIT is common and friendly for Anki add-ons.)
+First public release is **1.0.0**.
 
 ---
 
