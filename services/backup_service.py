@@ -40,7 +40,7 @@ from ..domain.results import UpdateResult
 
 
 _SCHEMA_VERSION = 1
-_MAX_BACKUPS = 50
+_MAX_BACKUPS = 20
 _BACKUP_PREFIX = "rtk_backup_"
 _BACKUP_SUFFIX = ".json"
 
@@ -285,6 +285,8 @@ class BackupService:
                 "kanji": self._config.rtk_kanji_field or "",
                 "alternative_kanji": self._config.rtk_alternative_kanji_field or "",
                 "keyword": self._config.rtk_keyword_field or "",
+                "meanings": self._config.rtk_meanings_field or "",
+                "note": self._config.rtk_note_field or "",
                 "heisig_number": self._config.rtk_heisig_number_field or "",
                 "stroke_count": self._config.rtk_stroke_count_field or "",
             },

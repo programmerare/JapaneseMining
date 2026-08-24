@@ -463,6 +463,7 @@ class CollectionService:
             "Alternative Kanji",
             "Keyword",
             "Story",
+            "Note",
             "Meanings",
             "Heisig Number",
             "Stroke Count",
@@ -526,6 +527,7 @@ class CollectionService:
             self._config.rtk_alternative_kanji_field = "Alternative Kanji"
             self._config.rtk_keyword_field = "Keyword"
             self._config.rtk_meanings_field = "Meanings"
+            self._config.rtk_note_field = "Note"
             self._config.rtk_heisig_number_field = "Heisig Number"
             self._config.rtk_stroke_count_field = "Stroke Count"
         else:
@@ -550,6 +552,11 @@ class CollectionService:
                 and "Meanings" in existing_fields
             ):
                 self._config.rtk_meanings_field = "Meanings"
+            if (
+                not (self._config.rtk_note_field or "").strip()
+                and "Note" in existing_fields
+            ):
+                self._config.rtk_note_field = "Note"
             if (
                 not (self._config.rtk_heisig_number_field or "").strip()
                 and "Heisig Number" in existing_fields
@@ -842,6 +849,7 @@ class CollectionService:
         heisig_field = self._config.rtk_heisig_number_field
         stroke_field = self._config.rtk_stroke_count_field
         meanings_field = self._config.rtk_meanings_field
+        note_field = self._config.rtk_note_field
 
         if (
             keyword_field
@@ -882,6 +890,15 @@ class CollectionService:
             joined = " · ".join(m for m in meanings if m)
             if joined:
                 note[meanings_field] = joined
+                changed = True
+        if (
+            note_field
+            and note_field in note
+            and not (note[note_field] or "").strip()
+        ):
+            heisig_note = (row.get("note") or "").strip()
+            if heisig_note:
+                note[note_field] = heisig_note
                 changed = True
 
         return changed
@@ -2272,6 +2289,10 @@ RTK_BACK_HTML = r"""
     {{/Heisig Number}}
   </div>
 
+  {{#Meanings}}
+  <div class="meanings">{{Meanings}}</div>
+  {{/Meanings}}
+
   <hr id="answer">
 
   <!-- Main Kanji -->
@@ -2285,10 +2306,6 @@ RTK_BACK_HTML = r"""
       <span class="kanji-font hgrkk">{{Kanji}}</span>
       <span class="kanji-font stroke-order">{{Kanji}}</span>
     </div>
-
-    {{#Meanings}}
-    <div class="meanings">{{Meanings}}</div>
-    {{/Meanings}}
 
   </section>
 
@@ -2322,6 +2339,19 @@ RTK_BACK_HTML = r"""
 
   </section>
   {{/Story}}
+
+  <!-- Note -->
+  {{#Note}}
+  <section class="note-section">
+
+    <div class="section-label">Note</div>
+
+    <div class="note">
+      {{Note}}
+    </div>
+
+  </section>
+  {{/Note}}
 
   <!-- Meta -->
   <section class="meta">
@@ -2411,6 +2441,20 @@ RTK_CARD_CSS = r"""
 }
 
 
+/* Dictionary meanings — under keyword, supportive only */
+
+.meanings {
+  margin: 0.15em auto 0.45em;
+  max-width: 28em;
+  font-size: 0.68em;
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  color: #8a8a8a;
+  text-align: center;
+}
+
+
 /* Divider */
 
 hr#answer {
@@ -2464,20 +2508,6 @@ hr#answer {
 
   color: #181818;
   line-height: 1;
-}
-
-/* Dictionary meanings — supportive only */
-.meanings {
-  margin: 0.55em auto 0;
-  max-width: 28em;
-
-  font-size: 0.68em;
-  font-weight: 400;
-  line-height: 1.4;
-  letter-spacing: 0.01em;
-
-  color: #8a8a8a;
-  text-align: center;
 }
 
 .kanji-font {
@@ -2539,6 +2569,32 @@ hr#answer {
 }
 
 .story {
+  max-width: 700px;
+  margin: 0 auto;
+
+  padding: 0.75em 0.9em;
+
+  background: #f5f5f5;
+
+  border: 1px solid #e8e8e8;
+  border-radius: 7px;
+
+  color: #555;
+
+  font-family: Arial, sans-serif;
+  font-size: 0.95em;
+
+  text-align: center;
+}
+
+
+/* Note — same visual language as Story */
+
+.note-section {
+  margin-top: 1.5em;
+}
+
+.note {
   max-width: 700px;
   margin: 0 auto;
 
@@ -2713,6 +2769,16 @@ hr#answer {
   color: #ccc;
 }
 
+.nightMode .note {
+  background: #292929;
+  border-color: #3a3a3a;
+  color: #ccc;
+}
+
+.nightMode .meanings {
+  color: #8e8e8e;
+}
+
 .nightMode .meta-item {
   background: #292929;
   border-color: #3a3a3a;
@@ -2724,9 +2790,5 @@ hr#answer {
 
 .nightMode .meta-value {
   color: #ccc;
-}
-
-.nightMode .meanings {
-  color: #8e8e8e;
 }
 """
