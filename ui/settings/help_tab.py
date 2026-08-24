@@ -735,6 +735,54 @@ def _build_rtk_help() -> QWidget:
         cl5.addWidget(_bullet(item))
     layout.addWidget(card5)
 
+    card_study, cl_study = make_section_card("How to use the RTK deck")
+    cl_study.addWidget(
+        _body_label(
+            "Cards are keyword → kanji. Read the keyword on the front, recall the "
+            "character, write it down, then flip to check. "
+            "Writing down the kanji is important — it strengthens memory and you actually learn to write the character."
+        )
+    )
+    cl_study.addWidget(
+        _body_label(
+            "Note that learning kanji takes time and effort. Reduce the number of daily kanji if you feel overwhelmed. "
+            "My personal experience is that 10 kanji per day leads to 60 - 80 repetition per day, with about 90 minutes of study time."
+        )
+    )
+    cl_study.addWidget(
+        _body_label(
+            "The <b>keyword is clickable</b>. It opens "
+            "<code>https://hochanh.github.io/rtk/{{Kanji}}/index.html</code> "
+            "for that kanji. There you can browse existing stories and pick one you like — "
+            "or invent your own and write it into the <b>Story</b> field on the note."
+        )
+    )
+    cl_study.addWidget(
+        _body_label(
+            'You find additional meanings (same on <a href="https://jisho.org/search/祥%20%23kanji">Jisho</a>) associated with the kanji underneath the keyword. '
+            "I do not recommend choosing your own keywords freely as they can conflict with the Heisig method and make it harder to learn new kanji later. "
+            "The <b>Note</b> field is a good place to write anything you want to remember about the kanji."
+        )
+    )
+    cl_study.addWidget(
+        _body_label(
+            "Use this deck alongside <b>Remembering the Kanji, 6th edition</b> "
+            "(Heisig numbering and keywords match). The <b>4th edition</b> also works "
+            "for most of the set, with minor keyword differences and without the 196 kanji "
+            "added to the Jōyō list around 2010. The 4th edition is freely available here: "
+            '<a href="https://hep.ph.liv.ac.uk/~payne/sgfSigmaThing/James%20W.%20Heisig%20-%20Remembering%20Kanji%204%BA%20Edition%20-%20Vol%201.pdf">'
+            "Remembering the Kanji 4th Edition — Vol. 1 (PDF)</a>."
+        )
+    )
+    cl_study.addWidget(
+        make_help_image(
+            "rtk_note_example.png",
+            caption="Example of an RTK note",
+            max_width=450,
+        )
+    )
+    layout.addWidget(card_study)
+
     card_tags, cl_tags = make_section_card("Tags the add-on uses")
     for tag, meaning in [
         ("JapaneseMining::RTK", "Every RTK note the add-on manages."),
