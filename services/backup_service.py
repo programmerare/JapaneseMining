@@ -94,7 +94,7 @@ class NoteTypeSnapshot:
 @dataclass
 class BackupMeta:
     format_version: int
-    created_at: str                 # ISO-8601 UTC
+    created_at: str                 # local time
     source_deck: str
     source_note_type: str
     field_map: dict[str, str]       # config field roles at backup time
@@ -137,7 +137,7 @@ class BackupService:
 
     def _backup_path(self, stamp: str | None = None) -> Path:
         if stamp is None:
-            stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         return self.backups_dir() / f"{_BACKUP_PREFIX}{stamp}{_BACKUP_SUFFIX}"
 
     # ----- public API -----------------------------------------------------
@@ -278,7 +278,7 @@ class BackupService:
 
         meta = BackupMeta(
             format_version=_SCHEMA_VERSION,
-            created_at=datetime.now(timezone.utc).isoformat(),
+            created_at=datetime.now().isoformat(),
             source_deck=deck,
             source_note_type=note_type_name,
             field_map={
@@ -385,8 +385,6 @@ class BackupService:
                     continue
                 self._apply_card_snapshot(card, snap)
 
-        col.save()
-
         return UpdateResult(kanji_added_to_rtk=created)
 
     def maybe_create_daily_backup(self) -> Path | None:
@@ -401,40 +399,32 @@ class BackupService:
 
         Returns the path if a backup was created, else None.
         """
-        print("Checking for daily backup…")
         today_local = datetime.now().strftime("%Y-%m-%d")
         profile_key = self._profile_key()
-        print(f"last daily backup by profile: {self._last_daily_backup_by_profile.get(profile_key)}")
         if self._last_daily_backup_by_profile.get(profile_key) == today_local:
-            print(f"Daily backup already checked today; skipping. Date: {today_local}")
             return None
 
-        # File already present for this local day (prefix uses UTC stamp —
-        # also accept any file whose mtime falls on local today).
-        today_utc_prefix = datetime.now(timezone.utc).strftime("%Y%m%d")
+        # File already present for this local day
+        today_local_prefix = datetime.now().strftime("%Y%m%d")
         dir_ = self.backups_dir()
         for p in dir_.glob(f"{_BACKUP_PREFIX}*{_BACKUP_SUFFIX}"):
             name = p.name
-            if f"{_BACKUP_PREFIX}{today_utc_prefix}" in name:
+            if f"{_BACKUP_PREFIX}{today_local_prefix}" in name:
                 self._last_daily_backup_by_profile[profile_key] = today_local
-                print(f"Daily backup file already exists; skipping. Date: {today_local}")
                 return None
 
         try:
             if not self._rtk_configured():
                 self._last_daily_backup_by_profile[profile_key] = today_local
-                print(f"RTK is not configured; skipping daily backup. Date: {today_local}")
                 return None
             path = self.create_backup()
             self._last_daily_backup_by_profile[profile_key] = today_local
-            print(f"Daily backup created: {path}")
             return path
         except JapaneseMiningError:
             # Do not stamp the day on config errors — user may fix RTK mapping
             # and we should retry later the same day.
             return None
         except Exception:
-            print("An error occurred while creating daily backup.")
             return None
 
     def _profile_key(self) -> str:
@@ -632,7 +622,6 @@ class BackupService:
             model["css"] = snap.css
 
         mm.add(model)
-        col.save()
         return model
 
     # ----- serialisation --------------------------------------------------
