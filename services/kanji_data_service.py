@@ -6,7 +6,7 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 
 from ..domain.errors import JapaneseMiningError
-from ..config import ConfigHolder, profile_user_dir
+from ..config import ConfigHolder, profile_user_dir, is_valid_mining_note_type
 
 
 class KanjiDataService:
@@ -470,7 +470,7 @@ class KanjiDataService:
         note = card.note()
         note_type_name = note.note_type()["name"]
 
-        if note_type_name == self._config.mining_note_type:
+        if is_valid_mining_note_type(note_type_name, self._config):
             word = note["Word"] if "Word" in note else ""
             if not word:
                 return
