@@ -82,6 +82,9 @@ class KanjiDataService:
 
         Only touches words / kanji / known-cards. Learned kanji, meanings, and
         flagged kanji are loaded on collection_did_load via load_profile_data.
+
+        After loading we always rewrite the three files so they contain a proper
+        header + only today's rows (history is pruned, missing headers fixed).
         """
         today = str(date.today())
         if self._progress_day == today:
@@ -90,6 +93,7 @@ class KanjiDataService:
         self.load_todays_words()
         self.load_todays_kanji()
         self.load_todays_known_cards()
+        self._rewrite_todays_files()
         self._progress_day = today
 
     def get_heatmap_data(
@@ -127,6 +131,10 @@ class KanjiDataService:
 
         Called from collection_did_load only. Always reloads — do not day-gate
         here, or profile switches on the same calendar day will keep stale data.
+
+        After the three today-loaders we rewrite the files so they are guaranteed
+        to have a header and contain only today's rows. This both repairs files
+        that were written without a header and prunes historical rows.
         """
         self.load_learned_kanji()
         try:
@@ -145,6 +153,7 @@ class KanjiDataService:
         self.load_todays_words()
         self.load_todays_kanji()
         self.load_todays_known_cards()
+        self._rewrite_todays_files()
         self._progress_day = str(date.today())
 
     def load_kanji_meanings(self) -> None:
@@ -212,7 +221,12 @@ class KanjiDataService:
             self._learned_kanji = {}
 
     def load_todays_words(self) -> None:
-        """Load words learned today from the CSV file."""
+        """Load words learned today from the CSV file.
+
+        Tolerant of a missing header: a row is treated as a header only when
+        its first cell is exactly "Date". All other rows that match today are
+        kept. This recovers data from files that were written without a header.
+        """
         today = str(date.today())
         items: list[tuple[str, str, str]] = []
         file_path = self._user_data_path(self._TODAYS_WORDS_FILE)
@@ -220,8 +234,9 @@ class KanjiDataService:
         try:
             with file_path.open(encoding="utf-8") as f:
                 reader = csv.reader(f)
-                next(reader, None)
                 for row in reader:
+                    if not row or row[0] == "Date":
+                        continue
                     if len(row) >= 4 and row[0] == today:
                         items.append((row[1], row[2], row[3]))
         except FileNotFoundError:
@@ -230,7 +245,10 @@ class KanjiDataService:
         self._seen_words = {(w, r) for w, r, _ in items}
 
     def load_todays_kanji(self) -> None:
-        """Load kanji learned today from CSV."""
+        """Load kanji learned today from CSV.
+
+        Tolerant of a missing header (see load_todays_words).
+        """
         today = str(date.today())
         items: list[tuple[str, str]] = []
         file_path = self._user_data_path(self._TODAYS_KANJI_FILE)
@@ -238,8 +256,9 @@ class KanjiDataService:
         try:
             with file_path.open(encoding="utf-8") as f:
                 reader = csv.reader(f)
-                next(reader, None)
                 for row in reader:
+                    if not row or row[0] == "Date":
+                        continue
                     if len(row) >= 2 and row[0] == today:
                         items.append((row[1], row[2] if len(row) > 2 else ""))
         except FileNotFoundError:
@@ -248,7 +267,10 @@ class KanjiDataService:
         self._seen_kanji = {k for k, _ in items}
 
     def load_todays_known_cards(self) -> None:
-        """Load cards that became known today from CSV."""
+        """Load cards that became known today from CSV.
+
+        Tolerant of a missing header (see load_todays_words).
+        """
         today = str(date.today())
         items: list[tuple[str, str, str]] = []
         file_path = self._user_data_path(self._TODAYS_KNOWN_CARDS_FILE)
@@ -256,8 +278,9 @@ class KanjiDataService:
         try:
             with file_path.open(encoding="utf-8") as f:
                 reader = csv.reader(f)
-                next(reader, None)
                 for row in reader:
+                    if not row or row[0] == "Date":
+                        continue
                     if len(row) >= 4 and row[0] == today:
                         items.append((row[1], row[2], row[3]))
         except FileNotFoundError:
@@ -305,6 +328,7 @@ class KanjiDataService:
         """Save a word to the todays_words.csv file."""
         today = str(date.today())
         if self._progress_day != today:
+            # Midnight crossed while Anki was open: reset caches and files.
             self._progress_day = today
             self._todays_words = []
             self._todays_kanji = []
@@ -312,7 +336,7 @@ class KanjiDataService:
             self._seen_words.clear()
             self._seen_kanji.clear()
             self._seen_known_cards.clear()
-            self._overwrite_todays_files()
+            self._rewrite_todays_files()
 
         key = (word, reading)
         if key in self._seen_words:
@@ -336,7 +360,7 @@ class KanjiDataService:
             self._seen_words.clear()
             self._seen_kanji.clear()
             self._seen_known_cards.clear()
-            self._overwrite_todays_files()
+            self._rewrite_todays_files()
 
         if kanji in self._seen_kanji:
             return
@@ -359,7 +383,7 @@ class KanjiDataService:
             self._seen_words.clear()
             self._seen_kanji.clear()
             self._seen_known_cards.clear()
-            self._overwrite_todays_files()
+            self._rewrite_todays_files()
 
         key = (word, reading)
         if key in self._seen_known_cards:
@@ -525,17 +549,40 @@ class KanjiDataService:
             refresh_deck_browser()
 
     # --- PRIVATE METHODS --- #
-    def _overwrite_todays_files(self) -> None:
-        """Reset all three today files with headers (called on day change)."""
-        for filename, header in (
-            (self._TODAYS_WORDS_FILE, ["Date", "Word", "Reading", "Meaning"]),
-            (self._TODAYS_KANJI_FILE, ["Date", "Kanji", "Keyword"]),
-            (self._TODAYS_KNOWN_CARDS_FILE, ["Date", "Word", "Reading", "Meaning"]),
-        ):
-            path = self._user_data_path(filename)
-            with path.open("w", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
-                writer.writerow(header)
+    def _rewrite_todays_files(self) -> None:
+        """
+        Write header + current in-memory today's data for all three progress files.
+
+        Called after every load of today's data and on calendar-day change.
+        Guarantees:
+        - the files always have a proper header,
+        - only rows belonging to the current calendar day are kept,
+        - already-broken files (no header, mixed history) are repaired without
+          losing any of today's entries that were successfully loaded into the
+          caches.
+        """
+        today = str(date.today())
+
+        path = self._user_data_path(self._TODAYS_WORDS_FILE)
+        with path.open("w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["Date", "Word", "Reading", "Meaning"])
+            for word, reading, meaning in self._todays_words:
+                writer.writerow([today, word, reading, meaning])
+
+        path = self._user_data_path(self._TODAYS_KANJI_FILE)
+        with path.open("w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["Date", "Kanji", "Keyword"])
+            for kanji, keyword in self._todays_kanji:
+                writer.writerow([today, kanji, keyword])
+
+        path = self._user_data_path(self._TODAYS_KNOWN_CARDS_FILE)
+        with path.open("w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["Date", "Word", "Reading", "Meaning"])
+            for word, reading, meaning in self._todays_known_cards:
+                writer.writerow([today, word, reading, meaning])
 
     # --- PATH HELPERS --- #
     def _user_data_path(self, filename: str) -> Path:
