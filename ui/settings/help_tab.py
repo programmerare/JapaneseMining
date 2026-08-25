@@ -1019,7 +1019,7 @@ def _build_backup_help() -> QWidget:
     cl2.addWidget(
         _body_label(
             "Stored under the add-on profile folder "
-            "(user_files/profiles/&lt;profile_id&gt;/backups/). Up to 50 backups; "
+            "(user_files/profiles/&lt;profile_id&gt;/backups/). Up to 20 backups; "
             "older ones are pruned. A daily backup is attempted when the collection "
             "loads if none exists for the current UTC day."
         )
