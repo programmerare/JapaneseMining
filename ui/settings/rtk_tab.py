@@ -203,6 +203,7 @@ def make_rtk_tab(
 
     map_layout.addLayout(form)
 
+    # Required: Kanji + Keyword. Optional fields get a leading "" so the user can clear them.
     field_combos = [
         (rtk_kanji_field_cb, getattr(config, "rtk_kanji_field", "") or ""),
         (rtk_keyword_field_cb, getattr(config, "rtk_keyword_field", "") or ""),
@@ -227,6 +228,13 @@ def make_rtk_tab(
             getattr(config, "rtk_note_field", "") or "",
         ),
     ]
+    _OPTIONAL_FIELD_COMBOS = {
+        rtk_alternative_kanji_field_cb,
+        rtk_meanings_field_cb,
+        rtk_note_field_cb,
+        rtk_heisig_number_field_cb,
+        rtk_stroke_count_field_cb,
+    }
 
     def refresh_rtk_fields(
         note_type: str | None = None, *, preserve_missing: bool = False
@@ -234,8 +242,12 @@ def make_rtk_tab(
         note_type = (
             note_type if note_type is not None else rtk_note_type_cb.currentText()
         )
-        fields = _field_names(note_type)
+        base_fields = _field_names(note_type)
         for combo, saved in field_combos:
+            # Optional fields get a blank entry so the user can clear the mapping.
+            fields = (
+                ([""] + base_fields) if combo in _OPTIONAL_FIELD_COMBOS else base_fields
+            )
             if preserve_missing:
                 value = combo.currentText() if combo.count() else saved
                 _set_combo_value(combo, value or saved, fields, preserve_missing=True)
@@ -286,8 +298,9 @@ def make_rtk_tab(
                 getattr(cfg, "rtk_note_type", "") or "",
                 _note_type_names(),
             )
-            # Field lists depend on note type — rebuild from config values
-            fields = _field_names(rtk_note_type_cb.currentText())
+            # Field lists depend on note type — rebuild from config values.
+            # Optional fields get a leading blank entry so the mapping can be cleared.
+            base_fields = _field_names(rtk_note_type_cb.currentText())
             for combo, attr in (
                 (rtk_kanji_field_cb, "rtk_kanji_field"),
                 (rtk_keyword_field_cb, "rtk_keyword_field"),
@@ -297,6 +310,11 @@ def make_rtk_tab(
                 (rtk_stroke_count_field_cb, "rtk_stroke_count_field"),
                 (rtk_note_field_cb, "rtk_note_field"),
             ):
+                fields = (
+                    ([""] + base_fields)
+                    if combo in _OPTIONAL_FIELD_COMBOS
+                    else base_fields
+                )
                 _set_combo_value(
                     combo,
                     getattr(cfg, attr, "") or "",
@@ -431,8 +449,9 @@ def make_rtk_tab(
         _set_combo_value(rtk_deck_cb, cfg.rtk_deck, _deck_names())
         _set_combo_value(rtk_note_type_cb, cfg.rtk_note_type, _note_type_names())
         refresh_rtk_fields(cfg.rtk_note_type, preserve_missing=True)
-        # Reflect whatever mappings create_rtk_deck_and_note_type decided
-        fields = _field_names(cfg.rtk_note_type)
+        # Reflect whatever mappings create_rtk_deck_and_note_type decided.
+        # Optional fields get a leading blank so the user can still clear them.
+        base_fields = _field_names(cfg.rtk_note_type)
         for combo, value in (
             (rtk_kanji_field_cb, cfg.rtk_kanji_field),
             (rtk_keyword_field_cb, cfg.rtk_keyword_field),
@@ -443,6 +462,11 @@ def make_rtk_tab(
             (rtk_note_field_cb, cfg.rtk_note_field),
         ):
             if value:
+                fields = (
+                    ([""] + base_fields)
+                    if combo in _OPTIONAL_FIELD_COMBOS
+                    else base_fields
+                )
                 _set_combo_value(combo, value, fields, preserve_missing=True)
 
         tabs.setCurrentIndex(0)
