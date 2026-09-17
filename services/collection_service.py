@@ -17,6 +17,7 @@ from ..cards.mining_card_template import (
     MINING_CARD_CSS,
 )
 from ..cards.rtk_card_template import RTK_FRONT_HTML, RTK_BACK_HTML, RTK_CARD_CSS
+from ..domain.note_utils import get_field
 
 class CollectionService:
     _HEISIG_KANJI_FILE = "heisig_kanji.csv"
@@ -68,7 +69,7 @@ class CollectionService:
 
         card = col.get_card(card_ids[0])
         note = card.note()
-        return self._get_field(note, keyword_field)
+        return get_field(note, keyword_field)
 
     def add_kanji_to_rtk_deck(
         self,
@@ -235,11 +236,11 @@ class CollectionService:
                 self._config.rtk_keyword_field
                 and self._config.rtk_keyword_field in note
             ):
-                keyword = self._get_field(note, self._config.rtk_keyword_field)
+                keyword = get_field(note, self._config.rtk_keyword_field)
 
             if kanji_field and kanji_field in note:
                 _touch(
-                    self._get_field(note, kanji_field).strip(),
+                    get_field(note, kanji_field).strip(),
                     reviewed=reviewed,
                     suspended=suspended,
                     knowledge=knowledge,
@@ -247,7 +248,7 @@ class CollectionService:
                 )
             if alt_kanji_field and alt_kanji_field in note:
                 _touch(
-                    self._get_field(note, alt_kanji_field).strip(),
+                    get_field(note, alt_kanji_field).strip(),
                     reviewed=reviewed,
                     suspended=suspended,
                     knowledge=knowledge,
@@ -788,13 +789,13 @@ class CollectionService:
         known = set()
         for note_id in rtk_note_ids:
             note = col.get_note(note_id)
-            known.add(self._get_field(note, kanji_field))
-            known.add(self._get_field(note, alt_kanji_field))
+            known.add(get_field(note, kanji_field))
+            known.add(get_field(note, alt_kanji_field))
 
         unknown = []
         for note_id in mining_note_ids:
             note = col.get_note(note_id)
-            for ch in self._get_field(note, "Word"):
+            for ch in get_field(note, "Word"):
                 if is_kanji(ch) and ch not in known and ch not in unknown:
                     unknown.append(ch)
 
@@ -931,10 +932,10 @@ class CollectionService:
 
         keywords = []
         meanings = []
-        keywords_present = bool(self._get_field(note, "Kanji Keywords"))
-        meanings_present = bool(self._get_field(note, "Kanji Meanings"))
+        keywords_present = bool(get_field(note, "Kanji Keywords"))
+        meanings_present = bool(get_field(note, "Kanji Meanings"))
 
-        for ch in self._get_field(note, "Word"):
+        for ch in get_field(note, "Word"):
             if not is_kanji(ch):
                 continue
 
@@ -955,12 +956,12 @@ class CollectionService:
                 if tmp not in meanings:
                     meanings.append(tmp)
 
-        if no_kanji and self._get_field(note, "No Kanji") != "1":
+        if no_kanji and get_field(note, "No Kanji") != "1":
             note["No Kanji"] = "1"
             note["Usually Kana"] = "1"
             should_update = True
 
-        previous_value = self._get_field(note, "Kanji is known")
+        previous_value = get_field(note, "Kanji is known")
         new_value = "1" if all_known else ""
         newly_known = 0
 
@@ -968,9 +969,9 @@ class CollectionService:
             if previous_value != "1" and new_value == "1":
                 newly_known = 1
                 self._kanji_data.save_todays_known_card(
-                    self._get_field(note, "Word"),
-                    self._get_field(note, "Reading"),
-                    self._get_field(note, "Meaning"),
+                    get_field(note, "Word"),
+                    get_field(note, "Reading"),
+                    get_field(note, "Meaning"),
                 )
             note["Kanji is known"] = new_value
             should_update = True
@@ -983,9 +984,9 @@ class CollectionService:
             note["Kanji Meanings"] = " | ".join(meanings)
             should_update = True
 
-        tags = self._get_field(note, "Tags")
+        tags = get_field(note, "Tags")
         if (
-            self._get_field(note, "Usually Kana") != "1"
+            get_field(note, "Usually Kana") != "1"
             and "Usually written using kana alone" in tags
         ):
             note["Usually Kana"] = "1"
@@ -1028,14 +1029,6 @@ class CollectionService:
             updated_count += note_updated
 
         return newly_known_count, updated_count
-
-    def _has_field(self, note: Note, name: str) -> bool:
-        """Check if a note has a field with the given name."""
-        return name in note
-
-    def _get_field(self, note: Note, name: str, default: str = "") -> str:
-        """Get the value of a field in a note."""
-        return note[name] if name in note else default
 
     def _mining_fields_ok(self, note: Note) -> bool:
         """Check if a JapaneseMining note has all required fields."""
