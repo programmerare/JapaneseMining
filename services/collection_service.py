@@ -9,14 +9,14 @@ from .kanji_data_service import KanjiDataService
 from ..domain.kanji import is_kanji
 from ..domain.errors import JapaneseMiningError
 from ..domain.results import UpdateResult
-from ..cards.mining_card_templates import (
+from ..cards.mining_card_template import (
     MINING_FORWARD_FRONT_HTML,
     MINING_FORWARD_BACK_HTML,
     MINING_BACKWARD_FRONT_HTML,
     MINING_BACKWARD_BACK_HTML,
     MINING_CARD_CSS,
 )
-from ..cards.rtk_card_templates import RTK_FRONT_HTML, RTK_BACK_HTML, RTK_CARD_CSS
+from ..cards.rtk_card_template import RTK_FRONT_HTML, RTK_BACK_HTML, RTK_CARD_CSS
 
 class CollectionService:
     _HEISIG_KANJI_FILE = "heisig_kanji.csv"
