@@ -240,7 +240,7 @@ def default_jisho_profile() -> dict:
     }
 
 
-def default_translate_profile() -> dict:
+def get_default_translate_profile() -> dict:
     return {
         "source_field": "Example Sentence",
         "target_field": "Translation",
