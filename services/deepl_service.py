@@ -1,76 +1,35 @@
-from aqt.editor import Editor
 import requests
+from aqt.editor import Editor
 
-from ..config import ConfigHolder, default_translate_profile
+from ..config import ConfigHolder
 from ..domain.errors import JapaneseMiningError
+from .translation_service import TranslationService
 
 
-class DeeplService:
+class DeeplService(TranslationService):
     def __init__(self, config_holder: ConfigHolder):
-        self._config_holder = config_holder
+        super().__init__(config_holder)
 
-    @property
-    def _config(self):
-        return self._config_holder.config
-
-    # ------------------------------------------------------------------
-    # Profile resolution
-    # ------------------------------------------------------------------
-
-    def resolve_profile(self, note) -> dict | None:
-        """
-        Return the translate profile for this note's note type, or None
-        if the feature does not apply (disabled, no note, no matching profile).
-        """
-        if not self._config.use_deepl:
-            return None
-        if note is None:
-            return None
-        try:
-            name = note.note_type()["name"]
-        except Exception:
-            return None
-        profiles = self._config.translate_profiles or {}
-        profile = profiles.get(name)
-        if not isinstance(profile, dict):
-            return None
-        # Ensure required keys exist even if the stored profile is partial
-        merged = default_translate_profile()
-        merged.update(
-            {k: profile[k] for k in default_translate_profile() if k in profile}
-        )
-        return merged
-
-    def has_profile_for(self, note_type_name: str) -> bool:
-        """True if a translate profile exists for this note type."""
-        if not note_type_name:
-            return False
-        return note_type_name in (self._config.translate_profiles or {})
-
-    # ------------------------------------------------------------------
-    # Translation
-    # ------------------------------------------------------------------
-
-    def translate(self, editor: Editor) -> str | None:
-        """
-        Translate the configured source field using DeepL and write the
-        result into the configured target field.
-
-        Profile is resolved from the *current note's* note type — the
-        active profile in settings is irrelevant at runtime.
-
-        Returns the translated text on success, or None when the feature
-        is simply not applicable (disabled, no matching profile, empty
-        source text, etc.).
-
-        Raises JapaneseMiningError for problems the user should fix
-        (missing API key, HTTP / API failures, missing fields).
-        """
+    def translate_text(self, editor: Editor) -> str | None:
         if not editor or not editor.note:
             return None
 
         note = editor.note
-        profile = self.resolve_profile(note)
+        profile = self._resolve_profile_or_raise(note)
+        source_field, target_field, source_lang, target_lang = self._extract_profile_fields(profile, note)
+
+        text = (note[source_field] or "").strip()
+        if not text:
+            return None
+
+        translation = self._call_deepl_api(text, source_lang, target_lang, self._deepl_base_url(), self._config.deepl_api_key)
+
+        note[target_field] = translation
+        editor.loadNote()
+        return translation
+
+    def _resolve_profile_or_raise(self, note) -> dict:
+        profile = self.resolve_translate_profile(note)
         if profile is None:
             raise JapaneseMiningError(
                 f"No translate profile for note type “{note.note_type()['name']}”.",
@@ -78,22 +37,30 @@ class DeeplService:
                     "Open Settings → Translate and create a profile for this note type."
                 ),
             )
+        return profile
 
+    def _extract_profile_fields(self, profile: dict, note) -> tuple[str, str, str, str]:
         source_field = (profile.get("source_field") or "").strip()
         target_field = (profile.get("target_field") or "").strip()
         source_lang = (profile.get("source_lang") or "JA").strip()
         target_lang = (profile.get("target_lang") or "EN-US").strip()
 
-        if not source_field or not target_field:
+        if not source_field:
             raise JapaneseMiningError(
-                "Translate profile is incomplete.",
+                f"Source field “{source_field}” does not exist on this note.",
                 details=(
-                    f"Note type “{note.note_type()['name']}” is missing "
-                    "source_field or target_field.\n"
-                    "Open Settings → Translate and fix the profile."
+                    f"Note type: {note.note_type()['name']}\n"
+                    "Open Settings → Translate and pick a valid source field."
                 ),
             )
-
+        if not target_field:
+            raise JapaneseMiningError(
+                f"Target field “{target_field}” does not exist on this note.",
+                details=(
+                    f"Note type: {note.note_type()['name']}\n"
+                    "Open Settings → Translate and pick a valid target field."
+                ),
+            )
         if source_field not in note:
             raise JapaneseMiningError(
                 f"Source field “{source_field}” does not exist on this note.",
@@ -111,21 +78,29 @@ class DeeplService:
                 ),
             )
 
-        text = (note[source_field] or "").strip()
-        if not text:
-            return None
+        return source_field, target_field, source_lang, target_lang
 
-        if not (self._config.deepl_api_key or "").strip():
+    def _call_deepl_api(self, text: str, source_lang: str, target_lang: str, base_url: str,  api_key: str) -> str:
+        if not api_key.strip():
             raise JapaneseMiningError(
-                "DeepL API key is missing.",
-                details="Open Settings → Translate and paste your DeepL API key.",
+                "DeepL API key is not set.",
+                details=(
+                    "Open Settings → Translate and enter your DeepL API key."
+                ),
+            )
+
+        if not base_url.strip():
+            raise JapaneseMiningError(
+                "DeepL API URL is not set.",
+                details=(
+                    "Open Settings → Translate and enter your DeepL API URL."
+                ),
             )
 
         headers = {
-            "Authorization": f"DeepL-Auth-Key {self._config.deepl_api_key}",
+            "Authorization": f"DeepL-Auth-Key {api_key}",
             "Content-Type": "application/json",
         }
-
         payload = {
             "text": [text],
             "target_lang": target_lang,
@@ -138,32 +113,16 @@ class DeeplService:
         }
 
         try:
-            response = requests.post(
-                f"{self._api_base()}/v2/translate",
-                headers=headers,
-                json=payload,
-                timeout=15,
-            )
+            response = requests.post(f"{base_url}/v2/translate", headers=headers, json=payload, timeout=15)
             response.raise_for_status()
         except requests.RequestException as e:
-            raise JapaneseMiningError(
-                "DeepL translation failed.",
-                details=str(e),
-            ) from e
+            raise JapaneseMiningError("DeepL translation failed.", details=str(e)) from e
 
         data = response.json()
         translations = data.get("translations", [])
         if not translations:
             raise JapaneseMiningError("DeepL returned no translation.")
-
-        translation = translations[0]["text"]
-        note[target_field] = translation
-        editor.loadNote()
-        return translation
-
-    # ------------------------------------------------------------------
-    # Usage / languages
-    # ------------------------------------------------------------------
+        return translations[0]["text"]
 
     def get_character_usage(self) -> tuple[int, int] | None:
         """
@@ -182,7 +141,7 @@ class DeeplService:
 
         try:
             response = requests.get(
-                f"{self._api_base()}/v2/usage",
+                f"{self._deepl_base_url()}/v2/usage",
                 headers=headers,
                 timeout=15,
             )
@@ -208,44 +167,37 @@ class DeeplService:
     def _fetch_languages(self, *, as_source: bool) -> list[tuple[str, str]]:
         if not (self._config.deepl_api_key or "").strip():
             return []
+        data = self._request_languages(self._deepl_base_url(), self._config.deepl_api_key)
+        return self._parse_languages(data, as_source=as_source)
 
-        headers = {
-            "Authorization": f"DeepL-Auth-Key {self._config.deepl_api_key}",
-        }
+    def _request_languages(self, base_url: str, api_key: str) -> list | None:
+        headers = {"Authorization": f"DeepL-Auth-Key {api_key}"}
         try:
-            response = requests.get(
-                f"{self._api_base()}/v3/languages?resource=translate_text",
-                headers=headers,
-                timeout=10,
-            )
+            response = requests.get(f"{base_url}/v3/languages?resource=translate_text", headers=headers, timeout=10)
             response.raise_for_status()
-            data = response.json()
+            return response.json()
         except (requests.RequestException, ValueError):
-            return []
+            return None
 
+    def _parse_languages(self, data, *, as_source: bool) -> list[tuple[str, str]]:
         if not isinstance(data, list):
             return []
-
         key = "usable_as_source" if as_source else "usable_as_target"
-        result: list[tuple[str, str]] = []
+        result = []
         for item in data:
-            if not isinstance(item, dict):
-                continue
-            if not item.get(key):
+            if not isinstance(item, dict) or not item.get(key):
                 continue
             code = (item.get("lang") or "").strip()
             name = (item.get("name") or code).strip()
-            if not code:
-                continue
-            result.append((code, name))
-
+            if code:
+                result.append((code, name))
         result.sort(key=lambda pair: pair[1].lower())
         return result
 
-    def _api_base(self) -> str:
+    def _deepl_base_url(self) -> str:
         url = (self._config.deepl_url or "").rstrip("/")
         for suffix in ("/v3", "/v2"):
             if url.endswith(suffix):
                 url = url[: -len(suffix)]
                 break
-        return url or "https://api-free.deepl.com"
+        return url or ""
