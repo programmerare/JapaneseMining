@@ -1,30 +1,21 @@
-from anki.notes import Note
 import aqt
 from aqt.editor import Editor
+from anki.notes import Note
 
-from ..domain.errors import JapaneseMiningError
+from .audio_service import AudioService
 from ..config import ConfigHolder, is_valid_mining_note_type
 
 
-class HyperTTSService:
+class HyperTTSService(AudioService):
     def __init__(self, config_holder: ConfigHolder):
-        self._config_holder = config_holder
-        self._instance = None
+        super().__init__(config_holder)
+        self._hypertts_instance = None
 
-    @property
-    def _config(self):
-        return self._config_holder.config
-
-    # --- PUBLIC METHODS --- #
-    def add_audio(self, problem: str | None, note: Note, editor: Editor = None) -> None:
+    def add_audio_to_note(self, problem: str | None, note: Note, editor: Editor = None) -> None:
         """
         Add audio to the note using HyperTTS.
-
         Returns None when the feature is simply not applicable (disabled in config, no editor, etc.).
         Returns also None when HyperTTS fails, in order to not interrupt the user with errors from HyperTTS.
-
-        Raises JapaneseMiningError for problems the user should fix
-        (wrong note type).
         """
         if not self._config.use_hypertts:
             return None
@@ -35,7 +26,7 @@ class HyperTTSService:
         if editor is None or getattr(editor, "web", None) is None:
             return None
 
-        instance = self._get_instance()
+        instance = self._get_hypertts_instance()
         if instance is None:
             return None
 
@@ -45,15 +36,13 @@ class HyperTTSService:
         except Exception as e:
             return None
 
-    # --- PRIVATE METHODS --- #
-    def _get_instance(self):
+    def _get_hypertts_instance(self):
         """
         This method checks the Anki sound players for an instance of HyperTTS.
-
         Return the running HyperTTS instance, or None if not available.
         """
-        if self._instance is not None:
-            return self._instance
+        if self._hypertts_instance is not None:
+            return self._hypertts_instance
 
         try:
             for player in aqt.sound.av_player.players:
