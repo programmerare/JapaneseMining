@@ -1,8 +1,10 @@
 from aqt import mw
-from anki.notes import Note, NoteId
 from anki.cards import Card, CardId
-from anki.decks import Deck, DeckId
-from anki.models import FieldDict
+from anki.collection import OpChangesWithCount, OpChangesWithId, OpChanges
+from anki.decks import DeckId
+from anki.models import FieldDict, NotetypeDict, TemplateDict
+from anki.notes import Note, NoteId
+from anki.stats_pb2 import CardStatsResponse
 from pathlib import Path
 
 from ..config import ConfigHolder, REQUIRED_MINING_FIELDS, is_valid_mining_note_type
@@ -42,49 +44,49 @@ class CollectionService:
         """Return a list of all models (note types) in the collection."""
         return mw.col.models
 
-    def get_model_by_name(self, model_name: str):
+    def get_model_by_name(self, model_name: str) -> NotetypeDict | None:
         """Return the model (note type) with the given name, or None if not found."""
         if not isinstance(model_name, str):
             raise TypeError(f"get_model_by_name expects a string, got {type(model_name).__name__}")
         return mw.col.models.by_name(model_name)
 
-    def update_note(self, note: Note):
+    def update_note(self, note: Note) -> OpChanges:
         """Update a note in the collection."""
         if not isinstance(note, Note):
             raise TypeError(f"update_note expects a Note, got {type(note).__name__}")
-        mw.col.update_note(note)
+        return mw.col.update_note(note)
     
-    def get_note_by_note_id(self, note_id: NoteId):
+    def get_note_by_note_id(self, note_id: NoteId) -> Note | None:
         """Return the note with the given ID, or None if not found."""
         if not isinstance(note_id, NoteId):
             raise TypeError(f"get_note_by_note_id expects a NoteId, got {type(note_id).__name__}")
         return mw.col.get_note(note_id)
     
-    def get_note_by_card_id(self, card_id: CardId):
+    def get_note_by_card_id(self, card_id: CardId) -> Note | None:
         """Return the note associated with the given card ID, or None if not found."""
         if not isinstance(card_id, CardId):
             raise TypeError(f"get_note_by_card_id expects a CardId, got {type(card_id).__name__}")
         return mw.col.get_card(card_id).note()
     
-    def find_notes_by_query(self, query: str):
+    def find_notes_by_query(self, query: str) -> list[NoteId]:
         """Return a list of notes (note ids) matching the given query."""
         if not isinstance(query, str):
             raise TypeError(f"find_notes_by_query expects a string, got {type(query).__name__}")
         return mw.col.find_notes(query)
     
-    def get_card_stats_data_by_card_id(self, card_id: CardId):
+    def get_card_stats_data_by_card_id(self, card_id: CardId) -> CardStatsResponse:
         """Return the card stats for the given card id."""
         if not isinstance(card_id, CardId):
             raise TypeError(f"get_card_stats_data_by_card_id expects a CardId, got {type(card_id).__name__}")
         return mw.col.card_stats_data(card_id)
     
-    def find_cards_by_query(self, query: str):
+    def find_cards_by_query(self, query: str) -> list[CardId]:
         """Return a list of cards (card ids) matching the given query."""
         if not isinstance(query, str):
             raise TypeError(f"find_cards_by_query expects a string, got {type(query).__name__}")
         return mw.col.find_cards(query)
     
-    def get_card_by_card_id(self, card_id: CardId):
+    def get_card_by_card_id(self, card_id: CardId) -> Card | None:
         """Return the card with the given ID, or None if not found."""
         if not isinstance(card_id, CardId):
             raise TypeError(f"get_card_by_card_id expects a CardId, got {type(card_id).__name__}")
@@ -94,7 +96,7 @@ class CollectionService:
         """Return a list of all decks in the collection."""
         return mw.col.decks
 
-    def get_deck_name_by_card_id(self, card_id: CardId):
+    def get_deck_name_by_card_id(self, card_id: CardId) -> str | None:
         """Return the deck name for the given card id."""
         if not isinstance(card_id, CardId):
             raise TypeError(f"get_deck_name_by_card_id expects a CardId, got {type(card_id).__name__}")
@@ -103,13 +105,13 @@ class CollectionService:
             return None
         return mw.col.decks.name(card.did)
     
-    def get_deck_id_by_deck_name(self, deck_name: str):
+    def get_deck_id_by_deck_name(self, deck_name: str) -> DeckId | None:
         """Return the deck id for the given deck name."""
         if not isinstance(deck_name, str):
             raise TypeError(f"get_deck_id_by_deck_name expects a string, got {type(deck_name).__name__}")
         return mw.col.decks.id(deck_name)
     
-    def add_note(self, note: Note, deck_id: DeckId):
+    def add_note(self, note: Note, deck_id: DeckId) -> OpChangesWithCount:
         """Add a note to the collection in the specified deck."""
         if not isinstance(note, Note):
             raise TypeError(f"add_note expects a Note, got {type(note).__name__}")
@@ -117,65 +119,49 @@ class CollectionService:
             raise TypeError(f"add_note expects a DeckId (int), got {type(deck_id).__name__}")
         return mw.col.add_note(note, deck_id)
 
-    def add_model(self, model_name: str):
+    def add_model(self, model_name: str) -> NotetypeDict:
         """Add a new model (note type) to the collection with the given name."""
         if not isinstance(model_name, str):
             raise TypeError(f"add_model expects a string, got {type(model_name).__name__}")
         return mw.col.models.new(model_name)
     
-    def create_new_model_field(self, field_name: str):
+    def create_new_model_field(self, field_name: str) -> FieldDict:
         """Create a new field in the given model (note type) with the specified name."""
         if not isinstance(field_name, str):
             raise TypeError(f"create_new_model_field expects a string, got {type(field_name).__name__}")
         return mw.col.models.new_field(field_name)
     
-    def add_field_to_model(self, model, field: FieldDict):
+    def add_field_to_model(self, model: NotetypeDict, field: FieldDict) -> None:
         """Add a field to the given model (note type)."""
-        if not isinstance(field, dict):
+        if not isinstance(model, NotetypeDict):
+            raise TypeError(f"add_field_to_model expects a NotetypeDict (dict), got {type(model).__name__}")
+        if not isinstance(field, FieldDict):
             raise TypeError(f"add_field_to_model expects a FieldDict (dict), got {type(field).__name__}")
         return mw.col.models.add_field(model, field)
     
-    def create_new_model_card_template(self, name: str):
+    def create_new_model_card_template(self, name: str) -> TemplateDict:
         """Create a new card template with the specified name."""
         if not isinstance(name, str):
             raise TypeError(f"create_new_model_card_template expects a string, got {type(name).__name__}")
         return mw.col.models.new_template(name)
     
-    def add_template_to_model(self, model, template):
+    def add_template_to_model(self, model: NotetypeDict, template: TemplateDict) -> None:
         """Add a card template to the given model (note type)."""
+        if not isinstance(model, NotetypeDict):
+            raise TypeError(f"add_template_to_model expects a NotetypeDict (dict), got {type(model).__name__}")
+        if not isinstance(template, TemplateDict):
+            raise TypeError(f"add_template_to_model expects a TemplateDict (dict), got {type(template).__name__}")
         return mw.col.models.add_template(model, template)
     
-    def add_css_to_model(self, model, css: str):
-        """Add CSS to the given model (note type)."""
-        model["css"] = css
-    
-    def add_question_format_to_template(self, template, question_format: str):
-        """Add a question format to the specified card template in the given model (note type)."""
-        if not isinstance(question_format, str):
-            raise TypeError(f"add_question_format_to_template expects a string, got {type(question_format).__name__}")
-        template["qfmt"] = question_format
-        return template
-    
-    def add_answer_format_to_template(self, template, answer_format: str):
-        """Add an answer format to the specified card template in the given model (note type)."""
-        if not isinstance(answer_format, str):
-            raise TypeError(f"add_answer_format_to_template expects a string, got {type(answer_format).__name__}")
-        template["afmt"] = answer_format
-        return template
-    
-    def add_model_to_models(self, model):
+    def add_model_to_models(self, model: NotetypeDict) -> OpChangesWithId:
         """Add a model (note type) to the collection."""
+        if not isinstance(model, NotetypeDict):
+            raise TypeError(f"add_model_to_models expects a NotetypeDict (dict), got {type(model).__name__}")
         return mw.col.models.add(model)
     
-    def get_fields_from_model(self, model):
-        """Return a list of field names for the given model (note type)."""
-        if not model:
-            return []
-        return [field["name"] for field in model["flds"]]
-    
-    def update_card(self, card: Card):
+    def update_card(self, card: Card) -> OpChanges:
         """Update a card in the collection."""
         if not isinstance(card, Card):
             raise TypeError(f"update_card expects a Card, got {type(card).__name__}")
-        mw.col.update_card(card)
+        return mw.col.update_card(card)
     
