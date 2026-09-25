@@ -7,32 +7,11 @@ from anki.notes import Note, NoteId
 from anki.stats_pb2 import CardStatsResponse
 from pathlib import Path
 
-from ..config import ConfigHolder, REQUIRED_MINING_FIELDS, is_valid_mining_note_type
-from .kanji_data_service import KanjiDataService
-from ..domain.kanji import is_kanji
+from ..config import ConfigHolder, REQUIRED_MINING_FIELDS
 from ..domain.errors import JapaneseMiningError
-from ..domain.results import UpdateResult
-from ..cards.mining_card_template import (
-    MINING_FORWARD_FRONT_HTML,
-    MINING_FORWARD_BACK_HTML,
-    MINING_BACKWARD_FRONT_HTML,
-    MINING_BACKWARD_BACK_HTML,
-    MINING_CARD_CSS,
-)
-from ..cards.rtk_card_template import RTK_FRONT_HTML, RTK_BACK_HTML, RTK_CARD_CSS
-from ..domain.note_utils import get_field
 
 class CollectionService:
-    _HEISIG_KANJI_FILE = "heisig_kanji.csv"
-    _REQUIRED_MINING_FIELDS = REQUIRED_MINING_FIELDS
-
-    def __init__(self, config_holder: ConfigHolder, kanji_data: KanjiDataService):
-        self._config_holder = config_holder
-        self._kanji_data = kanji_data
-
-    @property
-    def _config(self):
-        return self._config_holder.config
+    """A service for interacting with the Anki collection."""
 
     @property
     def _col(self):
@@ -40,10 +19,10 @@ class CollectionService:
             raise JapaneseMiningError("Anki collection is not open.")
         return mw.col
 
-    def _media_path(self, filename: str) -> Path | None:
+    def media_path(self, filename: str) -> Path | None:
         """Return the full path to a file in the Anki media directory."""
         if not isinstance(filename, str):
-            raise TypeError(f"_media_path expects a string, got {type(filename).__name__}")
+            raise TypeError(f"media_path expects a string, got {type(filename).__name__}")
         return Path(self._col.media.dir()) / filename
 
     def get_models(self) -> list[NotetypeDict]:
@@ -131,8 +110,8 @@ class CollectionService:
             raise TypeError(f"get_model_by_name expects a string, got {type(model_name).__name__}")
         return self._col.models.by_name(model_name)
 
-    def add_model(self, model_name: str) -> NotetypeDict:
-        """Add a new model (note type) to the collection with the given name."""
+    def create_new_model(self, model_name: str) -> NotetypeDict:
+        """Create a new model (note type) and add it to the collection with the given name."""
         if not isinstance(model_name, str):
             raise TypeError(f"add_model expects a string, got {type(model_name).__name__}")
         return self._col.models.new(model_name)
