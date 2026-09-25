@@ -7,7 +7,6 @@ from anki.notes import Note, NoteId
 from anki.stats_pb2 import CardStatsResponse
 from pathlib import Path
 
-from ..config import ConfigHolder, REQUIRED_MINING_FIELDS
 from ..domain.errors import JapaneseMiningError
 
 class CollectionService:
