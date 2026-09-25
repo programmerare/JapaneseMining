@@ -1,6 +1,14 @@
 from anki.notes import Note
 
 
+
+def get_note_type_name(note: Note) -> str:
+    """Get the name of the note type for a given note."""
+    if not isinstance(note, Note):
+        raise TypeError(f"get_note_type_name expects a Note, got {type(note).__name__}")
+    return note.note_type()["name"]
+
+
 def has_field(note: Note, name: str) -> bool:
     """Check if a note has a field with the given name."""
     if not isinstance(note, Note):
