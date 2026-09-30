@@ -83,8 +83,8 @@ class CollectionService:
             return None
         return self._col.decks.name(card.did)
     
-    def get_deck_id_by_deck_name(self, deck_name: str) -> DeckId | None:
-        """Return the deck id for the given deck name."""
+    def get_or_create_deck_id_by_deck_name(self, deck_name: str) -> DeckId | None:
+        """Return the deck id for the given deck name. Creates the deck if it does not exist."""
         if not isinstance(deck_name, str):
             raise TypeError(f"get_deck_id_by_deck_name expects a string, got {type(deck_name).__name__}")
         return self._col.decks.id(deck_name)
