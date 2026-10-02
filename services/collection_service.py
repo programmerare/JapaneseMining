@@ -70,6 +70,24 @@ class CollectionService:
             raise TypeError(f"get_card_stats_data_by_card_id expects a CardId, got {type(card_id).__name__}")
         return self._col.card_stats_data(card_id)
 
+    def get_card_type_by_card_id(self, card_id: CardId) -> str | None:
+        """Return the card type for the given card id."""
+        if not isinstance(card_id, CardId):
+            raise TypeError(f"get_card_type_by_card_id expects a CardId, got {type(card_id).__name__}")
+        card = self._col.get_card(card_id)
+        if not card:
+            return None
+        return card.type
+
+    def get_card_queue_by_card_id(self, card_id: CardId) -> str | None:
+        """Return the card queue for the given card id."""
+        if not isinstance(card_id, CardId):
+            raise TypeError(f"get_card_queue_by_card_id expects a CardId, got {type(card_id).__name__}")
+        card = self._col.get_card(card_id)
+        if not card:
+            return None
+        return card.queue
+
     def get_decks(self) -> list[DeckDict]:
         """Return a list of all decks in the collection."""
         return self._col.decks
