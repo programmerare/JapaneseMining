@@ -27,6 +27,7 @@ from ..domain.model_utils import (
 from ..domain.note_utils import get_note_type_name, has_field, get_field, set_field
 from ..domain.notetype_utils import set_template_question_format, set_template_answer_format
 from ..domain.results import UpdateResult
+from ..domain.rtk_config import require_rtk_configured, rtk_configured
 from ..domain.rtk_notes import (
     heisig_keyword,
     sixth_edition_number,
@@ -79,7 +80,7 @@ class RTKService():
         """Return one learned keyword for `kanji` from the RTK deck, or "" if not found."""
         if not isinstance(kanji, str):
             raise TypeError(f"fetch_kanji_keyword expects a str, got {type(kanji).__name__}")
-        self._require_rtk_configured()
+        require_rtk_configured(self._config)
 
         deck = self._config.rtk_deck
         kanji_field = self._config.rtk_kanji_field
@@ -109,7 +110,7 @@ class RTKService():
         """
         if not isinstance(kanji, str):
             raise TypeError(f"add_kanji_to_rtk_deck expects a str, got {type(kanji).__name__}")
-        if not self._rtk_configured():
+        if not rtk_configured(self._config):
             return False
 
         kanji_char = self._first_kanji_char(kanji)
@@ -133,7 +134,7 @@ class RTKService():
 
     def add_unknown_kanji(self) -> UpdateResult:
         """Find every unknown kanji in mining notes and add them to the RTK deck."""
-        self._require_rtk_configured()
+        require_rtk_configured(self._config)
 
         heisig_rows = self._load_heisig_rows_up_to(limit=None)
         if heisig_rows is None:
@@ -172,7 +173,7 @@ class RTKService():
         Rebuild learned_kanji.csv from the configured RTK deck only
         (source of truth). Never modifies notes or cards.
         """
-        self._require_rtk_configured()
+        require_rtk_configured(self._config)
 
         observations = list(self._collect_card_observations(
             deck=self._config.rtk_deck,
@@ -455,7 +456,7 @@ class RTKService():
         schedule_min_days: int, schedule_max_days: int,
     ) -> tuple[int, int]:
         """Mark kanji as known. Falls back to a disk-only cache update if no RTK deck is configured."""
-        if not self._rtk_configured():
+        if not rtk_configured(self._config):
             return self._mark_known_without_deck(entries)
         return self._apply_known_kanji_to_deck(
             entries, fill_keywords=fill_keywords, suspend=suspend,
@@ -592,21 +593,6 @@ class RTKService():
     # =========================================================================
     # Shared low-level helpers
     # =========================================================================
-
-    def _rtk_configured(self) -> bool:
-        return bool(
-            self._config.rtk_deck
-            and self._config.rtk_note_type
-            and self._config.rtk_kanji_field
-            and self._config.rtk_keyword_field
-        )
-
-    def _require_rtk_configured(self) -> None:
-        if not self._rtk_configured():
-            raise JapaneseMiningError(
-                "RTK deck is not configured. Please check your settings.",
-                details="Open Settings -> RTK and set the deck + fields",
-            )
 
     @staticmethod
     def _first_kanji_char(raw: str) -> str | None:
