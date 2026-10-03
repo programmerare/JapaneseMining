@@ -18,7 +18,7 @@ class CollectionService:
             raise JapaneseMiningError("Anki collection is not open.")
         return mw.col
 
-    def media_path(self, filename: str) -> Path | None:
+    def get_media_path(self, filename: str) -> Path | None:
         """Return the full path to a file in the Anki media directory."""
         if not isinstance(filename, str):
             raise TypeError(f"media_path expects a string, got {type(filename).__name__}")
