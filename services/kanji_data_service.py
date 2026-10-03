@@ -1,12 +1,15 @@
-from aqt import mw
-from aqt.utils import showWarning
 import csv
 from datetime import date
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
-from ..domain.errors import JapaneseMiningError
+from anki.notes import Note
+
+from .collection_service import CollectionService
 from ..config import ConfigHolder, profile_user_dir, is_valid_mining_note_type
+from ..domain.errors import JapaneseMiningError
+from ..domain.heatmap import HeatmapData
+from ..domain.note_utils import get_field, get_note_type_name
 
 
 class KanjiDataService:
@@ -17,8 +20,9 @@ class KanjiDataService:
     _TODAYS_KNOWN_CARDS_FILE = "todays_known_cards.csv"
     _FLAGGED_KANJI_FILE = "flagged_kanji.csv"
 
-    def __init__(self, config_holder: ConfigHolder):
+    def __init__(self, config_holder: ConfigHolder, collection_service: CollectionService):
         self._config_holder = config_holder
+        self._collection_service = collection_service
         self._learned_kanji: dict[str, dict] = {}
         self._kanji_meanings: dict[str, list[str]] = {}
         self._todays_words: list[tuple[str, str, str]] = []
@@ -29,10 +33,9 @@ class KanjiDataService:
         self._seen_kanji: set[str] = set()
         self._seen_known_cards: set[tuple[str, str]] = set()
         self._seen_flagged_kanji: set[str] = set()
-        # Calendar day for which the three progress caches are valid.
         self._progress_day: str | None = None
         self.needs_update: bool = False
-        self._warned_missing_meanings = False
+        self.last_meanings_load_error: JapaneseMiningError | None = None
 
     @property
     def _config(self):
@@ -77,15 +80,7 @@ class KanjiDataService:
         }
 
     def ensure_todays_progress(self) -> None:
-        """
-        Roll today's progress caches forward when the calendar day changes.
-
-        Only touches words / kanji / known-cards. Learned kanji, meanings, and
-        flagged kanji are loaded on collection_did_load via load_profile_data.
-
-        After loading we always rewrite the three files so they contain a proper
-        header + only today's rows (history is pruned, missing headers fixed).
-        """
+        """Roll today's progress caches forward when the calendar day changes."""
         today = str(date.today())
         if self._progress_day == today:
             return
@@ -96,9 +91,7 @@ class KanjiDataService:
         self._rewrite_todays_files()
         self._progress_day = today
 
-    def get_heatmap_data(
-        self,
-    ) -> tuple[list[str], list[str], int, int, dict[str, str], dict[str, float]]:
+    def get_heatmap_data(self) -> HeatmapData:
         """Return the learned and remaining kanji for the heatmap."""
         data = self._learned_kanji
 
@@ -115,40 +108,27 @@ class KanjiDataService:
             if v.get("Learned")
         }
 
-        return (
-            learned,
-            remaining,
-            len(learned),
-            len(learned) + len(remaining),
-            keywords,
-            knowledge,
+        return HeatmapData(
+            learned=learned,
+            remaining=remaining,
+            learned_count=len(learned),
+            total_count=len(learned) + len(remaining),
+            keywords=keywords,
+            knowledge=knowledge,
         )
 
     # --- LOADERS AND SAVERS --- #
     def load_profile_data(self) -> None:
         """
-        Full cache rebuild for the current profile.
-
-        Called from collection_did_load only. Always reloads — do not day-gate
-        here, or profile switches on the same calendar day will keep stale data.
-
-        After the three today-loaders we rewrite the files so they are guaranteed
-        to have a header and contain only today's rows. This both repairs files
-        that were written without a header and prunes historical rows.
+        Full cache rebuild for the current profile. Called from
+        collection_did_load only; always reloads unconditionally.
         """
         self.load_learned_kanji()
+        self.last_meanings_load_error = None
         try:
             self.load_kanji_meanings()
         except JapaneseMiningError as e:
-            if not self._warned_missing_meanings:
-                self._warned_missing_meanings = True
-                mw.taskman.run_on_main(
-                    lambda e=e: showWarning(
-                        e.full_message(),
-                        parent=mw,
-                        title="JapaneseMining",
-                    )
-                )
+            self.last_meanings_load_error = e
         self.load_flagged_kanji()
         self.load_todays_words()
         self.load_todays_kanji()
@@ -160,12 +140,11 @@ class KanjiDataService:
         """Load the kanji meanings dictionary from the XML file."""
         file_path = self._vendor_path(self._KANJI_MEANINGS_FILE)
 
-        dictionary = {}
-
         try:
             tree = ET.parse(file_path)
             root = tree.getroot()
 
+            dictionary = {}
             for kanji in root.findall("kanji"):
                 character = kanji.get("char")
                 meanings = [
@@ -221,59 +200,32 @@ class KanjiDataService:
             self._learned_kanji = {}
 
     def load_todays_words(self) -> None:
-        """Load words learned today from the CSV file.
-
-        Tolerant of a missing header: a row is treated as a header only when
-        its first cell is exactly "Date". All other rows that match today are
-        kept. This recovers data from files that were written without a header.
-        """
-        today = str(date.today())
-        items: list[tuple[str, str, str]] = []
-        file_path = self._user_data_path(self._TODAYS_WORDS_FILE)
-
-        try:
-            with file_path.open(encoding="utf-8") as f:
-                reader = csv.reader(f)
-                for row in reader:
-                    if not row or row[0] == "Date":
-                        continue
-                    if len(row) >= 4 and row[0] == today:
-                        items.append((row[1], row[2], row[3]))
-        except FileNotFoundError:
-            pass
-        self._todays_words = items
-        self._seen_words = {(w, r) for w, r, _ in items}
+        """Load words learned today from the CSV file."""
+        rows = self._read_todays_rows(self._TODAYS_WORDS_FILE, min_columns=4)
+        self._todays_words = [(r[1], r[2], r[3]) for r in rows]
+        self._seen_words = {(w, r) for w, r, _ in self._todays_words}
 
     def load_todays_kanji(self) -> None:
-        """Load kanji learned today from CSV.
-
-        Tolerant of a missing header (see load_todays_words).
-        """
-        today = str(date.today())
-        items: list[tuple[str, str]] = []
-        file_path = self._user_data_path(self._TODAYS_KANJI_FILE)
-
-        try:
-            with file_path.open(encoding="utf-8") as f:
-                reader = csv.reader(f)
-                for row in reader:
-                    if not row or row[0] == "Date":
-                        continue
-                    if len(row) >= 2 and row[0] == today:
-                        items.append((row[1], row[2] if len(row) > 2 else ""))
-        except FileNotFoundError:
-            pass
-        self._todays_kanji = items
-        self._seen_kanji = {k for k, _ in items}
+        """Load kanji learned today from CSV."""
+        rows = self._read_todays_rows(self._TODAYS_KANJI_FILE, min_columns=2)
+        self._todays_kanji = [(r[1], r[2] if len(r) > 2 else "") for r in rows]
+        self._seen_kanji = {k for k, _ in self._todays_kanji}
 
     def load_todays_known_cards(self) -> None:
-        """Load cards that became known today from CSV.
+        """Load cards that became known today from CSV."""
+        rows = self._read_todays_rows(self._TODAYS_KNOWN_CARDS_FILE, min_columns=4)
+        self._todays_known_cards = [(r[1], r[2], r[3]) for r in rows]
+        self._seen_known_cards = {(w, r) for w, r, _ in self._todays_known_cards}
 
-        Tolerant of a missing header (see load_todays_words).
+    def _read_todays_rows(self, filename: str, min_columns: int) -> list[list[str]]:
+        """
+        Read rows from `filename` matching today's date. Tolerant of a missing
+        header: a row is treated as a header only when its first cell is
+        exactly "Date".
         """
         today = str(date.today())
-        items: list[tuple[str, str, str]] = []
-        file_path = self._user_data_path(self._TODAYS_KNOWN_CARDS_FILE)
+        rows: list[list[str]] = []
+        file_path = self._user_data_path(filename)
 
         try:
             with file_path.open(encoding="utf-8") as f:
@@ -281,12 +233,11 @@ class KanjiDataService:
                 for row in reader:
                     if not row or row[0] == "Date":
                         continue
-                    if len(row) >= 4 and row[0] == today:
-                        items.append((row[1], row[2], row[3]))
+                    if len(row) >= min_columns and row[0] == today:
+                        rows.append(row)
         except FileNotFoundError:
             pass
-        self._todays_known_cards = items
-        self._seen_known_cards = {(w, r) for w, r, _ in items}
+        return rows
 
     def load_flagged_kanji(self) -> None:
         """Load flagged kanji from CSV. Columns: Heisig Number, Kanji, Keyword."""
@@ -327,16 +278,7 @@ class KanjiDataService:
     def save_todays_word(self, word: str, reading: str, meaning: str) -> None:
         """Save a word to the todays_words.csv file."""
         today = str(date.today())
-        if self._progress_day != today:
-            # Midnight crossed while Anki was open: reset caches and files.
-            self._progress_day = today
-            self._todays_words = []
-            self._todays_kanji = []
-            self._todays_known_cards = []
-            self._seen_words.clear()
-            self._seen_kanji.clear()
-            self._seen_known_cards.clear()
-            self._rewrite_todays_files()
+        self._roll_progress_day_if_needed(today)
 
         key = (word, reading)
         if key in self._seen_words:
@@ -352,15 +294,7 @@ class KanjiDataService:
     def save_todays_kanji(self, kanji: str, keyword: str = "") -> None:
         """Record a kanji the first time its RTK card is answered today."""
         today = str(date.today())
-        if self._progress_day != today:
-            self._progress_day = today
-            self._todays_words = []
-            self._todays_kanji = []
-            self._todays_known_cards = []
-            self._seen_words.clear()
-            self._seen_kanji.clear()
-            self._seen_known_cards.clear()
-            self._rewrite_todays_files()
+        self._roll_progress_day_if_needed(today)
 
         if kanji in self._seen_kanji:
             return
@@ -375,15 +309,7 @@ class KanjiDataService:
     def save_todays_known_card(self, word: str, reading: str, meaning: str) -> None:
         """Record a mining card that flipped to 'Kanji is known' today."""
         today = str(date.today())
-        if self._progress_day != today:
-            self._progress_day = today
-            self._todays_words = []
-            self._todays_kanji = []
-            self._todays_known_cards = []
-            self._seen_words.clear()
-            self._seen_kanji.clear()
-            self._seen_known_cards.clear()
-            self._rewrite_todays_files()
+        self._roll_progress_day_if_needed(today)
 
         key = (word, reading)
         if key in self._seen_known_cards:
@@ -395,6 +321,19 @@ class KanjiDataService:
         with file_path.open("a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow([today, word, reading, meaning])
+
+    def _roll_progress_day_if_needed(self, today: str) -> None:
+        """Reset the three progress caches and files if the calendar day has changed."""
+        if self._progress_day == today:
+            return
+        self._progress_day = today
+        self._todays_words = []
+        self._todays_kanji = []
+        self._todays_known_cards = []
+        self._seen_words.clear()
+        self._seen_kanji.clear()
+        self._seen_known_cards.clear()
+        self._rewrite_todays_files()
 
     def save_flagged_kanji(
         self, kanji: str, keyword: str = "", heisig_number: str = ""
@@ -423,56 +362,51 @@ class KanjiDataService:
         """
         Scan the collection for red-flagged RTK cards and make the
         flagged_kanji.csv + in-memory cache match exactly.
-
         Returns the number of kanji now in the list.
         """
-        if not mw.col:
-            return len(self._flagged_kanji)
-
-        config = self._config
-        deck = (config.rtk_deck or "").strip()
-        note_type = (config.rtk_note_type or "").strip()
-        kanji_field = config.rtk_kanji_field or "Kanji"
-        keyword_field = config.rtk_keyword_field or "Keyword"
-        heisig_field = config.rtk_heisig_number_field or "Heisig Number"
-
+        deck = (self._config.rtk_deck or "").strip()
         if not deck:
             return len(self._flagged_kanji)
+
+        note_type = (self._config.rtk_note_type or "").strip()
+        kanji_field = self._config.rtk_kanji_field or "Kanji"
+        keyword_field = self._config.rtk_keyword_field or "Keyword"
+        heisig_field = self._config.rtk_heisig_number_field or "Heisig Number"
 
         query = f'deck:"{deck}" flag:1'
         if note_type:
             query += f' note:"{note_type}"'
 
-        card_ids = mw.col.find_cards(query)
+        card_ids = self._collection_service.find_cards_by_query(query)
 
         seen: set[str] = set()
         items: list[tuple[str, str, str]] = []
-
-        for cid in card_ids:
-            card = mw.col.get_card(cid)
-            note = card.note()
-
-            kanji = note[kanji_field].strip() if kanji_field in note else ""
+        for card_id in card_ids:
+            note = self._collection_service.get_note_by_card_id(card_id)
+            kanji = get_field(note, kanji_field).strip()
             if not kanji or kanji in seen:
                 continue
             seen.add(kanji)
-
-            keyword = note[keyword_field].strip() if keyword_field in note else ""
-            heisig = note[heisig_field].strip() if heisig_field in note else ""
+            keyword = get_field(note, keyword_field).strip()
+            heisig = get_field(note, heisig_field).strip()
             items.append((kanji, keyword, heisig))
 
-        def sort_key(item):
-            kanji, keyword, heisig = item
-            try:
-                return (0, int(heisig))
-            except (TypeError, ValueError):
-                return (1, kanji)
-
-        items.sort(key=sort_key)
+        items.sort(key=self._flagged_kanji_sort_key)
 
         self._flagged_kanji = items
         self._seen_flagged_kanji = {k for k, _, _ in items}
+        self._write_flagged_kanji_file(items)
+        return len(items)
 
+    @staticmethod
+    def _flagged_kanji_sort_key(item: tuple[str, str, str]):
+        kanji, _keyword, heisig = item
+        try:
+            return (0, int(heisig))
+        except (TypeError, ValueError):
+            return (1, kanji)
+
+    def _write_flagged_kanji_file(self, items: list[tuple[str, str, str]]) -> None:
         file_path = self._user_data_path(self._FLAGGED_KANJI_FILE)
         with file_path.open("w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
@@ -480,58 +414,57 @@ class KanjiDataService:
             for kanji, keyword, heisig in items:
                 writer.writerow([heisig, kanji, keyword])
 
-        return len(items)
-
     # --- EVENT HANDLERS --- #
     def handle_card_answered(self, reviewer, card, ease) -> None:
         """
-        Handles both mining cards (today's words) and RTK cards (today's kanji).
+        Handle both mining cards (today's words) and RTK cards (today's kanji).
         Silent on note-type mismatch so we never interrupt the user.
         """
         if card.reps != 1:
             return
 
         note = card.note()
-        note_type_name = note.note_type()["name"]
+        note_type_name = get_note_type_name(note)
 
         if is_valid_mining_note_type(note_type_name, self._config):
-            word = note["Word"] if "Word" in note else ""
-            if not word:
-                return
-            reading = note["Reading"] if "Reading" in note else ""
-            meaning = note["Meaning"] if "Meaning" in note else ""
-            self.save_todays_word(word, reading, meaning)
-            return
-
-        if note_type_name == self._config.rtk_note_type:
-            kanji_field = self._config.rtk_kanji_field or "Kanji"
-            keyword_field = self._config.rtk_keyword_field or "Keyword"
-            kanji = note[kanji_field].strip() if kanji_field in note else ""
-            if not kanji:
-                return
-            keyword = note[keyword_field].strip() if keyword_field in note else ""
-            self.save_todays_kanji(kanji, keyword)
-
-        if note_type_name == self._config.rtk_note_type:
+            self._record_todays_word(note)
+        elif note_type_name == self._config.rtk_note_type:
+            self._record_todays_kanji(note)
             if card.user_flag() == 1:
-                kanji_field = self._config.rtk_kanji_field or "Kanji"
-                keyword_field = self._config.rtk_keyword_field or "Keyword"
-                heisig_field = self._config.rtk_heisig_number_field or "Heisig Number"
+                self._record_flagged_kanji(note)
 
-                kanji = note[kanji_field].strip() if kanji_field in note else ""
-                if not kanji:
-                    return
-                keyword = note[keyword_field].strip() if keyword_field in note else ""
-                heisig = note[heisig_field].strip() if heisig_field in note else ""
-                self.save_flagged_kanji(kanji, keyword, heisig)
+        self._mark_update_needed_if_in_rtk_deck(card)
 
-        try:
-            deck_name = mw.col.decks.name(card.did)
-            rtk_deck = self._config_holder.config.rtk_deck
-            if deck_name == rtk_deck or deck_name.startswith(rtk_deck + "::"):
-                self.mark_update_needed()
-        except Exception:
-            pass
+    def _record_todays_word(self, note: Note) -> None:
+        word = get_field(note, "Word")
+        if not word:
+            return
+        self.save_todays_word(word, get_field(note, "Reading"), get_field(note, "Meaning"))
+
+    def _record_todays_kanji(self, note: Note) -> None:
+        kanji_field = self._config.rtk_kanji_field or "Kanji"
+        keyword_field = self._config.rtk_keyword_field or "Keyword"
+        kanji = get_field(note, kanji_field).strip()
+        if not kanji:
+            return
+        self.save_todays_kanji(kanji, get_field(note, keyword_field).strip())
+
+    def _record_flagged_kanji(self, note: Note) -> None:
+        kanji_field = self._config.rtk_kanji_field or "Kanji"
+        keyword_field = self._config.rtk_keyword_field or "Keyword"
+        heisig_field = self._config.rtk_heisig_number_field or "Heisig Number"
+        kanji = get_field(note, kanji_field).strip()
+        if not kanji:
+            return
+        self.save_flagged_kanji(
+            kanji, get_field(note, keyword_field).strip(), get_field(note, heisig_field).strip()
+        )
+
+    def _mark_update_needed_if_in_rtk_deck(self, card) -> None:
+        deck_name = self._collection_service.get_deck_name_by_card_id(card.id)
+        rtk_deck = self._config.rtk_deck
+        if deck_name and rtk_deck and (deck_name == rtk_deck or deck_name.startswith(rtk_deck + "::")):
+            self.mark_update_needed()
 
     # --- UPDATE INDICATOR --- #
     def mark_update_needed(self) -> None:
@@ -550,17 +483,7 @@ class KanjiDataService:
 
     # --- PRIVATE METHODS --- #
     def _rewrite_todays_files(self) -> None:
-        """
-        Write header + current in-memory today's data for all three progress files.
-
-        Called after every load of today's data and on calendar-day change.
-        Guarantees:
-        - the files always have a proper header,
-        - only rows belonging to the current calendar day are kept,
-        - already-broken files (no header, mixed history) are repaired without
-          losing any of today's entries that were successfully loaded into the
-          caches.
-        """
+        """Write header + current in-memory today's data for all three progress files."""
         today = str(date.today())
 
         path = self._user_data_path(self._TODAYS_WORDS_FILE)
@@ -588,10 +511,6 @@ class KanjiDataService:
     def _user_data_path(self, filename: str) -> Path:
         """Return the full path to a file in the user data directory."""
         return profile_user_dir() / filename
-
-    def _media_path(self, filename: str) -> Path:
-        """Return the full path to a file in the Anki media directory."""
-        return Path(mw.col.media.dir()) / filename
 
     def _vendor_path(self, filename: str) -> Path:
         """Return the full path to a file in the vendor directory."""
