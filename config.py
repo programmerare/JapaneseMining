@@ -177,32 +177,40 @@ def _user_files_root() -> Path:
     return _addon_root() / "user_files"
 
 
-def _get_or_create_profile_id() -> str:
-    """Stable ID for the current Anki profile (survives renames)."""
+def _read_stored_profile_id(profile: dict) -> str | None:
+    existing = profile.get(_PROFILE_ID_KEY)
+    if isinstance(existing, str) and existing.strip():
+        return existing.strip()
+    return None
+
+
+def _create_and_store_profile_id(profile: dict) -> str:
+    new_id = str(uuid.uuid4())
+    profile[_PROFILE_ID_KEY] = new_id
     try:
-        pm = mw.pm
-        profile = getattr(pm, "profile", None)
-        if isinstance(profile, dict):
-            existing = profile.get(_PROFILE_ID_KEY)
-            if isinstance(existing, str) and existing.strip():
-                return existing.strip()
+        mw.pm.save()
+    except OSError as e:
+        print(f"Japanese Mining: failed to persist new profile id: {e}")
+    return new_id
 
-            new_id = str(uuid.uuid4())
-            profile[_PROFILE_ID_KEY] = new_id
-            try:
-                pm.save()
-            except Exception:
-                pass
-            return new_id
-    except Exception:
-        pass
 
+def _fallback_profile_id_from_name() -> str:
+    """Used only if mw.pm.profile is unavailable (should not happen in a running Anki)."""
     try:
         name = (mw.pm.name or "default").strip() or "default"
-    except Exception:
+    except AttributeError:
         name = "default"
     safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in name)
     return f"name_{safe}"
+
+
+def _get_or_create_profile_id() -> str:
+    """Stable ID for the current Anki profile (survives renames)."""
+    profile = getattr(mw.pm, "profile", None)
+    if not isinstance(profile, dict):
+        return _fallback_profile_id_from_name()
+
+    return _read_stored_profile_id(profile) or _create_and_store_profile_id(profile)
 
 
 def _profile_config_path() -> Path:
@@ -240,7 +248,7 @@ def default_jisho_profile() -> dict:
     }
 
 
-def get_default_translate_profile() -> dict:
+def default_translate_profile() -> dict:
     return {
         "source_field": "Example Sentence",
         "target_field": "Translation",
@@ -266,11 +274,13 @@ def load_config() -> Config:
     try:
         with open(path, "r", encoding="utf-8") as f:
             raw = json.load(f)
-    except (json.JSONDecodeError, OSError):
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"Japanese Mining: profile config at {path} is unreadable ({e}); resetting to defaults")
         save_config(defaults)
         return defaults
 
     if not isinstance(raw, dict):
+        print(f"Japanese Mining: profile config at {path} is not a JSON object; resetting to defaults")
         save_config(defaults)
         return defaults
 
@@ -325,18 +335,16 @@ def _normalize_mappings(raw: Any) -> list[dict[str, str]]:
     return normalized
 
 
-def _normalize_config_dict(data: dict) -> dict:
-    """Make any raw dict safe and complete."""
-    defaults = asdict(Config())
+def _apply_known_keys(data: dict, defaults: dict) -> dict:
+    """Start from a complete default dict, overlay only keys the Config dataclass knows about."""
     result = deepcopy(defaults)
-
     for key in defaults:
-        if key not in data:
-            continue
-        result[key] = data[key]
+        if key in data:
+            result[key] = data[key]
+    return result
 
-    result["mappings"] = _normalize_mappings(result.get("mappings"))
 
+def _coerce_enum_fields(result: dict, defaults: dict) -> None:
     if result["fill_mode"] not in ALLOWED_FILL_MODES:
         result["fill_mode"] = "replace"
     if result["multi_meaning_format"] not in ALLOWED_MULTI_MEANING:
@@ -350,6 +358,8 @@ def _normalize_config_dict(data: dict) -> dict:
     if result["language"] not in ALLOWED_LANG:
         result["language"] = "en"
 
+
+def _coerce_bool_fields(result: dict, defaults: dict) -> None:
     for bool_key in (
         "use_jisho",
         "remove_pos_ending",
@@ -364,12 +374,22 @@ def _normalize_config_dict(data: dict) -> dict:
     ):
         result[bool_key] = bool(result.get(bool_key, defaults[bool_key]))
 
-    if not str(result.get("jisho_shortcut") or "").strip():
-        result["jisho_shortcut"] = defaults["jisho_shortcut"]
-    if not str(result.get("jisho_fastfill_shortcut") or "").strip():
-        result["jisho_fastfill_shortcut"] = defaults["jisho_fastfill_shortcut"]
-    if not str(result.get("deepl_shortcut") or "").strip():
-        result["deepl_shortcut"] = defaults["deepl_shortcut"]
+
+def _ensure_shortcut_defaults(result: dict, defaults: dict) -> None:
+    for shortcut_key in ("jisho_shortcut", "jisho_fastfill_shortcut", "deepl_shortcut"):
+        if not str(result.get(shortcut_key) or "").strip():
+            result[shortcut_key] = defaults[shortcut_key]
+
+
+def _normalize_config_dict(data: dict) -> dict:
+    """Make any raw dict safe and complete."""
+    defaults = asdict(Config())
+    result = _apply_known_keys(data, defaults)
+
+    result["mappings"] = _normalize_mappings(result.get("mappings"))
+    _coerce_enum_fields(result, defaults)
+    _coerce_bool_fields(result, defaults)
+    _ensure_shortcut_defaults(result, defaults)
 
     _migrate_to_jisho_profiles(result)
     _migrate_to_translate_profiles(result)
