@@ -17,6 +17,8 @@ from ..domain.model_utils import set_model_field_size, set_model_field_font, set
 from ..domain.note_utils import get_note_type_name, get_field
 from ..domain.notetype_utils import set_template_question_format, set_template_answer_format
 from ..domain.results import UpdateResult
+from .kanji_data_service import KanjiDataService
+from .rtk_service import RTKService
 
 
 @dataclass
@@ -38,9 +40,12 @@ class _KanjiFieldPlan:
         ])
 
 class MiningService:
-    def __init__(self, config_holder: ConfigHolder, collection_service: CollectionService):
+    def __init__(self, config_holder: ConfigHolder, collection_service: CollectionService,
+                 knaji_data_service: KanjiDataService, rtk_service: RTKService):
         self._config_holder = config_holder
         self._collection_service = collection_service
+        self._kanji_data_service = knaji_data_service
+        self._rtk_service = rtk_service
 
     @property
     def _config(self):
@@ -89,12 +94,12 @@ class MiningService:
         Update all JapaneseMining cards in a single pass over each word.
         Intended to be called from a CollectionOp.
         """
-        export_result = self.export_learned_kanji()
+        export_result = self._rtk_service.export_learned_kanji()
         cards_newly_known, cards_updated = self._update_kanji_knowledge(
             force_update_meanings=force_update_meanings,
             force_update_keywords=force_update_keywords,
         )
-        kanji_added_to_rtk = self.add_unknown_kanji()
+        kanji_added_to_rtk = self._rtk_service.add_unknown_kanji()
 
         return UpdateResult(
             learned_kanji=export_result.learned_kanji,
@@ -210,7 +215,7 @@ class MiningService:
     ) -> _KanjiFieldPlan:
         """
         Decide WHAT should change — doesn't touch the note or the collection.
-        Only impure edge: self._kanji_data.get_kanji_meanings (an injected lookup).
+        Only impure edge: self._kanji_data_service.get_kanji_meanings (an injected lookup).
         """
         word = get_field(note, "Word")
         keywords_present = bool(get_field(note, "Kanji Keywords"))
@@ -236,7 +241,7 @@ class MiningService:
                     keywords.append(line)
 
             if not meanings_present or force_update_meanings:
-                joined = " · ".join(self._kanji_data.get_kanji_meanings(ch))
+                joined = " · ".join(self._kanji_data_service.get_kanji_meanings(ch))
                 line = f"{ch}: {joined}"
                 if line not in meanings:
                     meanings.append(line)
@@ -293,7 +298,7 @@ class MiningService:
         force_update_keywords: bool = False,
     ) -> tuple[int, int]:
         """Update JapaneseMining cards in a single pass over each word."""
-        learned_kanji = self._kanji_data.get_learned_kanji()
+        learned_kanji = self._kanji_data_service.get_learned_kanji()
         if note is not None:
             notes = [note]
         else:
